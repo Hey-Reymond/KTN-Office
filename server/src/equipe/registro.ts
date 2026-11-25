@@ -22,9 +22,11 @@ export interface ConfigCli {
   /** Ajustes do usuário (clis.custom.json): modelos opcionais ligados / modelos desligados. */
   modelosLigados?: string[];
   modelosDesligados?: string[];
+  /** Resultado do teste automático: true = respondeu, string = motivo da falha. */
+  modelosDetectados?: Record<string, true | string>;
   /** Argumentos extras pra saída estruturada (ex.: JSON com uso de tokens). */
   saidaJson?: string[];
-  leitorSaida?: "texto" | "claude-json";
+  leitorSaida?: "texto" | "claude-json" | "json";
   pastaConfig?: string;
   instalar?: {
     /** Pacote npm global. */
@@ -56,19 +58,40 @@ export interface InfoModelo {
 
 export type Registro = Record<string, ConfigCli>;
 
-/** O usuário tem esse modelo? Opcionais só contam se ele ligou; qualquer um pode ser desligado. */
-export function modeloDisponivel(cfg: ConfigCli, apelido: string): boolean {
+export type EstadoModelo =
+  | "ligado" // vai ser usado
+  | "desligado_usuario" // você desmarcou
+  | "indisponivel" // o teste falhou: seu plano/CLI não tem
+  | "nao_testado"; // opcional ainda não testado nem ligado
+
+/**
+ * Regra: o que o teste encontrou fica ligado por padrão; você desmarca o que não quiser.
+ * Sem teste, modelos normais ficam ligados e os opcionais (ex.: fable) desligados.
+ */
+export function estadoModelo(cfg: ConfigCli, apelido: string): EstadoModelo {
   const info = cfg.modelos?.[apelido];
-  if (!info) return false;
-  if (cfg.modelosDesligados?.includes(apelido)) return false;
-  return !info.opcional || !!cfg.modelosLigados?.includes(apelido);
+  if (!info) return "indisponivel";
+  if (cfg.modelosDesligados?.includes(apelido)) return "desligado_usuario";
+  if (cfg.modelosLigados?.includes(apelido)) return "ligado";
+  const teste = cfg.modelosDetectados?.[apelido];
+  if (teste === true) return "ligado";
+  if (typeof teste === "string") return "indisponivel";
+  return info.opcional ? "nao_testado" : "ligado";
+}
+
+export const modeloDisponivel = (cfg: ConfigCli, apelido: string) => estadoModelo(cfg, apelido) === "ligado";
+
+/** Guarda o resultado do teste automático de um modelo. */
+export function salvarDeteccaoModelo(id: string, apelido: string, resultado: true | string) {
+  const cfg = carregarRegistro()[id];
+  salvarCustom(id, { modelosDetectados: { ...cfg?.modelosDetectados, [apelido]: resultado } });
 }
 
 export function modelosDisponiveis(cfg: ConfigCli): Record<string, InfoModelo> {
   return Object.fromEntries(Object.entries(cfg.modelos ?? {}).filter(([k]) => modeloDisponivel(cfg, k)));
 }
 
-/** Liga ou desliga um modelo pro usuário (grava em clis.custom.json). */
+/** Marca/desmarca a caixinha de um modelo (grava em clis.custom.json). */
 export function definirModelo(id: string, apelido: string, ligado: boolean) {
   const cfg = carregarRegistro()[id];
   if (!cfg) throw new Error(`CLI "${id}" não está no registro.`);

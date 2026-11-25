@@ -47,6 +47,24 @@ function lerClaudeJson(stdout: string): Pick<ResultadoTrabalho, "texto" | "token
   }
 }
 
+/** Lê saídas JSON de outros CLIs (agy, codex…): procura o texto e o objeto usage nos campos mais comuns. */
+function lerJsonGenerico(stdout: string): Pick<ResultadoTrabalho, "texto" | "tokens"> {
+  const linhas = stdout.trim().split("\n").reverse();
+  for (const linha of [stdout.trim(), ...linhas]) {
+    try {
+      const j = JSON.parse(linha);
+      const texto = [j.result, j.response, j.text, j.output, j.content].find((v) => typeof v === "string");
+      const u = j.usage ?? j.stats ?? {};
+      const entrada = (u.input_tokens ?? 0) + (u.cache_read_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
+      const saida = (u.output_tokens ?? 0) + (u.thinking_tokens ?? 0);
+      return { texto: texto ?? stdout, tokens: u.output_tokens !== undefined ? { entrada, saida } : undefined };
+    } catch {
+      /* tenta a próxima */
+    }
+  }
+  return { texto: stdout };
+}
+
 /** Funcionário que trabalha através de um CLI instalado no PC (usa a assinatura do usuário). */
 export class CliAgent implements Funcionario {
   readonly tipo = "cli" as const;
@@ -79,7 +97,12 @@ export class CliAgent implements Funcionario {
     if (r.estourouTempo) return { ok: false, texto: r.stdout, erro: "Tempo esgotado." };
     if (r.codigo !== 0) return { ok: false, texto: r.stdout, erro: r.stderr.trim() || `Saiu com código ${r.codigo}` };
 
-    const lido = this.cfg.leitorSaida === "claude-json" ? lerClaudeJson(r.stdout) : { texto: r.stdout };
+    const lido =
+      this.cfg.leitorSaida === "claude-json"
+        ? lerClaudeJson(r.stdout)
+        : this.cfg.leitorSaida === "json"
+          ? lerJsonGenerico(r.stdout)
+          : { texto: r.stdout };
     return { ok: true, texto: lido.texto.trim(), tokens: "tokens" in lido ? lido.tokens : undefined };
   }
 }

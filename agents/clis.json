@@ -40,8 +40,8 @@
         "custo": "muito alto (2x opus)",
         "velocidade": "lento",
         "quando": "o mais difícil, quando nem o opus resolveu",
-        "opcional": true,
-        "requer": "plano com acesso ao Fable (em alguns planos usa créditos extras)"
+        "requer": "plano com acesso ao Fable (em alguns planos usa créditos extras)",
+        "opcional": true
       },
       "opus": {
         "id": "opus",
@@ -128,7 +128,12 @@
       }
     },
     "modeloPadrao": "neon",
-    "_notaModelos": "Confira os ids exatos com /model dentro do agy e ajuste 'id' se precisar."
+    "_notaModelos": "Confira os ids exatos com /model dentro do agy e ajuste 'id' se precisar.",
+    "saidaJson": [
+      "--output-format",
+      "json"
+    ],
+    "leitorSaida": "json"
   },
   "codex": {
     "nome": "Codex CLI (ChatGPT)",
@@ -138,6 +143,7 @@
     ],
     "prompt": [
       "exec",
+      "--skip-git-repo-check",
       "{prompt}"
     ],
     "modelo": [
@@ -184,7 +190,11 @@
         "velocidade": "muito rápido",
         "quando": "só o muito básico"
       }
-    }
+    },
+    "saidaJson": [
+      "--json"
+    ],
+    "leitorSaida": "json"
   },
   "gemini": {
     "nome": "Gemini CLI (legado)",

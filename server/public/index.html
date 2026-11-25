@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KTN Office</title>
+<style>
+  :root {
+    --bg: #0f1115; --painel: #171a21; --borda: #262b36; --texto: #e6e8ee; --suave: #8a93a6;
+    --acento: #7c9cff; --ok: #3ecf8e; --alerta: #f5b84b; --erro: #ff6b6b; --raio: 10px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f5f6f8; --painel: #fff; --borda: #e2e5eb; --texto: #1b1f27; --suave: #677084; --acento: #3f5fe0; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--texto); }
+  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--borda); background: var(--painel); position: sticky; top: 0; z-index: 2; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; letter-spacing: .2px; }
+  header h1 span { color: var(--acento); }
+  .grade { display: grid; grid-template-columns: minmax(320px, 1.1fr) minmax(320px, 1fr); gap: 16px; padding: 16px 20px; }
+  @media (max-width: 900px) { .grade { grid-template-columns: 1fr; } }
+  section { background: var(--painel); border: 1px solid var(--borda); border-radius: var(--raio); padding: 14px 16px; }
+  section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: var(--suave); margin: 0 0 10px; font-weight: 600; }
+  .coluna { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  button { font: inherit; border: 1px solid var(--borda); background: transparent; color: var(--texto); padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+  button:hover { border-color: var(--acento); }
+  button.primario { background: var(--acento); border-color: var(--acento); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  select, input[type=text], textarea { font: inherit; background: var(--bg); color: var(--texto); border: 1px solid var(--borda); border-radius: 8px; padding: 6px 8px; }
+  .chave { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+  .chave input { display: none; }
+  .chave .trilho { width: 38px; height: 22px; border-radius: 11px; background: var(--borda); position: relative; transition: .15s; }
+  .chave .trilho::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: .15s; }
+  .chave input:checked + .trilho { background: var(--ok); }
+  .chave input:checked + .trilho::after { left: 19px; }
+  .espaco { flex: 1; }
+  .pilula { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--borda); color: var(--suave); }
+  .pilula.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+  .pilula.alerta { color: var(--alerta); border-color: color-mix(in srgb, var(--alerta) 40%, transparent); }
+  .pilula.erro { color: var(--erro); border-color: color-mix(in srgb, var(--erro) 40%, transparent); }
+  #chat { height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px 2px 8px; }
+  .bolha { max-width: 85%; padding: 8px 12px; border-radius: 12px; white-space: pre-wrap; word-break: break-word; }
+  .bolha.eu { align-self: flex-end; background: var(--acento); color: #fff; border-bottom-right-radius: 4px; }
+  .bolha.ia { align-self: flex-start; background: var(--bg); border: 1px solid var(--borda); border-bottom-left-radius: 4px; }
+  .bolha small { display: block; opacity: .7; font-size: 11px; margin-bottom: 2px; }
+  .vazio { color: var(--suave); font-style: italic; }
+  form.envio { display: flex; gap: 8px; margin-top: 8px; }
+  form.envio textarea { flex: 1; resize: vertical; min-height: 42px; }
+  .cli { border: 1px solid var(--borda); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+  .cli-topo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+  .cli-topo b { font-size: 14px; }
+  .modelo { display: grid; grid-template-columns: 22px 130px 1fr; gap: 8px; align-items: start; padding: 4px 0; }
+  .modelo input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--acento); }
+  .modelo .nome { font-weight: 600; }
+  .modelo .desc { color: var(--suave); font-size: 12.5px; }
+  .lista { max-height: 300px; overflow-y: auto; }
+  .item { padding: 7px 0; border-bottom: 1px solid var(--borda); }
+  .item:last-child { border-bottom: 0; }
+  .item .meta { color: var(--suave); font-size: 12px; }
+  .item .corpo { white-space: pre-wrap; word-break: break-word; }
+  details summary { cursor: pointer; }
+  .linha { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #aviso { position: fixed; bottom: 16px; right: 16px; background: var(--painel); border: 1px solid var(--borda); padding: 10px 14px; border-radius: 8px; display: none; max-width: 380px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>KTN <span>Office</span></h1>
+  <label class="chave" title="Quando ligado, as IAs acordam sozinhas quando têm tarefa ou mensagem">
+    <input type="checkbox" id="expediente"><span class="trilho"></span><span id="expedienteTxt">Expediente desligado</span>
+  </label>
+  <span class="espaco"></span>
+  <label class="linha">Coordenadora <select id="coordenadora"></select></label>
+  <span id="trabalhando" class="pilula">ninguém trabalhando</span>
+</header>
+
+<div class="grade">
+  <div class="coluna">
+    <section>
+      <h2>Chat com a coordenadora</h2>
+      <div id="chat"></div>
+      <form class="envio" id="formChat">
+        <textarea id="texto" placeholder="Peça algo pra equipe… (Enter envia, Shift+Enter quebra linha)"></textarea>
+        <button class="primario" type="submit">Enviar</button>
+      </form>
+      <div class="meta" id="dicaExpediente" style="margin-top:6px;color:var(--suave);font-size:12px"></div>
+    </section>
+
+    <section>
+      <h2>Quadro de tarefas</h2>
+      <div id="tarefas" class="lista"></div>
+    </section>
+
+    <section>
+      <h2>Conversa da equipe</h2>
+      <div id="conversa" class="lista"></div>
+    </section>
+  </div>
+
+  <div class="coluna">
+    <section>
+      <div class="linha" style="margin-bottom:8px">
+        <h2 style="margin:0">Equipe e modelos</h2>
+        <span class="espaco"></span>
+        <button id="btnDetectar" title="Procura de novo os CLIs instalados">Atualizar</button>
+        <button id="btnTestar" title="Manda 'responda ok' pra cada modelo e vê quais o seu plano libera">Testar modelos</button>
+      </div>
+      <div class="meta" id="progressoTeste" style="color:var(--suave);font-size:12px;margin-bottom:8px"></div>
+      <div id="equipe"></div>
+    </section>
+
+    <section>
+      <h2>Linha do tempo</h2>
+      <div id="eventos" class="lista"></div>
+    </section>
+
+    <section>
+      <details>
+        <summary><b>Configurações do expediente</b></summary>
+        <div style="display:grid;gap:8px;margin-top:10px">
+          <label>Pasta de trabalho das IAs<br><input type="text" id="pasta" style="width:100%"></label>
+          <label>Máximo de execuções por IA por hora <input type="text" id="maxHora" size="4"></label>
+          <div><button id="btnSalvarCfg">Salvar</button></div>
+        </div>
+      </details>
+    </section>
+  </div>
+</div>
+<div id="aviso"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const hora = (t) => (t ? new Date(t.replace(" ", "T") + "Z").toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "");
+let estado = null;
+let editandoCfg = false;
+
+async function api(rota, corpo) {
+  const r = await fetch("/api/" + rota, corpo === undefined ? {} : {
+    method: "POST", headers: { "Content-Type": "application/json", "X-KTN": "1" }, body: JSON.stringify(corpo),
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.erro || "Erro");
+  return j;
+}
+function avisar(t) {
+  const a = $("#aviso"); a.textContent = t; a.style.display = "block";
+  clearTimeout(avisar.t); avisar.t = setTimeout(() => (a.style.display = "none"), 4000);
+}
+
+const ROTULO = {
+  ligado: ["", ""],
+  desligado_usuario: ["desmarcado por você", ""],
+  indisponivel: ["indisponível no seu plano", "erro"],
+  nao_testado: ["não testado", "alerta"],
+};
+
+function render() {
+  const e = estado;
+  // Cabeçalho
+  $("#expediente").checked = e.runner.ligado;
+  $("#expedienteTxt").textContent = e.runner.ligado ? "Expediente ligado" : "Expediente desligado";
+  const nomes = e.equipe.filter((d) => d.instalado).map((d) => d.id);
+  const sel = $("#coordenadora");
+  if (sel.dataset.v !== nomes.join() + e.runner.coordenadora) {
+    sel.innerHTML = nomes.map((n) => `<option ${n === e.runner.coordenadora ? "selected" : ""}>${esc(n)}</option>`).join("");
+    sel.dataset.v = nomes.join() + e.runner.coordenadora;
+  }
+  const trab = Object.entries(e.runner.trabalhando);
+  $("#trabalhando").textContent = trab.length ? trab.map(([a, t]) => `${a}: ${t.oque}`).join(" · ") : "ninguém trabalhando";
+  $("#trabalhando").className = "pilula" + (trab.length ? " ok" : "");
+  $("#dicaExpediente").textContent = e.runner.ligado
+    ? `A ${e.runner.coordenadora} vai ler sua mensagem em alguns segundos.`
+    : "Ligue o expediente (lá em cima) pra equipe responder sozinha.";
+  if (!editandoCfg) { $("#pasta").value = e.runner.pastaTrabalho; $("#maxHora").value = e.runner.maxPorHora; }
+
+  // Chat com a coordenadora: mensagens de/para "humano"
+  const chat = e.mensagens.filter((m) => m.de === "humano" || m.para === "humano");
+  const box = $("#chat");
+  const noFim = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+  box.innerHTML = chat.length
+    ? chat.map((m) => `<div class="bolha ${m.de === "humano" ? "eu" : "ia"}"><small>${m.de === "humano" ? "você → " + esc(m.para) : esc(m.de)} · ${hora(m.criada_em)}</small>${esc(m.texto)}</div>`).join("")
+    : `<div class="vazio">Escreva o que você quer. A coordenadora divide o trabalho com a equipe.</div>`;
+  if (noFim) box.scrollTop = box.scrollHeight;
+
+  // Equipe + modelos
+  $("#equipe").innerHTML = e.equipe.map((d) => {
+    const cat = e.modelos.find((c) => c.cli === d.id);
+    const st = e.status.find((s) => s.agente === d.id);
+    const pills = [
+      d.instalado ? `<span class="pilula ok">${esc(d.versao || "instalado")}</span>` : `<span class="pilula erro">não instalado</span>`,
+      d.instalado ? (d.login === "provavel" ? `<span class="pilula ok">logado</span>` : `<span class="pilula alerta">sem login</span>`) : "",
+      d.instalado ? (d.office === "conectado" ? `<span class="pilula ok">no escritório</span>` : `<button data-conectar="${esc(d.id)}">Conectar</button>`) : "",
+      st && st.uso_estimado_tokens ? `<span class="pilula">${st.uso_estimado_tokens.toLocaleString("pt-BR")} tokens</span>` : "",
+      e.runner.trabalhando[d.id] ? `<span class="pilula ok">trabalhando</span>` : "",
+    ].join(" ");
+    const modelos = !cat ? "" : cat.modelos.map((m) => {
+      const [txt, cls] = ROTULO[m.estado];
+      const padrao = cat.padrao === m.apelido ? ` <span class="pilula">padrão</span>` : "";
+      return `<label class="modelo" title="${esc(typeof m.teste === "string" ? "Teste: " + m.teste : "")}">
+        <input type="checkbox" data-cli="${esc(cat.cli)}" data-modelo="${esc(m.apelido)}" ${m.estado === "ligado" ? "checked" : ""} ${d.instalado ? "" : "disabled"}>
+        <span class="nome">${esc(m.apelido)}${padrao}</span>
+        <span class="desc">${esc(m.nivel || "")} · ${esc(m.quando || "")} ${txt ? `<span class="pilula ${cls}">${txt}</span>` : ""}</span>
+      </label>`;
+    }).join("");
+    return `<div class="cli"><div class="cli-topo"><b>${esc(d.nome)}</b> ${pills}</div>${modelos}
+      ${!d.instalado && d.podeInstalar ? `<div class="desc" style="color:var(--suave);font-size:12px">Instale com: npm run equipe -- instalar ${esc(d.id)}</div>` : ""}</div>`;
+  }).join("");
+
+  const t = e.teste;
+  $("#progressoTeste").textContent = t
+    ? t.rodando ? `Testando ${t.atual || ""} (${t.feitos}/${t.total})…` : `Último teste: ${t.resultados.filter((r) => r.ok).length} de ${t.total} modelos responderam.`
+    : "Dica: “Testar modelos” descobre o que o seu plano libera (gasta pouquíssimos tokens).";
+  $("#btnTestar").disabled = !!(t && t.rodando);
+
+  // Quadro
+  const corStatus = { aberta: "alerta", em_andamento: "ok", entregue: "", cancelada: "erro" };
+  $("#tarefas").innerHTML = e.tarefas.length ? e.tarefas.map((t) => `<div class="item">
+      <div class="linha"><b>#${t.id}</b> ${esc(t.titulo)} <span class="pilula ${corStatus[t.status]}">${esc(t.status.replace("_", " "))}</span></div>
+      <div class="meta">${esc(t.criada_por)} → ${esc(t.para || "qualquer um")}${t.modelo ? " · modelo " + esc(t.modelo) : ""}${t.responsavel ? " · com " + esc(t.responsavel) : ""} · ${hora(t.atualizada_em)}</div>
+      ${t.resultado ? `<details><summary class="meta">resultado</summary><div class="corpo">${esc(t.resultado)}</div></details>` : ""}
+    </div>`).join("") : `<div class="vazio">Nenhuma tarefa ainda.</div>`;
+
+  // Conversa entre IAs
+  const equipeMsgs = e.mensagens.filter((m) => m.de !== "humano" && m.para !== "humano").slice(-40).reverse();
+  $("#conversa").innerHTML = equipeMsgs.length ? equipeMsgs.map((m) => `<div class="item">
+      <div class="meta">${esc(m.de)} → ${esc(m.para)} · ${hora(m.criada_em)}</div><div class="corpo">${esc(m.texto.length > 400 ? m.texto.slice(0, 400) + "…" : m.texto)}</div></div>`).join("")
+    : `<div class="vazio">Quando as IAs se falarem, aparece aqui.</div>`;
+
+  // Eventos
+  const corEv = { inicio: "ok", fim: "", erro: "erro", limite: "alerta", config: "" };
+  $("#eventos").innerHTML = e.eventos.length ? e.eventos.map((v) => `<div class="item">
+      <div class="meta">${hora(v.criado_em)} · ${esc(v.agente || "escritório")} <span class="pilula ${corEv[v.tipo] || ""}">${esc(v.tipo)}</span></div>
+      <div class="corpo">${esc(v.texto)}</div></div>`).join("") : `<div class="vazio">Sem atividade ainda.</div>`;
+}
+
+async function atualizar(forcar) {
+  try { estado = await api("estado" + (forcar ? "?atualizar=1" : "")); render(); }
+  catch (e) { avisar("Servidor fora do ar? " + e.message); }
+}
+
+// Ações
+$("#expediente").addEventListener("change", async (ev) => {
+  await api("runner", { ligado: ev.target.checked }).catch((e) => avisar(e.message)); atualizar();
+});
+$("#coordenadora").addEventListener("change", async (ev) => {
+  await api("runner", { coordenadora: ev.target.value }).catch((e) => avisar(e.message)); atualizar();
+});
+$("#formChat").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const texto = $("#texto").value.trim(); if (!texto) return;
+  try { await api("mensagem", { texto }); $("#texto").value = ""; $("#chat").scrollTop = 1e9; atualizar(); }
+  catch (e) { avisar(e.message); }
+});
+$("#texto").addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); $("#formChat").requestSubmit(); }
+});
+$("#equipe").addEventListener("change", async (ev) => {
+  const c = ev.target.closest("input[data-modelo]"); if (!c) return;
+  try { await api("modelo", { cli: c.dataset.cli, modelo: c.dataset.modelo, ligado: c.checked }); }
+  catch (e) { avisar(e.message); }
+  atualizar();
+});
+$("#equipe").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("button[data-conectar]"); if (!b) return;
+  b.disabled = true;
+  try { const r = await api("conectar", { cli: b.dataset.conectar }); avisar(r.mensagens.join("\n") + "\nReinicie o CLI pra ele carregar."); }
+  catch (e) { avisar(e.message); }
+  atualizar(true);
+});
+$("#btnDetectar").addEventListener("click", () => atualizar(true));
+$("#btnTestar").addEventListener("click", async () => {
+  if (!confirm("Testar cada modelo com uma pergunta mínima? Gasta poucos tokens dos seus planos.")) return;
+  await api("testar-modelos", {}).catch((e) => avisar(e.message)); atualizar();
+});
+for (const id of ["#pasta", "#maxHora"]) {
+  $(id).addEventListener("focus", () => (editandoCfg = true));
+}
+$("#btnSalvarCfg").addEventListener("click", async () => {
+  try { await api("runner", { pastaTrabalho: $("#pasta").value, maxPorHora: $("#maxHora").value }); avisar("Salvo."); }
+  catch (e) { avisar(e.message); }
+  editandoCfg = false; atualizar();
+});
+
+atualizar();
+setInterval(() => atualizar(), 3000);
+</script>
+</body>
+</html>

@@ -60,6 +60,17 @@ export function abrirBanco(arquivo = process.env.KTN_DB ?? path.resolve("office.
       limite_estimado INTEGER,
       observacao TEXT
     );
+    CREATE TABLE IF NOT EXISTS eventos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      agente TEXT,
+      tipo TEXT NOT NULL,
+      texto TEXT NOT NULL,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS config (
+      chave TEXT PRIMARY KEY,
+      valor TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS notas (
       chave TEXT PRIMARY KEY,
       conteudo TEXT NOT NULL,
@@ -146,6 +157,10 @@ export class Escritorio {
         .prepare(
           `UPDATE tarefas SET status = 'em_andamento', responsavel = ?, atualizada_em = datetime('now') WHERE id = ?`,
         )
+        .run(agente, alvo.id);
+      // O aviso de "nova tarefa" já cumpriu o papel: não precisa acordar a IA de novo por ele.
+      this.db
+        .prepare(`UPDATE mensagens SET lida = 1 WHERE para = ? AND tarefa_id = ? AND texto LIKE 'Nova tarefa #%'`)
         .run(agente, alvo.id);
       return this.tarefa(alvo.id)!;
     });
@@ -240,6 +255,51 @@ export class Escritorio {
            atualizada_em = datetime('now')`,
       )
       .run(chave, conteudo, autor);
+  }
+
+  /** Linha do tempo pra interface (o que o runner e as IAs fizeram). */
+  registrarEvento(agente: string | null, tipo: string, texto: string) {
+    this.db.prepare(`INSERT INTO eventos (agente, tipo, texto) VALUES (?, ?, ?)`).run(agente, tipo, texto.slice(0, 2000));
+  }
+
+  eventosRecentes(limite = 50) {
+    return this.db.prepare(`SELECT * FROM eventos ORDER BY id DESC LIMIT ?`).all(limite);
+  }
+
+  mensagensRecentes(limite = 100): Mensagem[] {
+    return (this.db.prepare(`SELECT * FROM mensagens ORDER BY id DESC LIMIT ?`).all(limite) as Mensagem[]).reverse();
+  }
+
+  /** Mensagens não lidas de um agente, sem marcar como lidas (o runner só espia). */
+  temNaoLidas(agente: string): number {
+    return (
+      this.db.prepare(`SELECT COUNT(*) AS n FROM mensagens WHERE para = ? AND lida = 0 AND de != ?`).get(agente, agente) as {
+        n: number;
+      }
+    ).n;
+  }
+
+  tarefasAbertasPara(agente: string): Tarefa[] {
+    return this.db
+      .prepare(`SELECT * FROM tarefas WHERE status = 'aberta' AND para = ? ORDER BY id`)
+      .all(agente) as Tarefa[];
+  }
+
+  cancelarTarefa(id: number, motivo: string) {
+    this.db
+      .prepare(`UPDATE tarefas SET status = 'cancelada', resultado = ?, atualizada_em = datetime('now') WHERE id = ?`)
+      .run(motivo, id);
+  }
+
+  lerConfig<T>(chave: string, padrao: T): T {
+    const r = this.db.prepare(`SELECT valor FROM config WHERE chave = ?`).get(chave) as { valor: string } | undefined;
+    return r ? (JSON.parse(r.valor) as T) : padrao;
+  }
+
+  gravarConfig(chave: string, valor: unknown) {
+    this.db
+      .prepare(`INSERT INTO config (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`)
+      .run(chave, JSON.stringify(valor));
   }
 
   lerNotas(chave?: string) {

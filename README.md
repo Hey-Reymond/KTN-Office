@@ -11,13 +11,34 @@ Feito pela **KTN Dev**.
 As IAs se conectam ao mesmo servidor e ganham ferramentas da equipe.
 Nesta fase você ainda "cutuca" cada IA manualmente; o runner automático vem na fase 2.
 
-**Fase 2 – equipe (em andamento)**
+**Fase 2 – equipe** ✅
 - ✅ Detecção automática dos CLIs (instalado, versão, login, conectado ao escritório)
 - ✅ Instalação automática (com confirmação) ou adição manual
 - ✅ Conexão automática ao escritório (Claude e Gemini)
 - ✅ Interface de funcionário (`CliAgent`; `ApiAgent` reservado)
-- ⏳ Runner que acorda quem tem tarefa
-- ⏳ Gerente que distribui tarefas
+- ✅ Expediente (runner): IAs acordam e trabalham sozinhas
+- ✅ Coordenadora distribui tarefas e escolhe modelos
+- ✅ Detecção automática de modelos + caixinhas
+- ✅ Interface web
+
+## Interface (recomendado)
+
+Com o servidor ligado (`npm start`), abra **http://127.0.0.1:7777/**:
+
+- **Chat com a coordenadora**: você pede, ela divide o trabalho com a equipe e te responde ali.
+- **Expediente** (chave no topo): ligado = as IAs acordam sozinhas quando têm tarefa ou mensagem.
+- **Equipe e modelos**: status de cada CLI, botão *Conectar* e uma caixinha por modelo.
+  *Testar modelos* descobre o que o seu plano libera; o que responder fica marcado, e você desmarca o que não quiser.
+- **Quadro de tarefas**, **conversa da equipe** e **linha do tempo** do que cada IA fez.
+
+### Como o expediente funciona
+A cada poucos segundos o escritório olha quem tem tarefa aberta ou mensagem não lida e roda o CLI dessa IA
+(`claude -p`, `agy -p`…) com o modelo escolhido na tarefa. Travas: no máximo N execuções por IA por hora,
+tarefa cancelada (e você avisado) se a IA não assumir depois de 2 tentativas. As IAs trabalham na
+*pasta de trabalho* configurável (padrão `~/KTN-Office-trabalho`).
+
+> No modo automático o CLI não consegue pedir permissão a você: ferramentas do office já são liberadas
+> pelo *Conectar*; editar arquivos ou rodar comandos depende das permissões que você der no próprio CLI.
 
 ## Gerenciar a equipe
 
@@ -137,8 +158,9 @@ npm run typecheck
 ## Roadmap
 
 - [x] **Fase 1** – servidor MCP com tarefas, mensagens, uso e notas
-- [ ] **Fase 2** – ✅ detecção/instalação/conexão dos CLIs + interface de funcionário · ⏳ runner que acorda quem tem tarefa + gerente que distribui
-- [ ] **Fase 3** – medição automática de uso (ex.: `claude -p --output-format json`) e economia
+- [x] **Fase 2** – detecção/instalação/conexão dos CLIs, expediente automático, coordenadora, modelos e interface web
+- [ ] **Fase 3** – cota real (agy `/usage --output-format json`, transcript.jsonl), economia e mais CLIs
+- [ ] **Fase 3b** – funcionários via API (chaves Anthropic/Google/OpenAI)
 - [ ] **Fase 4** – app desktop: chat com o gerente, painel do escritório, conversa da equipe
 
 ## Estrutura
