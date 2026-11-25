@@ -34,20 +34,33 @@ function executavel(arquivo: string) {
 }
 
 /** Procura o comando no PATH (no Windows testa .exe, .cmd, .bat… como o próprio sistema faz). */
-export function acharNoPath(comando: string): string | null {
+export function acharNoPath(comando: string, pastasExtras: string[] = []): string | null {
   if (path.isAbsolute(comando) || comando.includes("/") || comando.includes("\\")) {
     return executavel(comando) ? comando : null;
   }
   const extensoes = ehWindows
     ? ["", ...(process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";").map((e) => e.toLowerCase())]
     : [""];
-  for (const pasta of (process.env.PATH ?? "").split(path.delimiter).filter(Boolean)) {
+  const pastas = [...(process.env.PATH ?? "").split(path.delimiter), ...pastasExtras.map(expandirHome)];
+  for (const pasta of pastas.filter(Boolean)) {
     for (const ext of extensoes) {
       const candidato = path.join(pasta, comando + ext);
       if (executavel(candidato)) return candidato;
     }
   }
   return null;
+}
+
+/** Acha o executável de um CLI: PATH + pastas onde o instalador costuma colocar. */
+export const localizar = (cfg: ConfigCli) => acharNoPath(cfg.executavel, cfg.instalar?.caminhosExtras);
+
+/** Arquivo global de MCP do Antigravity (compartilhado entre CLI, IDE e Antigravity 2.0). */
+export const ARQ_MCP_ANTIGRAVITY = () => path.join(os.homedir(), ".gemini", "config", "mcp_config.json");
+
+function urlNoArquivo(arq: string, campo: "httpUrl" | "serverUrl"): string | null {
+  if (!existsSync(arq)) return null;
+  const url = JSON.parse(readFileSync(arq, "utf8"))?.mcpServers?.office?.[campo];
+  return typeof url === "string" ? url : null;
 }
 
 async function conexaoOffice(id: string, cfg: ConfigCli, caminho: string): Promise<Deteccao["office"]> {
@@ -57,12 +70,14 @@ async function conexaoOffice(id: string, cfg: ConfigCli, caminho: string): Promi
       if (r.estourouTempo) return "desconhecido";
       return r.codigo === 0 && r.stdout.includes(`agent=${id}`) ? "conectado" : "nao";
     }
-    case "gemini-settings": {
-      const arq = path.join(os.homedir(), ".gemini", "settings.json");
-      if (!existsSync(arq)) return "nao";
+    case "gemini-settings":
+    case "antigravity-mcp": {
+      const [arq, campo] =
+        cfg.conexaoOffice === "gemini-settings"
+          ? [path.join(os.homedir(), ".gemini", "settings.json"), "httpUrl" as const]
+          : [ARQ_MCP_ANTIGRAVITY(), "serverUrl" as const];
       try {
-        const url = JSON.parse(readFileSync(arq, "utf8"))?.mcpServers?.office?.httpUrl;
-        return typeof url === "string" && url.includes(`agent=${id}`) ? "conectado" : "nao";
+        return urlNoArquivo(arq, campo)?.includes(`agent=${id}`) ? "conectado" : "nao";
       } catch {
         return "desconhecido";
       }
@@ -81,12 +96,12 @@ export async function detectarUm(id: string, cfg: ConfigCli): Promise<Deteccao> 
     versao: null,
     login: "desconhecido",
     office: "desconhecido",
-    podeInstalar: !!cfg.instalar?.npm,
+    podeInstalar: !!(cfg.instalar?.npm || cfg.instalar?.windows || cfg.instalar?.unix),
     dicaLogin: cfg.login,
     problemas: [],
   };
 
-  d.caminho = acharNoPath(cfg.executavel);
+  d.caminho = localizar(cfg);
   if (!d.caminho) {
     if (path.isAbsolute(cfg.executavel)) d.problemas.push(`Executável não encontrado em ${cfg.executavel}`);
     return d;

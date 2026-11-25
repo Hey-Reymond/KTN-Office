@@ -30,13 +30,21 @@ else console.log("eco(" + modelo + "): " + p);
 `;
 // No Windows não existe shebang: cria um .cmd que chama o node (igual o npm faz com os CLIs reais).
 const ehWindows = process.platform === "win32";
-const fakeJs = path.join(bin, ehWindows ? "fakeclaude.js" : "fakeclaude");
-writeFileSync(fakeJs, fake);
-let fakeBin = fakeJs;
-if (ehWindows) {
-  fakeBin = path.join(bin, "fakeclaude.cmd");
-  writeFileSync(fakeBin, `@"${process.execPath}" "%~dp0fakeclaude.js" %*\r\n`);
-} else chmodSync(fakeBin, 0o755);
+function criarFake(pasta: string, nome: string) {
+  mkdirSync(pasta, { recursive: true });
+  const js = path.join(pasta, ehWindows ? `${nome}.js` : nome);
+  writeFileSync(js, fake);
+  if (!ehWindows) {
+    chmodSync(js, 0o755);
+    return js;
+  }
+  const cmd = path.join(pasta, `${nome}.cmd`);
+  writeFileSync(cmd, `@"${process.execPath}" "%~dp0${nome}.js" %*\r\n`);
+  return cmd;
+}
+const fakeBin = criarFake(bin, "fakeclaude");
+// Simula o agy: instalado numa pasta que NÃO está no PATH (igual o instalador do Antigravity).
+criarFake(path.join(home, "AppData", "Local", "fakeagy", "bin"), "fakeagy");
 
 const clis = path.join(tmp, "clis.json");
 writeFileSync(
@@ -50,6 +58,11 @@ writeFileSync(
     },
     fakegemini: {
       nome: "Fake Gemini", executavel: "fakeclaude", prompt: ["-p", "{prompt}"], conexaoOffice: "gemini-settings",
+    },
+    fakeagy: {
+      nome: "Fake Agy", executavel: "fakeagy", prompt: ["-p", "{prompt}"], conexaoOffice: "antigravity-mcp",
+      instalar: { windows: "irm https://exemplo/install.ps1 | iex", unix: "curl -fsSL https://exemplo/install.sh | bash",
+        caminhosExtras: ["~/AppData/Local/fakeagy/bin"] },
     },
     ausente: { nome: "Ausente", executavel: "nao-existe-xyz", prompt: ["-p", "{prompt}"], instalar: { npm: "x" } },
   }),
@@ -98,6 +111,24 @@ try {
   assert.match(s.mcpServers.office.httpUrl, /agent=fakegemini/);
   assert.ok(existsSync(settings + ".bak"), "faz backup");
   assert.equal((await detectarUm("fakegemini", reg.fakegemini)).office, "conectado");
+
+  // 2b. Antigravity: acha fora do PATH e conecta no mcp_config.json global
+  const agy = await detectarUm("fakeagy", reg.fakeagy);
+  assert.equal(agy.instalado, true, "acha pelo caminhosExtras");
+  assert.equal(agy.office, "nao");
+  const mcpAgy = path.join(home, ".gemini", "config", "mcp_config.json");
+  mkdirSync(path.dirname(mcpAgy), { recursive: true });
+  writeFileSync(mcpAgy, JSON.stringify({ mcpServers: { docs: { serverUrl: "https://x" } } }));
+  await conectarAoOffice("fakeagy", reg.fakeagy, agy.caminho!);
+  const m = JSON.parse(readFileSync(mcpAgy, "utf8"));
+  assert.ok(m.mcpServers.docs, "preserva outros servidores");
+  assert.match(m.mcpServers.office.serverUrl, /agent=fakeagy/);
+  assert.equal((await detectarUm("fakeagy", reg.fakeagy)).office, "conectado");
+  const planoAgy = planejarInstalacao(reg.fakeagy);
+  assert.equal(planoAgy.descricao, process.platform === "win32" ? reg.fakeagy.instalar!.windows : reg.fakeagy.instalar!.unix);
+  assert.equal(planoAgy.comando, process.platform === "win32" ? "powershell" : "bash");
+  const r2 = await new CliAgent("fakeagy", reg.fakeagy).trabalhar("ola");
+  assert.equal(r2.texto, "eco(padrao): ola");
 
   // 3. Plano de instalação não executa nada, só descreve
   const plano = planejarInstalacao(reg.ausente);

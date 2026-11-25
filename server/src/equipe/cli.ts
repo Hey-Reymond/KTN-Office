@@ -7,7 +7,7 @@
  *   npm run equipe -- adicionar          cadastra um CLI novo (perguntas)
  */
 import { createInterface } from "node:readline/promises";
-import { acharNoPath, detectarEquipe, detectarUm, type Deteccao } from "./detectar.js";
+import { acharNoPath, detectarEquipe, detectarUm, localizar, type Deteccao } from "./detectar.js";
 import { conectarAoOffice, executarInstalacao, planejarInstalacao } from "./instalar.js";
 import { carregarRegistro, salvarCustom, type ConexaoOffice } from "./registro.js";
 
@@ -56,7 +56,7 @@ async function instalar(id: string) {
 
 async function conectar(id: string) {
   const cfg = pegarConfig(id);
-  const caminho = acharNoPath(cfg.executavel);
+  const caminho = localizar(cfg);
   if (!caminho) return console.log(`${cfg.nome} não está instalado.`);
   console.log(await conectarAoOffice(id, cfg, caminho));
 }
@@ -78,7 +78,7 @@ async function adicionar() {
   const modeloPadrao = await perguntar("Modelo padrão (vazio = do próprio CLI)", "");
   const especialidades = (await perguntar("Especialidades, separadas por vírgula", ""))
     .split(",").map((s) => s.trim()).filter(Boolean);
-  const conexaoOffice = (await perguntar("Conexão ao escritório (claude-mcp, gemini-settings, manual)", "manual")) as ConexaoOffice;
+  const conexaoOffice = (await perguntar("Conexão ao escritório (claude-mcp, antigravity-mcp, gemini-settings, manual)", "manual")) as ConexaoOffice;
 
   salvarCustom(id, {
     nome, executavel, prompt, especialidades, conexaoOffice,

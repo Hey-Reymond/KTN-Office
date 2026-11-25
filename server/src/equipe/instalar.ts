@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { acharNoPath, URL_OFFICE } from "./detectar.js";
+import { acharNoPath, ARQ_MCP_ANTIGRAVITY, URL_OFFICE } from "./detectar.js";
 import { rodar } from "./processo.js";
 import type { ConfigCli } from "./registro.js";
 
@@ -14,10 +14,24 @@ export interface PlanoInstalacao {
   depois?: string;
 }
 
+const ehWindows = process.platform === "win32";
+
 /** Monta o plano. Não executa nada: quem chama mostra ao usuário e pede confirmação. */
 export function planejarInstalacao(cfg: ConfigCli): PlanoInstalacao {
-  const pacote = cfg.instalar?.npm;
-  if (!pacote) return { possivel: false, descricao: `${cfg.nome} não tem instalação automática. Adicione manualmente.` };
+  const inst = cfg.instalar ?? {};
+  const script = ehWindows ? inst.windows : inst.unix;
+
+  // Instalador oficial do fabricante tem prioridade sobre npm.
+  if (script) {
+    return {
+      possivel: true,
+      comando: ehWindows ? "powershell" : "bash",
+      args: ehWindows ? ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script] : ["-c", script],
+      descricao: script,
+      depois: `${cfg.login ?? ""} Se o comando não for encontrado, abra um terminal novo (o PATH muda só em janelas novas).`.trim(),
+    };
+  }
+  if (!inst.npm) return { possivel: false, descricao: `${cfg.nome} não tem instalação automática. Adicione manualmente.` };
   if (!acharNoPath("npm")) {
     return {
       possivel: false,
@@ -27,8 +41,8 @@ export function planejarInstalacao(cfg: ConfigCli): PlanoInstalacao {
   return {
     possivel: true,
     comando: "npm",
-    args: ["install", "-g", pacote],
-    descricao: `npm install -g ${pacote}`,
+    args: ["install", "-g", inst.npm],
+    descricao: `npm install -g ${inst.npm}`,
     depois: cfg.login,
   };
 }
@@ -37,6 +51,23 @@ export async function executarInstalacao(plano: PlanoInstalacao, aoReceber?: (t:
   if (!plano.possivel || !plano.comando) throw new Error(plano.descricao);
   const r = await rodar(plano.comando, plano.args ?? [], { timeoutMs: 10 * 60_000, aoReceber });
   if (r.codigo !== 0) throw new Error(`Instalação falhou (código ${r.codigo}). Veja o log acima.`);
+}
+
+/** Coloca o servidor "office" num arquivo JSON de MCP, preservando o resto e fazendo backup. */
+function gravarOfficeNoJson(arq: string, entrada: Record<string, string>) {
+  mkdirSync(path.dirname(arq), { recursive: true });
+  let dados: Record<string, any> = {};
+  if (existsSync(arq)) {
+    const bruto = readFileSync(arq, "utf8");
+    try {
+      dados = bruto.trim() ? JSON.parse(bruto) : {};
+    } catch {
+      throw new Error(`${arq} não é um JSON válido. Corrija o arquivo antes de conectar.`);
+    }
+    writeFileSync(arq + ".bak", bruto); // backup antes de mexer
+  }
+  dados.mcpServers = { ...dados.mcpServers, office: entrada };
+  writeFileSync(arq, JSON.stringify(dados, null, 2) + "\n");
 }
 
 /** Liga o CLI ao servidor do escritório. */
@@ -52,21 +83,14 @@ export async function conectarAoOffice(id: string, cfg: ConfigCli, caminho: stri
       return `Conectado (claude mcp add office ${url})`;
     }
     case "gemini-settings": {
-      const pasta = path.join(os.homedir(), ".gemini");
-      const arq = path.join(pasta, "settings.json");
-      mkdirSync(pasta, { recursive: true });
-      let settings: Record<string, any> = {};
-      if (existsSync(arq)) {
-        try {
-          settings = JSON.parse(readFileSync(arq, "utf8"));
-        } catch {
-          throw new Error(`${arq} não é um JSON válido. Corrija o arquivo antes de conectar.`);
-        }
-        writeFileSync(arq + ".bak", readFileSync(arq)); // backup antes de mexer
-      }
-      settings.mcpServers = { ...settings.mcpServers, office: { httpUrl: url } };
-      writeFileSync(arq, JSON.stringify(settings, null, 2) + "\n");
+      const arq = path.join(os.homedir(), ".gemini", "settings.json");
+      gravarOfficeNoJson(arq, { httpUrl: url });
       return `Conectado (${arq})`;
+    }
+    case "antigravity-mcp": {
+      const arq = ARQ_MCP_ANTIGRAVITY();
+      gravarOfficeNoJson(arq, { serverUrl: url });
+      return `Conectado (${arq}). Reinicie o agy pra ele carregar o servidor.`;
     }
     default:
       return `Conexão manual: configure um servidor MCP HTTP chamado "office" com a URL ${url}`;

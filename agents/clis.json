@@ -3,41 +3,122 @@
   "claude": {
     "nome": "Claude Code",
     "executavel": "claude",
-    "versao": ["--version"],
-    "prompt": ["-p", "{prompt}"],
-    "modelo": ["--model", "{modelo}"],
+    "versao": [
+      "--version"
+    ],
+    "prompt": [
+      "-p",
+      "{prompt}"
+    ],
+    "modelo": [
+      "--model",
+      "{modelo}"
+    ],
     "modeloPadrao": "opus",
-    "saidaJson": ["--output-format", "json"],
+    "saidaJson": [
+      "--output-format",
+      "json"
+    ],
     "leitorSaida": "claude-json",
     "pastaConfig": "~/.claude",
-    "instalar": { "npm": "@anthropic-ai/claude-code" },
+    "instalar": {
+      "npm": "@anthropic-ai/claude-code"
+    },
     "login": "Abra um terminal, rode 'claude' e faça o login pelo navegador.",
     "conexaoOffice": "claude-mcp",
-    "especialidades": ["escrever código", "refatorar", "debugar", "arquitetura", "revisão de código"]
+    "especialidades": [
+      "escrever código",
+      "refatorar",
+      "debugar",
+      "arquitetura",
+      "revisão de código"
+    ]
   },
-  "gemini": {
-    "nome": "Gemini CLI",
-    "executavel": "gemini",
-    "versao": ["--version"],
-    "prompt": ["-p", "{prompt}"],
-    "modelo": ["-m", "{modelo}"],
-    "modeloPadrao": "gemini-4-neon",
-    "pastaConfig": "~/.gemini",
-    "instalar": { "npm": "@google/gemini-cli" },
-    "login": "Abra um terminal, rode 'gemini' e escolha 'Login with Google'.",
-    "conexaoOffice": "gemini-settings",
-    "especialidades": ["contexto gigante (1M tokens)", "pesquisa na web", "analisar disassembly e logs longos", "vídeos e transcrição"]
+  "antigravity": {
+    "nome": "Antigravity CLI",
+    "executavel": "agy",
+    "versao": [
+      "--version"
+    ],
+    "prompt": [
+      "-p",
+      "{prompt}"
+    ],
+    "modelo": [
+      "-m",
+      "{modelo}"
+    ],
+    "pastaConfig": "~/.gemini/antigravity-cli",
+    "instalar": {
+      "windows": "irm https://antigravity.google/cli/install.ps1 | iex",
+      "unix": "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+      "caminhosExtras": [
+        "~/AppData/Local/agy/bin",
+        "~/.local/bin"
+      ]
+    },
+    "login": "Abra um terminal novo, rode 'agy' e faça login com sua conta Google (AI Pro funciona).",
+    "conexaoOffice": "antigravity-mcp",
+    "especialidades": [
+      "contexto gigante (1M tokens)",
+      "pesquisa na web",
+      "analisar disassembly e logs longos",
+      "vídeos e transcrição"
+    ]
   },
   "codex": {
     "nome": "Codex CLI",
     "executavel": "codex",
-    "versao": ["--version"],
-    "prompt": ["exec", "{prompt}"],
-    "modelo": ["-m", "{modelo}"],
+    "versao": [
+      "--version"
+    ],
+    "prompt": [
+      "exec",
+      "{prompt}"
+    ],
+    "modelo": [
+      "-m",
+      "{modelo}"
+    ],
     "pastaConfig": "~/.codex",
-    "instalar": { "npm": "@openai/codex" },
+    "instalar": {
+      "npm": "@openai/codex"
+    },
     "login": "Abra um terminal e rode 'codex login'.",
     "conexaoOffice": "manual",
-    "especialidades": ["segunda opinião em código", "testes"]
+    "especialidades": [
+      "segunda opinião em código",
+      "testes"
+    ]
+  },
+  "gemini": {
+    "nome": "Gemini CLI (legado)",
+    "executavel": "gemini",
+    "versao": [
+      "--version"
+    ],
+    "prompt": [
+      "-p",
+      "{prompt}"
+    ],
+    "modelo": [
+      "-m",
+      "{modelo}"
+    ],
+    "modeloPadrao": "gemini-4-neon",
+    "pastaConfig": "~/.gemini",
+    "instalar": {
+      "npm": "@google/gemini-cli"
+    },
+    "login": "Abra um terminal, rode 'gemini' e escolha 'Login with Google'.",
+    "conexaoOffice": "gemini-settings",
+    "especialidades": [
+      "contexto gigante (1M tokens)",
+      "pesquisa na web",
+      "analisar disassembly e logs longos",
+      "vídeos e transcrição"
+    ],
+    "ativo": false,
+    "_nota": "Desde 18/06/2026 não aceita mais login Google (AI Pro/Ultra). Use o Antigravity CLI."
   }
 }

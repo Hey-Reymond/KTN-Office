@@ -1,4 +1,4 @@
-import { acharNoPath } from "./detectar.js";
+import { localizar } from "./detectar.js";
 import { rodar } from "./processo.js";
 import type { ConfigCli } from "./registro.js";
 
@@ -69,7 +69,7 @@ export class CliAgent implements Funcionario {
   }
 
   async trabalhar(prompt: string, opcoes: OpcoesTrabalho = {}): Promise<ResultadoTrabalho> {
-    const caminho = acharNoPath(this.cfg.executavel);
+    const caminho = localizar(this.cfg);
     if (!caminho) return { ok: false, texto: "", erro: `${this.cfg.nome} não está instalado.` };
 
     const r = await rodar(caminho, this.montarArgs(prompt, opcoes.modelo), {

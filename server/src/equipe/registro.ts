@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** Como o KTN Office liga um CLI ao servidor do escritório. */
-export type ConexaoOffice = "claude-mcp" | "gemini-settings" | "manual";
+export type ConexaoOffice = "claude-mcp" | "gemini-settings" | "antigravity-mcp" | "manual";
 
 /** Descrição de um CLI de IA. Vem de agents/clis.json + agents/clis.custom.json. */
 export interface ConfigCli {
@@ -21,7 +21,15 @@ export interface ConfigCli {
   saidaJson?: string[];
   leitorSaida?: "texto" | "claude-json";
   pastaConfig?: string;
-  instalar?: { npm?: string };
+  instalar?: {
+    /** Pacote npm global. */
+    npm?: string;
+    /** Comando de instalação oficial (PowerShell no Windows, bash no Linux/Mac). */
+    windows?: string;
+    unix?: string;
+    /** Pastas onde o instalador costuma colocar o executável (quando o PATH ainda não foi atualizado). */
+    caminhosExtras?: string[];
+  };
   login?: string;
   conexaoOffice?: ConexaoOffice;
   especialidades?: string[];
