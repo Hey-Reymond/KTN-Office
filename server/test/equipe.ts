@@ -54,7 +54,7 @@ writeFileSync(
       nome: "Fake Claude", executavel: "fakeclaude", versao: ["--version"], prompt: ["-p", "{prompt}"],
       modelo: ["--model", "{modelo}"], modeloPadrao: "opus", saidaJson: ["--output-format", "json"],
       leitorSaida: "claude-json", pastaConfig: "~/.fakeclaude", conexaoOffice: "claude-mcp",
-      modelos: { topo: { id: "modelo-topo-v9" } },
+      modelos: { topo: { id: "modelo-topo-v9" }, premium: { id: "premium-x", opcional: true } },
       instalar: { npm: "fake-pkg" }, especialidades: ["código"],
     },
     fakegemini: {
@@ -78,7 +78,7 @@ Object.assign(process.env, {
 });
 
 const { detectarEquipe, detectarUm } = await import("../src/equipe/detectar.js");
-const { carregarRegistro, salvarCustom } = await import("../src/equipe/registro.js");
+const { carregarRegistro, salvarCustom, definirModelo, modeloDisponivel } = await import("../src/equipe/registro.js");
 const { conectarAoOffice, planejarInstalacao, liberarFerramentasOffice } = await import("../src/equipe/instalar.js");
 const { CliAgent } = await import("../src/equipe/funcionario.js");
 
@@ -146,6 +146,16 @@ try {
   liberarFerramentasOffice(reg.fakeclaude);
   const sc = JSON.parse(readFileSync(path.join(home, ".claude", "settings.json"), "utf8"));
   assert.deepEqual(sc.permissions.allow, ["mcp__office"]);
+
+  // 2d. Modelos opcionais: desligados até o usuário ligar; dá pra desligar qualquer um
+  assert.equal(modeloDisponivel(carregarRegistro().fakeclaude, "premium"), false);
+  definirModelo("fakeclaude", "premium", true);
+  assert.equal(modeloDisponivel(carregarRegistro().fakeclaude, "premium"), true);
+  definirModelo("fakeclaude", "topo", false);
+  assert.equal(modeloDisponivel(carregarRegistro().fakeclaude, "topo"), false);
+  definirModelo("fakeclaude", "topo", true);
+  assert.equal(modeloDisponivel(carregarRegistro().fakeclaude, "topo"), true);
+  assert.throws(() => definirModelo("fakeclaude", "naoexiste", true));
 
   // 3. Plano de instalação não executa nada, só descreve
   const plano = planejarInstalacao(reg.ausente);

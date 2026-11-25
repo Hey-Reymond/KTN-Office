@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { Escritorio } from "./db.js";
-import { carregarRegistro } from "./equipe/registro.js";
+import { carregarRegistro, modeloDisponivel, modelosDisponiveis } from "./equipe/registro.js";
 
 const json = (dados: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(dados, null, 2) }],
@@ -29,16 +29,19 @@ const INSTRUCOES = `Você é um funcionário do KTN Office, um escritório onde 
 - Ao terminar uma tarefa, use entregar_tarefa com um resultado completo e objetivo.
 - Guarde decisões e contexto útil em escrever_nota, para ninguém gastar tokens repetindo trabalho.
 - Prefira delegar a quem tem a especialidade certa e mais folga de uso.
-- Ao delegar, escolha o modelo (modelos_equipe). Padrão: neon (antigravity) e opus (claude). Use carbon só no que for difícil e hydrogen/haiku só em perguntas muito básicas.`;
+- Ao delegar, escolha o modelo (modelos_equipe). Padrão: neon (antigravity), opus (claude), sol (codex). Topo (carbon, astra, fable) só no difícil; hydrogen/haiku/luna só no muito básico.`;
 
 /** Valida o modelo contra o catálogo do agente. Agente sem catálogo aceita qualquer nome. */
 function validarModelo(para: string | null, modelo?: string): string | null {
   if (!modelo) return null;
-  const catalogo = para ? carregarRegistro()[para]?.modelos : undefined;
-  if (catalogo && !(modelo in catalogo) && !Object.values(catalogo).some((m) => m.id === modelo)) {
-    throw new Error(`Modelo "${modelo}" não existe para ${para}. Opções: ${Object.keys(catalogo).join(", ")}`);
+  const cfg = para ? carregarRegistro()[para] : undefined;
+  if (!cfg?.modelos) return modelo; // agente sem catálogo aceita qualquer nome
+  const apelido = modelo in cfg.modelos ? modelo : Object.keys(cfg.modelos).find((k) => cfg.modelos![k].id === modelo);
+  if (!apelido || !modeloDisponivel(cfg, apelido)) {
+    const opcoes = Object.keys(modelosDisponiveis(cfg)).join(", ");
+    throw new Error(`Modelo "${modelo}" não está disponível para ${para}. Opções: ${opcoes}`);
   }
-  return modelo;
+  return apelido;
 }
 
 export function criarServidor(escritorio: Escritorio, agente: string) {
@@ -81,7 +84,10 @@ export function criarServidor(escritorio: Escritorio, agente: string) {
       Object.fromEntries(
         Object.entries(carregarRegistro())
           .filter(([, c]) => c.ativo !== false)
-          .map(([id, c]) => [id, { especialidades: c.especialidades ?? [], padrao: c.modeloPadrao ?? null, modelos: c.modelos ?? {} }]),
+          .map(([id, c]) => [
+            id,
+            { especialidades: c.especialidades ?? [], padrao: c.modeloPadrao ?? null, modelos: modelosDisponiveis(c) },
+          ]),
       ),
     ),
   );

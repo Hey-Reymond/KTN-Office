@@ -19,6 +19,9 @@ export interface ConfigCli {
   modeloPadrao?: string;
   /** Catálogo de modelos que o plano libera. A chave é o apelido (ex.: "carbon"). */
   modelos?: Record<string, InfoModelo>;
+  /** Ajustes do usuário (clis.custom.json): modelos opcionais ligados / modelos desligados. */
+  modelosLigados?: string[];
+  modelosDesligados?: string[];
   /** Argumentos extras pra saída estruturada (ex.: JSON com uso de tokens). */
   saidaJson?: string[];
   leitorSaida?: "texto" | "claude-json";
@@ -46,9 +49,38 @@ export interface InfoModelo {
   custo?: string;
   velocidade?: string;
   quando?: string;
+  /** true = fica desligado até o usuário ligar (ex.: precisa de plano específico). */
+  opcional?: boolean;
+  requer?: string;
 }
 
 export type Registro = Record<string, ConfigCli>;
+
+/** O usuário tem esse modelo? Opcionais só contam se ele ligou; qualquer um pode ser desligado. */
+export function modeloDisponivel(cfg: ConfigCli, apelido: string): boolean {
+  const info = cfg.modelos?.[apelido];
+  if (!info) return false;
+  if (cfg.modelosDesligados?.includes(apelido)) return false;
+  return !info.opcional || !!cfg.modelosLigados?.includes(apelido);
+}
+
+export function modelosDisponiveis(cfg: ConfigCli): Record<string, InfoModelo> {
+  return Object.fromEntries(Object.entries(cfg.modelos ?? {}).filter(([k]) => modeloDisponivel(cfg, k)));
+}
+
+/** Liga ou desliga um modelo pro usuário (grava em clis.custom.json). */
+export function definirModelo(id: string, apelido: string, ligado: boolean) {
+  const cfg = carregarRegistro()[id];
+  if (!cfg) throw new Error(`CLI "${id}" não está no registro.`);
+  if (!cfg.modelos?.[apelido]) {
+    throw new Error(`Modelo "${apelido}" não existe em ${id}. Opções: ${Object.keys(cfg.modelos ?? {}).join(", ")}`);
+  }
+  const tira = (l: string[] | undefined) => (l ?? []).filter((m) => m !== apelido);
+  salvarCustom(id, {
+    modelosLigados: ligado ? [...tira(cfg.modelosLigados), apelido] : tira(cfg.modelosLigados),
+    modelosDesligados: ligado ? tira(cfg.modelosDesligados) : [...tira(cfg.modelosDesligados), apelido],
+  });
+}
 
 /** Converte apelido ("carbon") no id do CLI ("gemini-4-carbon"). Id desconhecido passa direto. */
 export function resolverModelo(cfg: ConfigCli, modelo?: string): string | undefined {

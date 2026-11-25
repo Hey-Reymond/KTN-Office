@@ -34,6 +34,15 @@
       "revisão de código"
     ],
     "modelos": {
+      "fable": {
+        "id": "claude-fable-5-2",
+        "nivel": "máximo",
+        "custo": "muito alto (2x opus)",
+        "velocidade": "lento",
+        "quando": "o mais difícil, quando nem o opus resolveu",
+        "opcional": true,
+        "requer": "plano com acesso ao Fable (em alguns planos usa créditos extras)"
+      },
       "opus": {
         "id": "opus",
         "nivel": "topo",
@@ -101,7 +110,7 @@
         "nivel": "médio-alto",
         "custo": "médio",
         "velocidade": "rápido",
-        "quando": "PADRÃO: a maioria das tarefas (código, análise, pesquisa)"
+        "quando": "PADRÃO: a maioria das tarefas (código, análise, pesquisa); perto do carbon e ~3x mais rápido"
       },
       "hydrogen": {
         "id": "gemini-4-hydrogen",
@@ -115,14 +124,14 @@
         "nivel": "antigo",
         "custo": "médio",
         "velocidade": "médio",
-        "quando": "evitar: substituído pelo neon"
+        "quando": "evitar: geração anterior, substituído pelo neon"
       }
     },
     "modeloPadrao": "neon",
     "_notaModelos": "Confira os ids exatos com /model dentro do agy e ajuste 'id' se precisar."
   },
   "codex": {
-    "nome": "Codex CLI",
+    "nome": "Codex CLI (ChatGPT)",
     "executavel": "codex",
     "versao": [
       "--version"
@@ -139,12 +148,43 @@
     "instalar": {
       "npm": "@openai/codex"
     },
-    "login": "Abra um terminal e rode 'codex login'.",
+    "login": "Abra um terminal e rode 'codex login' (entre com sua conta do ChatGPT).",
     "conexaoOffice": "manual",
     "especialidades": [
       "segunda opinião em código",
       "testes"
-    ]
+    ],
+    "modeloPadrao": "sol",
+    "modelos": {
+      "astra": {
+        "id": "gpt-6.2-astra",
+        "nivel": "topo",
+        "custo": "alto",
+        "velocidade": "lento",
+        "quando": "projetos mais difíceis"
+      },
+      "sol": {
+        "id": "gpt-6.2-sol",
+        "nivel": "médio-alto",
+        "custo": "médio",
+        "velocidade": "rápido",
+        "quando": "PADRÃO: código e escrita do dia a dia"
+      },
+      "terra": {
+        "id": "gpt-6.1-terra",
+        "nivel": "médio",
+        "custo": "baixo",
+        "velocidade": "rápido",
+        "quando": "trabalho rápido e eficiente"
+      },
+      "luna": {
+        "id": "gpt-6-luna",
+        "nivel": "básico",
+        "custo": "muito baixo",
+        "velocidade": "muito rápido",
+        "quando": "só o muito básico"
+      }
+    }
   },
   "gemini": {
     "nome": "Gemini CLI (legado)",
@@ -176,5 +216,5 @@
     "ativo": false,
     "_nota": "Desde 18/06/2026 não aceita mais login Google (AI Pro/Ultra). Use o Antigravity CLI."
   },
-  "_politicaModelos": "Padrão: neon (Antigravity) e opus (Claude). carbon para o difícil. hydrogen/haiku só para o muito básico. Fable não está no plano."
+  "_politicaModelos": "Padrão: neon (Antigravity), opus (Claude), sol (Codex). Topo (carbon/astra/fable) só no difícil. hydrogen/haiku/luna só no muito básico. Modelos 'opcional' ficam desligados até você ligar: npm run equipe -- modelo <cli> <modelo> on"
 }

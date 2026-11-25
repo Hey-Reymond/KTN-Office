@@ -5,11 +5,13 @@
  *   npm run equipe -- conectar antigravity   liga ao escritório e libera as ferramentas do office
  *   npm run equipe -- caminho claude "C:\tools\claude.cmd"
  *   npm run equipe -- adicionar          cadastra um CLI novo (perguntas)
+ *   npm run equipe -- modelos            lista modelos (✅ ligados / ⬜ desligados)
+ *   npm run equipe -- modelo claude fable on   liga um modelo opcional do seu plano
  */
 import { createInterface } from "node:readline/promises";
 import { acharNoPath, detectarEquipe, detectarUm, localizar, type Deteccao } from "./detectar.js";
 import { conectarAoOffice, executarInstalacao, liberarFerramentasOffice, planejarInstalacao } from "./instalar.js";
-import { carregarRegistro, salvarCustom, type ConexaoOffice } from "./registro.js";
+import { carregarRegistro, definirModelo, modeloDisponivel, salvarCustom, type ConexaoOffice } from "./registro.js";
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
 const perguntar = async (q: string, padrao = "") => (await rl.question(padrao ? `${q} [${padrao}]: ` : `${q}: `)).trim() || padrao;
@@ -92,6 +94,18 @@ async function adicionar() {
   console.log(linha(await detectarUm(id, pegarConfig(id))));
 }
 
+function listarModelos() {
+  for (const [id, cfg] of Object.entries(carregarRegistro())) {
+    if (cfg.ativo === false || !cfg.modelos) continue;
+    console.log(`\n${cfg.nome} (padrão: ${cfg.modeloPadrao ?? "do CLI"})`);
+    for (const [apelido, m] of Object.entries(cfg.modelos)) {
+      const on = modeloDisponivel(cfg, apelido) ? "✅" : "⬜";
+      console.log(`  ${on} ${apelido.padEnd(9)} ${(m.nivel ?? "").padEnd(11)} ${m.quando ?? ""}${m.requer && !modeloDisponivel(cfg, apelido) ? `  [requer: ${m.requer}]` : ""}`);
+    }
+  }
+  console.log("\nLigar/desligar: npm run equipe -- modelo <cli> <modelo> on|off");
+}
+
 const [comando, ...args] = process.argv.slice(2);
 try {
   if (!comando || comando === "detectar") await mostrarEquipe();
@@ -99,7 +113,12 @@ try {
   else if (comando === "conectar" && args[0]) await conectar(args[0]);
   else if (comando === "caminho" && args[0] && args[1]) await definirCaminho(args[0], args[1]);
   else if (comando === "adicionar") await adicionar();
-  else console.log("Uso: npm run equipe -- [detectar | instalar <id> | conectar <id> | caminho <id> <caminho> | adicionar]");
+  else if (comando === "modelos") listarModelos();
+  else if (comando === "modelo" && args[0] && args[1] && /^(on|off)$/.test(args[2] ?? "")) {
+    definirModelo(args[0], args[1], args[2] === "on");
+    listarModelos();
+  }
+  else console.log("Uso: npm run equipe -- [detectar | instalar <id> | conectar <id> | caminho <id> <caminho> | adicionar | modelos | modelo <id> <modelo> on|off]");
 } catch (e) {
   console.error(`❌ ${e instanceof Error ? e.message : e}`);
   process.exitCode = 1;

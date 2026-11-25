@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 const PORTA = 7799;
 const dir = mkdtempSync(path.join(tmpdir(), "ktn-office-"));
 const servidor = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
-  env: { ...process.env, KTN_PORT: String(PORTA), KTN_DB: path.join(dir, "teste.db") },
+  env: { ...process.env, KTN_PORT: String(PORTA), KTN_DB: path.join(dir, "teste.db"), KTN_CLIS_CUSTOM: path.join(dir, "nao-existe.json") },
   stdio: ["ignore", "pipe", "pipe"],
 });
 
@@ -74,6 +74,10 @@ try {
   const catalogo = (await claude.chamar("modelos_equipe")).dados;
   assert.ok(catalogo.antigravity.modelos.hydrogen && catalogo.claude.modelos.haiku);
   assert.equal(catalogo.gemini, undefined, "CLI desativado não aparece");
+  assert.equal(catalogo.claude.modelos.fable, undefined, "opcional desligado não aparece");
+  assert.ok((await claude.chamar("criar_tarefa", { titulo: "x", para: "claude", modelo: "fable" })).erro, "fable desligado é recusado");
+  const porId = (await claude.chamar("criar_tarefa", { titulo: "y", para: "codex", modelo: "gpt-6.2-astra" })).dados;
+  assert.equal(porId.modelo, "astra", "id completo vira apelido");
 
   await claude.chamar("escrever_nota", { chave: "decisoes", conteudo: "Usar SQLite como estado." });
   assert.equal((await gemini.chamar("ler_notas", { chave: "decisoes" })).dados[0].autor, "claude");

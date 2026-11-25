@@ -50,8 +50,18 @@ O catálogo fica em `agents/clis.json` → `modelos`, com apelidos:
 
 | IA | Apelidos |
 |---|---|
-| Claude | **`opus` (padrão)**, `sonnet` (economizar), `haiku` (só o muito básico) |
+| Claude | **`opus` (padrão)**, `fable` (opcional, o mais difícil), `sonnet` (economizar), `haiku` (só o muito básico) |
 | Antigravity | **`neon` (padrão)**, `carbon` (difícil), `hydrogen` (só o muito básico), `argon` (antigo, evitar) |
+| Codex (ChatGPT) | **`sol` (padrão)**, `astra` (difícil), `terra` (rápido), `luna` (só o muito básico) |
+
+Cada um usa o que o próprio plano libera:
+```bash
+npm run equipe -- modelos                    # ✅ ligados / ⬜ desligados
+npm run equipe -- modelo claude fable on     # liga um opcional (ex.: quem tem Fable)
+npm run equipe -- modelo antigravity argon off
+```
+A escolha fica no seu `agents/clis.custom.json`. A IA só vê e só pode pedir modelos ligados.
+Guia completo com a pesquisa de cada modelo: [`docs/modelos.md`](docs/modelos.md).
 
 O runner (próxima etapa) roda a tarefa com esse modelo. Confira os ids exatos com `/model` no `agy`.
 
