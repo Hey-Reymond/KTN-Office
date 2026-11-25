@@ -29,7 +29,7 @@ const INSTRUCOES = `Você é um funcionário do KTN Office, um escritório onde 
 - Ao terminar uma tarefa, use entregar_tarefa com um resultado completo e objetivo.
 - Guarde decisões e contexto útil em escrever_nota, para ninguém gastar tokens repetindo trabalho.
 - Prefira delegar a quem tem a especialidade certa e mais folga de uso.
-- Ao delegar, escolha o modelo (modelos_equipe): o mais barato que dá conta. Modelos de topo só para o que é difícil.`;
+- Ao delegar, escolha o modelo (modelos_equipe). Padrão: neon (antigravity) e opus (claude). Use carbon só no que for difícil e hydrogen/haiku só em perguntas muito básicas.`;
 
 /** Valida o modelo contra o catálogo do agente. Agente sem catálogo aceita qualquer nome. */
 function validarModelo(para: string | null, modelo?: string): string | null {

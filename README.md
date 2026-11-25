@@ -50,8 +50,8 @@ O catálogo fica em `agents/clis.json` → `modelos`, com apelidos:
 
 | IA | Apelidos |
 |---|---|
-| Claude | `opus` (topo), `sonnet` (médio), `haiku` (rápido/barato) |
-| Antigravity | `carbon` (topo), `neon` (médio-alto), `hydrogen` (rápido/barato), `argon` (antigo) |
+| Claude | **`opus` (padrão)**, `sonnet` (economizar), `haiku` (só o muito básico) |
+| Antigravity | **`neon` (padrão)**, `carbon` (difícil), `hydrogen` (só o muito básico), `argon` (antigo, evitar) |
 
 O runner (próxima etapa) roda a tarefa com esse modelo. Confira os ids exatos com `/model` no `agy`.
 

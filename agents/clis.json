@@ -39,21 +39,21 @@
         "nivel": "topo",
         "custo": "alto",
         "velocidade": "lento",
-        "quando": "arquitetura, bugs difíceis, código crítico"
+        "quando": "PADRÃO: código, arquitetura, revisão"
       },
       "sonnet": {
         "id": "sonnet",
         "nivel": "médio",
         "custo": "médio",
         "velocidade": "médio",
-        "quando": "código do dia a dia, refatoração"
+        "quando": "tarefas médias e repetitivas, quando quiser economizar"
       },
       "haiku": {
         "id": "haiku",
         "nivel": "básico",
         "custo": "baixo",
         "velocidade": "rápido",
-        "quando": "tarefas simples, resumos, formatação"
+        "quando": "só perguntas muito básicas"
       }
     }
   },
@@ -94,21 +94,21 @@
         "nivel": "topo",
         "custo": "alto",
         "velocidade": "lento",
-        "quando": "problemas mais difíceis e projetos longos"
+        "quando": "tarefas difíceis: engenharia reversa, arquitetura, bugs que o neon não resolveu"
       },
       "neon": {
         "id": "gemini-4-neon",
         "nivel": "médio-alto",
         "custo": "médio",
         "velocidade": "rápido",
-        "quando": "análise profunda e código, quando o hydrogen não dá conta"
+        "quando": "PADRÃO: a maioria das tarefas (código, análise, pesquisa)"
       },
       "hydrogen": {
         "id": "gemini-4-hydrogen",
         "nivel": "básico",
         "custo": "baixo",
         "velocidade": "muito rápido",
-        "quando": "tarefas do dia a dia, pesquisa simples"
+        "quando": "só perguntas muito básicas (consultas rápidas, formatação)"
       },
       "argon": {
         "id": "gemini-4-argon",
@@ -175,5 +175,6 @@
     ],
     "ativo": false,
     "_nota": "Desde 18/06/2026 não aceita mais login Google (AI Pro/Ultra). Use o Antigravity CLI."
-  }
+  },
+  "_politicaModelos": "Padrão: neon (Antigravity) e opus (Claude). carbon para o difícil. hydrogen/haiku só para o muito básico. Fable não está no plano."
 }
