@@ -58,6 +58,8 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       modelos: catalogoComEstado(),
       teste,
       runner: runner.estado(),
+      projetos: escritorio.listarProjetos(15),
+      foraDaEquipe: escritorio.lerConfig<string[]>("foraDaEquipe", []),
     })),
   );
 
@@ -65,6 +67,19 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
     "/modelo",
     protegido,
     tentar((req) => definirModelo(String(req.body.cli), String(req.body.modelo), !!req.body.ligado)),
+  );
+
+  api.post(
+    "/equipe",
+    protegido,
+    tentar((req) => {
+      const cli = String(req.body?.cli);
+      const fora = escritorio.lerConfig<string[]>("foraDaEquipe", []).filter((x) => x !== cli);
+      if (!req.body?.naEquipe) fora.push(cli);
+      escritorio.gravarConfig("foraDaEquipe", fora);
+      escritorio.registrarEvento(null, "config", `${cli} ${req.body?.naEquipe ? "entrou na" : "saiu da"} equipe.`);
+      return { foraDaEquipe: fora };
+    }),
   );
 
   api.post(

@@ -31,6 +31,16 @@ Com o servidor ligado (`npm start`), abra **http://127.0.0.1:7777/**:
   *Testar modelos* descobre o que o seu plano libera; o que responder fica marcado, e você desmarca o que não quiser.
 - **Quadro de tarefas**, **conversa da equipe** e **linha do tempo** do que cada IA fez.
 
+### Projetos: dividir → fazer → merge
+Quando você pede algo grande no chat, a coordenadora:
+1. abre um projeto (`criar_projeto`) e vê quem está na equipe;
+2. divide em **uma parte para cada IA da equipe, inclusive ela mesma** (`distribuir_projeto`),
+   dando a cada uma a parte em que é melhor e o modelo certo; o escritório recusa a divisão se alguém ficar sem parte;
+3. todas trabalham em paralelo; quando a última parte é entregue, o escritório avisa a coordenadora;
+4. ela junta tudo com a própria parte (`status_projeto` → merge) e entrega pra você (`concluir_projeto`).
+
+Na interface, a chave **na equipe** em cada IA define quem entra na divisão.
+
 ### Como o expediente funciona
 A cada poucos segundos o escritório olha quem tem tarefa aberta ou mensagem não lida e roda o CLI dessa IA
 (`claude -p`, `agy -p`…) com o modelo escolhido na tarefa. Travas: no máximo N execuções por IA por hora,
@@ -92,6 +102,8 @@ O runner (próxima etapa) roda a tarefa com esse modelo. Confira os ids exatos c
 |---|---|
 | `criar_tarefa` | Cria/delega uma tarefa (`para: "antigravity"`, `modelo: "carbon"`) |
 | `modelos_equipe` | Modelos que cada IA pode usar (nível, custo, velocidade, quando usar) |
+| `criar_projeto` / `distribuir_projeto` | Coordenadora divide um pedido em uma parte por IA |
+| `status_projeto` / `concluir_projeto` | Lê as entregas, faz o merge e entrega pro humano |
 | `listar_tarefas` | Vê o quadro |
 | `pegar_tarefa` | Assume uma tarefa (atômico, ninguém pega duas vezes) |
 | `entregar_tarefa` | Entrega o resultado pra quem pediu |

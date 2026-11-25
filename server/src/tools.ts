@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { Escritorio } from "./db.js";
 import { carregarRegistro, modeloDisponivel, modelosDisponiveis } from "./equipe/registro.js";
+import { equipeAtiva } from "./equipe/detectar.js";
 
 const json = (dados: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(dados, null, 2) }],
@@ -29,6 +30,8 @@ const INSTRUCOES = `Você é um funcionário do KTN Office, um escritório onde 
 - Ao terminar uma tarefa, use entregar_tarefa com um resultado completo e objetivo.
 - Guarde decisões e contexto útil em escrever_nota, para ninguém gastar tokens repetindo trabalho.
 - Prefira delegar a quem tem a especialidade certa e mais folga de uso.
+- Pedidos grandes do humano viram PROJETO: criar_projeto, depois distribuir_projeto com UMA parte para CADA IA da equipe
+  (inclusive você), dando a cada uma a parte em que ela é melhor. No fim, junte tudo (merge) e use concluir_projeto.
 - Ao delegar, escolha o modelo (modelos_equipe). Padrão: neon (antigravity), opus (claude), sol (codex). Topo (carbon, astra, fable) só no difícil; hydrogen/haiku/luna só no muito básico.`;
 
 /** Valida o modelo contra o catálogo do agente. Agente sem catálogo aceita qualquer nome. */
@@ -72,6 +75,97 @@ export function criarServidor(escritorio: Escritorio, agente: string) {
       const destino = para?.trim().toLowerCase() || null;
       return escritorio.criarTarefa(agente, titulo, descricao, destino, validarModelo(destino, modelo?.trim()));
     }),
+  );
+
+  const equipe = () => equipeAtiva(escritorio.lerConfig<string[]>("foraDaEquipe", []));
+  const perfilEquipe = () => {
+    const reg = carregarRegistro();
+    return equipe().map((id) => ({
+      ia: id,
+      especialidades: reg[id]?.especialidades ?? [],
+      modelos: Object.fromEntries(Object.entries(modelosDisponiveis(reg[id])).map(([k, m]) => [k, `${m.nivel ?? ""} · ${m.quando ?? ""}`])),
+      padrao: reg[id]?.modeloPadrao ?? null,
+    }));
+  };
+
+  server.registerTool(
+    "criar_projeto",
+    {
+      description:
+        "Abre um projeto para um pedido grande. Devolve a equipe disponível (com especialidades e modelos). " +
+        "Depois chame distribuir_projeto com uma parte para CADA IA da equipe, incluindo você.",
+      inputSchema: {
+        titulo: z.string().min(1),
+        pedido: z.string().default("").describe("O pedido original do humano, completo"),
+      },
+    },
+    seguro(({ titulo, pedido }: { titulo: string; pedido: string }) => {
+      const projeto = escritorio.criarProjeto(agente, titulo, pedido);
+      const time = perfilEquipe();
+      return {
+        projeto,
+        equipe: time,
+        instrucoes:
+          `Divida em ${time.length} partes (uma por IA: ${time.map((t) => t.ia).join(", ")}). ` +
+          `Dê a cada IA a parte em que ela tem mais competência. A sua parte (${agente}) também entra. ` +
+          `Partes devem ser independentes o bastante para rodar em paralelo e fáceis de juntar no final.`,
+      };
+    }),
+  );
+
+  server.registerTool(
+    "distribuir_projeto",
+    {
+      description: "Cria as partes do projeto: exatamente uma (ou mais) para cada IA da equipe, inclusive você.",
+      inputSchema: {
+        projeto_id: z.number().int(),
+        partes: z
+          .array(
+            z.object({
+              para: z.string().min(1),
+              titulo: z.string().min(1),
+              descricao: z.string().default("").describe("O que fazer, contexto e critério de pronto"),
+              modelo: z.string().optional(),
+            }),
+          )
+          .min(1),
+      },
+    },
+    seguro(({ projeto_id, partes }: { projeto_id: number; partes: { para: string; titulo: string; descricao: string; modelo?: string }[] }) => {
+      const normalizadas = partes.map((x) => {
+        const para = x.para.trim().toLowerCase();
+        return { ...x, para, modelo: validarModelo(para, x.modelo?.trim()) };
+      });
+      return escritorio.distribuirProjeto(agente, projeto_id, normalizadas, equipe());
+    }),
+  );
+
+  server.registerTool(
+    "status_projeto",
+    {
+      description: "Mostra o projeto e cada parte com o resultado entregue. Use para fazer o merge no final.",
+      inputSchema: { projeto_id: z.number().int() },
+    },
+    seguro(({ projeto_id }: { projeto_id: number }) => {
+      const projeto = escritorio.projeto(projeto_id);
+      if (!projeto) throw new Error(`Projeto #${projeto_id} não existe.`);
+      return { projeto, partes: escritorio.partesDoProjeto(projeto_id) };
+    }),
+  );
+
+  server.registerTool(
+    "concluir_projeto",
+    {
+      description:
+        "Finaliza o projeto com o resultado consolidado (o merge de todas as partes, inclusive a sua). O resultado vai para o humano.",
+      inputSchema: {
+        projeto_id: z.number().int(),
+        resultado: z.string().min(1).describe("Resultado final consolidado, pronto para o humano"),
+      },
+    },
+    seguro(({ projeto_id, resultado }: { projeto_id: number; resultado: string }) =>
+      escritorio.concluirProjeto(agente, projeto_id, resultado),
+    ),
   );
 
   server.registerTool(

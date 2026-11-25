@@ -11,6 +11,7 @@ export interface Tarefa {
   criada_por: string;
   para: string | null; // null = qualquer agente pode pegar
   modelo: string | null; // modelo sugerido pela coordenação (ex.: "carbon", "haiku")
+  projeto_id: number | null; // parte de qual projeto (null = tarefa avulsa)
   status: StatusTarefa;
   responsavel: string | null;
   resultado: string | null;
@@ -26,6 +27,26 @@ export interface Mensagem {
   tarefa_id: number | null;
   lida: number;
   criada_em: string;
+}
+
+export type StatusProjeto = "dividindo" | "em_andamento" | "consolidando" | "concluido" | "cancelado";
+
+export interface Projeto {
+  id: number;
+  titulo: string;
+  pedido: string;
+  coordenadora: string;
+  status: StatusProjeto;
+  resultado: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface ParteProjeto {
+  para: string;
+  titulo: string;
+  descricao: string;
+  modelo?: string | null;
 }
 
 export function abrirBanco(arquivo = process.env.KTN_DB ?? path.resolve("office.db")) {
@@ -60,6 +81,16 @@ export function abrirBanco(arquivo = process.env.KTN_DB ?? path.resolve("office.
       limite_estimado INTEGER,
       observacao TEXT
     );
+    CREATE TABLE IF NOT EXISTS projetos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      titulo TEXT NOT NULL,
+      pedido TEXT NOT NULL DEFAULT '',
+      coordenadora TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'dividindo',
+      resultado TEXT,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+      atualizado_em TEXT NOT NULL DEFAULT (datetime('now'))
+    );
     CREATE TABLE IF NOT EXISTS eventos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       agente TEXT,
@@ -81,6 +112,7 @@ export function abrirBanco(arquivo = process.env.KTN_DB ?? path.resolve("office.
   // Migração: bancos da fase 1 não têm a coluna "modelo".
   const colunas = db.prepare(`PRAGMA table_info(tarefas)`).all() as { name: string }[];
   if (!colunas.some((c) => c.name === "modelo")) db.exec(`ALTER TABLE tarefas ADD COLUMN modelo TEXT`);
+  if (!colunas.some((c) => c.name === "projeto_id")) db.exec(`ALTER TABLE tarefas ADD COLUMN projeto_id INTEGER`);
   return db;
 }
 
@@ -175,7 +207,9 @@ export class Escritorio {
     this.db
       .prepare(`UPDATE tarefas SET status = 'entregue', resultado = ?, atualizada_em = datetime('now') WHERE id = ?`)
       .run(resultado, id);
-    this.enviarMensagem(agente, t.criada_por, `Tarefa #${id} entregue: ${t.titulo}\n\n${resultado}`, id);
+    // Parte de projeto: quem junta é a coordenadora, que é avisada quando TODAS as partes chegarem.
+    if (!t.projeto_id) this.enviarMensagem(agente, t.criada_por, `Tarefa #${id} entregue: ${t.titulo}\n\n${resultado}`, id);
+    this.verificarProjeto(t.projeto_id);
     return this.tarefa(id)!;
   }
 
@@ -289,6 +323,97 @@ export class Escritorio {
     this.db
       .prepare(`UPDATE tarefas SET status = 'cancelada', resultado = ?, atualizada_em = datetime('now') WHERE id = ?`)
       .run(motivo, id);
+    this.verificarProjeto(this.tarefa(id)?.projeto_id ?? null);
+  }
+
+  // ---------- Projetos: a coordenadora divide, cada IA faz uma parte, a coordenadora junta ----------
+
+  criarProjeto(coordenadora: string, titulo: string, pedido: string): Projeto {
+    const info = this.db
+      .prepare(`INSERT INTO projetos (titulo, pedido, coordenadora) VALUES (?, ?, ?)`)
+      .run(titulo, pedido, coordenadora);
+    this.registrarEvento(coordenadora, "projeto", `Abriu o projeto #${info.lastInsertRowid}: ${titulo}`);
+    return this.projeto(Number(info.lastInsertRowid))!;
+  }
+
+  projeto(id: number): Projeto | undefined {
+    return this.db.prepare(`SELECT * FROM projetos WHERE id = ?`).get(id) as Projeto | undefined;
+  }
+
+  partesDoProjeto(id: number): Tarefa[] {
+    return this.db.prepare(`SELECT * FROM tarefas WHERE projeto_id = ? ORDER BY id`).all(id) as Tarefa[];
+  }
+
+  listarProjetos(limite = 20) {
+    const projetos = this.db.prepare(`SELECT * FROM projetos ORDER BY id DESC LIMIT ?`).all(limite) as Projeto[];
+    return projetos.map((p) => ({ ...p, partes: this.partesDoProjeto(p.id) }));
+  }
+
+  /**
+   * Distribui o projeto: uma parte por IA da equipe (incluindo a coordenadora).
+   * `equipe` é quem está disponível agora; toda IA da equipe precisa receber pelo menos uma parte.
+   */
+  distribuirProjeto(coordenadora: string, id: number, partes: ParteProjeto[], equipe: string[]): Tarefa[] {
+    const p = this.projeto(id);
+    if (!p) throw new Error(`Projeto #${id} não existe.`);
+    if (p.coordenadora !== coordenadora) throw new Error(`Só ${p.coordenadora} distribui o projeto #${id}.`);
+    if (p.status !== "dividindo") throw new Error(`Projeto #${id} já foi distribuído (status: ${p.status}).`);
+    const fora = partes.filter((x) => !equipe.includes(x.para)).map((x) => x.para);
+    if (fora.length) throw new Error(`Não estão na equipe: ${[...new Set(fora)].join(", ")}. Equipe: ${equipe.join(", ")}`);
+    const semParte = equipe.filter((a) => !partes.some((x) => x.para === a));
+    if (semParte.length) {
+      throw new Error(`Toda IA da equipe precisa de uma parte (inclusive você). Faltou: ${semParte.join(", ")}.`);
+    }
+    const criar = this.db.transaction(() => {
+      const tarefas = partes.map((x) => {
+        const info = this.db
+          .prepare(`INSERT INTO tarefas (titulo, descricao, criada_por, para, modelo, projeto_id) VALUES (?, ?, ?, ?, ?, ?)`)
+          .run(x.titulo, x.descricao, coordenadora, x.para, x.modelo ?? null, id);
+        return this.tarefa(Number(info.lastInsertRowid))!;
+      });
+      this.db.prepare(`UPDATE projetos SET status = 'em_andamento', atualizado_em = datetime('now') WHERE id = ?`).run(id);
+      return tarefas;
+    });
+    const tarefas = criar();
+    for (const t of tarefas) {
+      if (t.para !== coordenadora) {
+        this.enviarMensagem(coordenadora, t.para!, `Nova tarefa #${t.id} pra você (projeto #${id}): ${t.titulo}`, t.id);
+      }
+    }
+    this.registrarEvento(coordenadora, "projeto", `Projeto #${id} dividido em ${tarefas.length} partes: ${tarefas.map((t) => `${t.para}${t.modelo ? `/${t.modelo}` : ""}`).join(", ")}.`);
+    return tarefas;
+  }
+
+  /** Quando a última parte termina, avisa a coordenadora pra juntar tudo. */
+  private verificarProjeto(id: number | null) {
+    if (!id) return;
+    const p = this.projeto(id);
+    if (!p || p.status !== "em_andamento") return;
+    const partes = this.partesDoProjeto(id);
+    if (!partes.length || partes.some((t) => t.status === "aberta" || t.status === "em_andamento")) return;
+    this.db.prepare(`UPDATE projetos SET status = 'consolidando', atualizado_em = datetime('now') WHERE id = ?`).run(id);
+    const canceladas = partes.filter((t) => t.status === "cancelada").length;
+    this.enviarMensagem(
+      "escritorio",
+      p.coordenadora,
+      `Projeto #${id} (${p.titulo}): todas as ${partes.length} partes terminaram${canceladas ? ` (${canceladas} cancelada(s))` : ""}. ` +
+        `Use status_projeto para ler as entregas, faça o merge com a sua parte e finalize com concluir_projeto.`,
+    );
+    this.registrarEvento(p.coordenadora, "projeto", `Projeto #${id}: todas as partes chegaram; hora do merge.`);
+  }
+
+  concluirProjeto(coordenadora: string, id: number, resultado: string): Projeto {
+    const p = this.projeto(id);
+    if (!p) throw new Error(`Projeto #${id} não existe.`);
+    if (p.coordenadora !== coordenadora) throw new Error(`Só ${p.coordenadora} conclui o projeto #${id}.`);
+    const pendentes = this.partesDoProjeto(id).filter((t) => t.status === "aberta" || t.status === "em_andamento");
+    if (pendentes.length) throw new Error(`Ainda faltam partes: ${pendentes.map((t) => `#${t.id} (${t.para})`).join(", ")}.`);
+    this.db
+      .prepare(`UPDATE projetos SET status = 'concluido', resultado = ?, atualizado_em = datetime('now') WHERE id = ?`)
+      .run(resultado, id);
+    this.enviarMensagem(coordenadora, "humano", `✅ Projeto #${id} concluído: ${p.titulo}\n\n${resultado}`);
+    this.registrarEvento(coordenadora, "projeto", `Concluiu o projeto #${id}.`);
+    return this.projeto(id)!;
   }
 
   lerConfig<T>(chave: string, padrao: T): T {

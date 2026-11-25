@@ -114,7 +114,59 @@ try {
   definirModelo("claude", "fable", false);
   assert.equal(estadoModelo(carregarRegistro().claude, "fable"), "desligado_usuario");
 
-  console.log("OK: expediente (runner), modelos aplicados, travas e teste automático de modelos.");
+  // ---------- Projeto completo: coordenadora divide, todos fazem, coordenadora faz o merge ----------
+  const { equipeAtiva } = await import("../src/equipe/detectar.js");
+  const fazProjeto = (id: string): Funcionario => ({
+    id, tipo: "cli", especialidades: [],
+    async trabalhar(prompt, o = {}) {
+      chamadas.push({ id, modelo: o.modelo, prompt });
+      const tarefa = prompt.match(/pegar_tarefa com id (\d+)/);
+      if (tarefa) {
+        const t = esc.pegarTarefa(id, Number(tarefa[1]));
+        esc.entregarTarefa(id, t.id, `parte de ${id}: ${t.titulo}`);
+        return { ok: true, texto: "ok" };
+      }
+      for (const m of esc.lerCaixa(id)) {
+        if (m.de === "humano") {
+          const p = esc.criarProjeto(id, "App", m.texto);
+          esc.distribuirProjeto(id, p.id, [
+            { para: "claude", titulo: "backend", descricao: "", modelo: "opus" },
+            { para: "antigravity", titulo: "pesquisa", descricao: "", modelo: "neon" },
+          ], equipeAtiva(esc.lerConfig("foraDaEquipe", [])));
+        }
+        const fim = m.texto.match(/Projeto #(\d+).*todas as/s);
+        if (fim) {
+          const merge = esc.partesDoProjeto(Number(fim[1])).map((t) => t.resultado).join(" + ");
+          esc.concluirProjeto(id, Number(fim[1]), `MERGE: ${merge}`);
+        }
+      }
+      return { ok: true, texto: "ok" };
+    },
+  });
+  const proj = new Runner(esc, fazProjeto);
+  proj.atualizarConfig({ ligado: true, maxPorHora: 50, coordenadora: "claude" });
+  esc.lerCaixa("claude"); esc.lerCaixa("antigravity");
+  const n0 = chamadas.length;
+  esc.enviarMensagem("humano", "claude", "crie um app de tarefas");
+  for (let i = 0; i < 6; i++) await proj.ciclo();
+  const projeto = esc.listarProjetos(1)[0];
+  assert.equal(projeto.status, "concluido");
+  assert.equal(projeto.partes.length, 2);
+  assert.ok(projeto.partes.every((t) => t.status === "entregue"));
+  assert.match(projeto.resultado!, /MERGE: parte de claude: backend \+ parte de antigravity: pesquisa/);
+  const final = esc.mensagensRecentes().filter((m) => m.para === "humano").at(-1)!;
+  assert.match(final.texto, /Projeto #\d+ concluído/);
+  assert.ok(chamadas.slice(n0).some((c) => c.id === "antigravity" && c.modelo === "neon"));
+  assert.ok(chamadas.slice(n0).some((c) => c.id === "claude" && c.prompt.includes("pegar_tarefa")), "coordenadora faz a própria parte");
+  assert.ok(!esc.mensagensRecentes().some((m) => m.para === "claude" && /Tarefa #\d+ entregue: (backend|pesquisa)/.test(m.texto)), "partes não geram aviso avulso");
+
+  // Tirar uma IA da equipe: ela não pode receber parte
+  esc.gravarConfig("foraDaEquipe", ["antigravity"]);
+  assert.deepEqual(equipeAtiva(esc.lerConfig("foraDaEquipe", [])), ["claude"]);
+  const p2 = esc.criarProjeto("claude", "Só eu", "");
+  assert.throws(() => esc.distribuirProjeto("claude", p2.id, [{ para: "antigravity", titulo: "x", descricao: "" }], ["claude"]), /Não estão na equipe/);
+
+  console.log("OK: expediente, projetos (dividir → fazer → merge), modelos, travas e teste automático de modelos.");
 } finally {
   rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }

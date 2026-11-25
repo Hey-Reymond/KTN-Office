@@ -90,9 +90,10 @@ export class Runner {
     const cfg = this.config;
     if (!cfg.ligado) return;
     const registro = carregarRegistro();
+    const fora = this.escritorio.lerConfig<string[]>("foraDaEquipe", []);
     const tarefas: Promise<void>[] = [];
     for (const [id, cli] of Object.entries(registro)) {
-      if (cli.ativo === false || this.trabalhando.has(id)) continue;
+      if (cli.ativo === false || fora.includes(id) || this.trabalhando.has(id)) continue;
       if (!localizar(cli)) continue;
       const trabalho = this.proximoTrabalho(id, cli);
       if (!trabalho) continue;
@@ -126,8 +127,16 @@ export class Runner {
         prompt: [
           `Você é "${id}" no KTN Office. Use as ferramentas do servidor MCP "office".`,
           `Leia sua caixa (ler_caixa) e dê continuidade:`,
-          `- Pedido do humano: resolva, delegando com criar_tarefa (escolha IA e modelo com modelos_equipe e status_equipe) quando fizer sentido.`,
-          `- Entrega de outra IA: use o resultado para concluir o trabalho.`,
+          ...(id === this.config.coordenadora
+            ? [
+                `- Você é a COORDENADORA. Pedido do humano que dá pra dividir: criar_projeto, depois distribuir_projeto com`,
+                `  uma parte para CADA IA da equipe (inclusive você), cada uma na parte em que é melhor, com o modelo certo.`,
+                `  Pergunta simples: responda direto ao humano, sem projeto.`,
+                `- Aviso de que todas as partes de um projeto terminaram: status_projeto, junte tudo com a sua parte (merge),`,
+                `  revise a qualidade e finalize com concluir_projeto (o resultado vai para o humano).`,
+              ]
+            : [`- Pedido do humano: resolva ou responda; se precisar de outra IA, crie uma tarefa para ela.`]),
+          `- Entrega de outra IA (tarefa avulsa): use o resultado para concluir o trabalho.`,
           `- Responda o humano com mandar_mensagem para "humano" quando tiver algo para ele.`,
           `Não fique esperando: o escritório te acorda de novo quando chegar algo.`,
         ].join("\n"),

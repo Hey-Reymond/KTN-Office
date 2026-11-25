@@ -49,6 +49,9 @@
   .cli { border: 1px solid var(--borda); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
   .cli-topo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
   .cli-topo b { font-size: 14px; }
+  .barra { height: 6px; background: var(--borda); border-radius: 3px; overflow: hidden; margin: 6px 0 4px; }
+  .barra div { height: 100%; background: var(--ok); transition: width .3s; }
+  .partes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
   .modelo { display: grid; grid-template-columns: 22px 130px 1fr; gap: 8px; align-items: start; padding: 4px 0; }
   .modelo input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--acento); }
   .modelo .nome { font-weight: 600; }
@@ -84,6 +87,11 @@
         <button class="primario" type="submit">Enviar</button>
       </form>
       <div class="meta" id="dicaExpediente" style="margin-top:6px;color:var(--suave);font-size:12px"></div>
+    </section>
+
+    <section>
+      <h2>Projetos</h2>
+      <div id="projetos" class="lista"></div>
     </section>
 
     <section>
@@ -194,6 +202,8 @@ function render() {
       st && st.uso_estimado_tokens ? `<span class="pilula">${st.uso_estimado_tokens.toLocaleString("pt-BR")} tokens</span>` : "",
       e.runner.trabalhando[d.id] ? `<span class="pilula ok">trabalhando</span>` : "",
     ].join(" ");
+    const naEquipe = d.instalado ? `<label class="chave" style="margin-left:auto" title="Fora da equipe = não recebe partes de projetos nem é acordada">
+        <input type="checkbox" data-equipe="${esc(d.id)}" ${e.foraDaEquipe.includes(d.id) ? "" : "checked"}><span class="trilho"></span><span>na equipe</span></label>` : "";
     const modelos = !cat ? "" : cat.modelos.map((m) => {
       const [txt, cls] = ROTULO[m.estado];
       const padrao = cat.padrao === m.apelido ? ` <span class="pilula">padrão</span>` : "";
@@ -203,7 +213,7 @@ function render() {
         <span class="desc">${esc(m.nivel || "")} · ${esc(m.quando || "")} ${txt ? `<span class="pilula ${cls}">${txt}</span>` : ""}</span>
       </label>`;
     }).join("");
-    return `<div class="cli"><div class="cli-topo"><b>${esc(d.nome)}</b> ${pills}</div>${modelos}
+    return `<div class="cli"><div class="cli-topo"><b>${esc(d.nome)}</b> ${pills} ${naEquipe}</div>${modelos}
       ${!d.instalado && d.podeInstalar ? `<div class="desc" style="color:var(--suave);font-size:12px">Instale com: npm run equipe -- instalar ${esc(d.id)}</div>` : ""}</div>`;
   }).join("");
 
@@ -213,8 +223,23 @@ function render() {
     : "Dica: “Testar modelos” descobre o que o seu plano libera (gasta pouquíssimos tokens).";
   $("#btnTestar").disabled = !!(t && t.rodando);
 
-  // Quadro
   const corStatus = { aberta: "alerta", em_andamento: "ok", entregue: "", cancelada: "erro" };
+  // Projetos
+  const corProj = { dividindo: "alerta", em_andamento: "ok", consolidando: "alerta", concluido: "", cancelado: "erro" };
+  const nomeProj = { dividindo: "dividindo", em_andamento: "em andamento", consolidando: "fazendo o merge", concluido: "concluído", cancelado: "cancelado" };
+  $("#projetos").innerHTML = e.projetos.length ? e.projetos.map((p) => {
+    const feitas = p.partes.filter((t) => t.status === "entregue" || t.status === "cancelada").length;
+    const pct = p.status === "concluido" ? 100 : p.partes.length ? Math.round((feitas / p.partes.length) * 90) : 5;
+    return `<div class="item">
+      <div class="linha"><b>#${p.id}</b> ${esc(p.titulo)} <span class="pilula ${corProj[p.status]}">${nomeProj[p.status]}</span></div>
+      <div class="barra"><div style="width:${pct}%"></div></div>
+      <div class="meta">coordenadora: ${esc(p.coordenadora)} · ${feitas}/${p.partes.length} partes · ${hora(p.atualizado_em)}</div>
+      <div class="partes">${p.partes.map((t) => `<span class="pilula ${corStatus[t.status]}" title="${esc(t.titulo)}">${esc(t.para)}${t.modelo ? "/" + esc(t.modelo) : ""}: ${esc(t.status.replace("_", " "))}</span>`).join("")}</div>
+      ${p.resultado ? `<details><summary class="meta">resultado final (merge)</summary><div class="corpo">${esc(p.resultado)}</div></details>` : ""}
+    </div>`;
+  }).join("") : `<div class="vazio">Peça algo grande no chat: a coordenadora divide entre todas as IAs da equipe e junta no final.</div>`;
+
+  // Quadro
   $("#tarefas").innerHTML = e.tarefas.length ? e.tarefas.map((t) => `<div class="item">
       <div class="linha"><b>#${t.id}</b> ${esc(t.titulo)} <span class="pilula ${corStatus[t.status]}">${esc(t.status.replace("_", " "))}</span></div>
       <div class="meta">${esc(t.criada_por)} → ${esc(t.para || "qualquer um")}${t.modelo ? " · modelo " + esc(t.modelo) : ""}${t.responsavel ? " · com " + esc(t.responsavel) : ""} · ${hora(t.atualizada_em)}</div>
@@ -228,7 +253,7 @@ function render() {
     : `<div class="vazio">Quando as IAs se falarem, aparece aqui.</div>`;
 
   // Eventos
-  const corEv = { inicio: "ok", fim: "", erro: "erro", limite: "alerta", config: "" };
+  const corEv = { inicio: "ok", fim: "", erro: "erro", limite: "alerta", config: "", projeto: "ok" };
   $("#eventos").innerHTML = e.eventos.length ? e.eventos.map((v) => `<div class="item">
       <div class="meta">${hora(v.criado_em)} · ${esc(v.agente || "escritório")} <span class="pilula ${corEv[v.tipo] || ""}">${esc(v.tipo)}</span></div>
       <div class="corpo">${esc(v.texto)}</div></div>`).join("") : `<div class="vazio">Sem atividade ainda.</div>`;
@@ -256,6 +281,8 @@ $("#texto").addEventListener("keydown", (ev) => {
   if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); $("#formChat").requestSubmit(); }
 });
 $("#equipe").addEventListener("change", async (ev) => {
+  const q = ev.target.closest("input[data-equipe]");
+  if (q) { await api("equipe", { cli: q.dataset.equipe, naEquipe: q.checked }).catch((e) => avisar(e.message)); return atualizar(); }
   const c = ev.target.closest("input[data-modelo]"); if (!c) return;
   try { await api("modelo", { cli: c.dataset.cli, modelo: c.dataset.modelo, ligado: c.checked }); }
   catch (e) { avisar(e.message); }

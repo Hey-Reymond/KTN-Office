@@ -134,3 +134,13 @@ export async function detectarEquipe(): Promise<Deteccao[]> {
       .map(([id, cfg]) => detectarUm(id, cfg)),
   );
 }
+
+/**
+ * Quem está na equipe agora: CLIs ativos, instalados e que você não tirou da equipe na interface.
+ * É por esse número que a coordenadora divide o projeto (contando ela mesma).
+ */
+export function equipeAtiva(foraDaEquipe: string[] = []): string[] {
+  return Object.entries(carregarRegistro())
+    .filter(([id, cfg]) => cfg.ativo !== false && !foraDaEquipe.includes(id) && !!localizar(cfg))
+    .map(([id]) => id);
+}
