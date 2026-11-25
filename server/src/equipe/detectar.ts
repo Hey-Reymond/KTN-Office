@@ -57,9 +57,16 @@ export const localizar = (cfg: ConfigCli) => acharNoPath(cfg.executavel, cfg.ins
 /** Arquivo global de MCP do Antigravity (compartilhado entre CLI, IDE e Antigravity 2.0). */
 export const ARQ_MCP_ANTIGRAVITY = () => path.join(os.homedir(), ".gemini", "config", "mcp_config.json");
 
+/** Lê JSON aceitando arquivo vazio e o BOM que editores do Windows colocam no início. */
+export function lerJsonTolerante(arq: string): Record<string, any> {
+  const texto = readFileSync(arq, "utf8").replace(/^\uFEFF/, "").trim();
+  return texto ? JSON.parse(texto) : {};
+}
+
 function urlNoArquivo(arq: string, campo: "httpUrl" | "serverUrl"): string | null {
   if (!existsSync(arq)) return null;
-  const url = JSON.parse(readFileSync(arq, "utf8"))?.mcpServers?.office?.[campo];
+  const bruto = lerJsonTolerante(arq);
+  const url = bruto?.mcpServers?.office?.[campo];
   return typeof url === "string" ? url : null;
 }
 

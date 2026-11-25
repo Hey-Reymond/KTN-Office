@@ -118,7 +118,9 @@ try {
   assert.equal(agy.office, "nao");
   const mcpAgy = path.join(home, ".gemini", "config", "mcp_config.json");
   mkdirSync(path.dirname(mcpAgy), { recursive: true });
-  writeFileSync(mcpAgy, JSON.stringify({ mcpServers: { docs: { serverUrl: "https://x" } } }));
+  // Arquivo com BOM (comum no Windows): a detecção não pode quebrar.
+  writeFileSync(mcpAgy, "\uFEFF" + JSON.stringify({ mcpServers: { docs: { serverUrl: "https://x" } } }));
+  assert.equal((await detectarUm("fakeagy", reg.fakeagy)).office, "nao", "BOM não vira 'desconhecido'");
   await conectarAoOffice("fakeagy", reg.fakeagy, agy.caminho!);
   const m = JSON.parse(readFileSync(mcpAgy, "utf8"));
   assert.ok(m.mcpServers.docs, "preserva outros servidores");

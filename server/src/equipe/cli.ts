@@ -19,7 +19,7 @@ function linha(d: Deteccao) {
   const inst = d.instalado ? `✅ ${d.versao ?? "instalado"}` : "❌ não instalado";
   const login = { provavel: "✅ logado", nao: "⚠️ sem login", desconhecido: "❔ login" }[d.login];
   const office = { conectado: "✅ no escritório", nao: "⚠️ conectar", manual: "🔧 manual", desconhecido: "❔ escritório" }[d.office];
-  return `${d.nome.padEnd(14)} ${inst.padEnd(34)} ${d.instalado ? `${login.padEnd(14)} ${office}` : ""}`;
+  return `${d.nome.padEnd(16)} ${inst.padEnd(34)} ${d.instalado ? `${login.padEnd(14)} ${office}` : ""}`;
 }
 
 function pegarConfig(id: string) {

@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { acharNoPath, ARQ_MCP_ANTIGRAVITY, URL_OFFICE } from "./detectar.js";
+import { acharNoPath, ARQ_MCP_ANTIGRAVITY, lerJsonTolerante, URL_OFFICE } from "./detectar.js";
 import { rodar } from "./processo.js";
 import type { ConfigCli } from "./registro.js";
 
@@ -60,7 +60,7 @@ function gravarOfficeNoJson(arq: string, entrada: Record<string, string>) {
   if (existsSync(arq)) {
     const bruto = readFileSync(arq, "utf8");
     try {
-      dados = bruto.trim() ? JSON.parse(bruto) : {};
+      dados = lerJsonTolerante(arq);
     } catch {
       throw new Error(`${arq} não é um JSON válido. Corrija o arquivo antes de conectar.`);
     }
