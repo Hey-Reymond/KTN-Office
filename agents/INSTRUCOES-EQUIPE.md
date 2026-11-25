@@ -15,7 +15,7 @@ O servidor MCP `office` te dá as ferramentas da equipe.
 
 ## Ao precisar de ajuda
 - Delegue com `criar_tarefa` + `para` = quem tem a especialidade certa e mais folga.
-- Especialidades: veja `agents/perfis.json`.
+- Especialidades: veja `agents/clis.json`.
 - Não delegue o que você resolve rápido sozinho (delegar também gasta tokens).
 
 ## Economia de tokens

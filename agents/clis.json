@@ -1,0 +1,43 @@
+{
+  "_sobre": "CLIs conhecidos pelo KTN Office. Pra adicionar um novo sem mexer no código, use 'npm run equipe -- adicionar' (vai pra clis.custom.json) ou edite aqui. {prompt} e {modelo} são substituídos na hora de rodar.",
+  "claude": {
+    "nome": "Claude Code",
+    "executavel": "claude",
+    "versao": ["--version"],
+    "prompt": ["-p", "{prompt}"],
+    "modelo": ["--model", "{modelo}"],
+    "modeloPadrao": "opus",
+    "saidaJson": ["--output-format", "json"],
+    "leitorSaida": "claude-json",
+    "pastaConfig": "~/.claude",
+    "instalar": { "npm": "@anthropic-ai/claude-code" },
+    "login": "Abra um terminal, rode 'claude' e faça o login pelo navegador.",
+    "conexaoOffice": "claude-mcp",
+    "especialidades": ["escrever código", "refatorar", "debugar", "arquitetura", "revisão de código"]
+  },
+  "gemini": {
+    "nome": "Gemini CLI",
+    "executavel": "gemini",
+    "versao": ["--version"],
+    "prompt": ["-p", "{prompt}"],
+    "modelo": ["-m", "{modelo}"],
+    "modeloPadrao": "gemini-4-neon",
+    "pastaConfig": "~/.gemini",
+    "instalar": { "npm": "@google/gemini-cli" },
+    "login": "Abra um terminal, rode 'gemini' e escolha 'Login with Google'.",
+    "conexaoOffice": "gemini-settings",
+    "especialidades": ["contexto gigante (1M tokens)", "pesquisa na web", "analisar disassembly e logs longos", "vídeos e transcrição"]
+  },
+  "codex": {
+    "nome": "Codex CLI",
+    "executavel": "codex",
+    "versao": ["--version"],
+    "prompt": ["exec", "{prompt}"],
+    "modelo": ["-m", "{modelo}"],
+    "pastaConfig": "~/.codex",
+    "instalar": { "npm": "@openai/codex" },
+    "login": "Abra um terminal e rode 'codex login'.",
+    "conexaoOffice": "manual",
+    "especialidades": ["segunda opinião em código", "testes"]
+  }
+}

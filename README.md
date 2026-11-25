@@ -11,6 +11,36 @@ Feito pela **KTN Dev**.
 As IAs se conectam ao mesmo servidor e ganham ferramentas da equipe.
 Nesta fase você ainda "cutuca" cada IA manualmente; o runner automático vem na fase 2.
 
+**Fase 2 – equipe (em andamento)**
+- ✅ Detecção automática dos CLIs (instalado, versão, login, conectado ao escritório)
+- ✅ Instalação automática (com confirmação) ou adição manual
+- ✅ Conexão automática ao escritório (Claude e Gemini)
+- ✅ Interface de funcionário (`CliAgent`; `ApiAgent` reservado)
+- ⏳ Runner que acorda quem tem tarefa
+- ⏳ Gerente que distribui tarefas
+
+## Gerenciar a equipe
+
+```bash
+cd server
+npm run equipe                          # detecta os CLIs
+npm run equipe -- instalar gemini       # instala (mostra o comando e pede confirmação)
+npm run equipe -- conectar gemini       # liga o CLI ao escritório
+npm run equipe -- caminho claude "C:\tools\claude.cmd"   # CLI instalado em outro lugar
+npm run equipe -- adicionar             # cadastra um CLI novo (perguntas)
+```
+
+Exemplo:
+```
+Claude Code    ✅ 2.1.332 (Claude Code)   ✅ logado       ⚠️ conectar
+Gemini CLI     ❌ não instalado
+```
+
+- CLIs conhecidos ficam em `agents/clis.json`; os seus (caminhos, CLIs novos) em `agents/clis.custom.json` (fora do git).
+- O login é feito por você, no próprio CLI. O KTN Office nunca lê arquivos de credencial: só confere se a pasta de config existe.
+- Antes de mexer no `~/.gemini/settings.json`, é feito um backup (`settings.json.bak`).
+- `GET /equipe` no servidor devolve a mesma detecção em JSON.
+
 ## Ferramentas que cada IA ganha
 
 | Ferramenta | Pra quê |
@@ -56,6 +86,8 @@ claude mcp add --transport http office "http://127.0.0.1:7777/mcp?agent=claude"
 }
 ```
 
+Ou deixe o KTN Office fazer: `npm run equipe -- conectar claude` / `conectar gemini`.
+
 Depois, cole o conteúdo de `agents/INSTRUCOES-EQUIPE.md` no `CLAUDE.md` e no `GEMINI.md`
 da pasta onde vão trabalhar.
 
@@ -70,14 +102,14 @@ da pasta onde vão trabalhar.
 
 ```bash
 cd server
-npm test        # simula claude e gemini trocando tarefa via MCP
+npm test        # escritório via MCP + equipe com CLIs falsos
 npm run typecheck
 ```
 
 ## Roadmap
 
 - [x] **Fase 1** – servidor MCP com tarefas, mensagens, uso e notas
-- [ ] **Fase 2** – runner que acorda sozinho quem tem tarefa (`claude -p`, `gemini -p`) + gerente que distribui
+- [ ] **Fase 2** – ✅ detecção/instalação/conexão dos CLIs + interface de funcionário · ⏳ runner que acorda quem tem tarefa + gerente que distribui
 - [ ] **Fase 3** – medição automática de uso (ex.: `claude -p --output-format json`) e economia
 - [ ] **Fase 4** – app desktop: chat com o gerente, painel do escritório, conversa da equipe
 
@@ -87,6 +119,8 @@ npm run typecheck
 server/src/index.ts   servidor HTTP MCP (127.0.0.1)
 server/src/tools.ts   ferramentas expostas às IAs
 server/src/db.ts      regras do escritório + SQLite
-server/test/smoke.ts  teste ponta a ponta
-agents/               perfis e regras da equipe
+server/src/equipe/    detecção, instalação, conexão e funcionários (CliAgent/ApiAgent)
+server/test/          testes (smoke: escritório; equipe: CLIs falsos, sem gastar tokens)
+agents/clis.json      CLIs conhecidos e especialidades
+agents/INSTRUCOES-EQUIPE.md  regras pra colar no CLAUDE.md / GEMINI.md
 ```

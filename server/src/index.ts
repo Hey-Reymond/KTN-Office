@@ -3,6 +3,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import type { Request, Response } from "express";
 import { abrirBanco, Escritorio } from "./db.js";
 import { criarServidor } from "./tools.js";
+import { detectarEquipe } from "./equipe/detectar.js";
 
 const PORTA = Number(process.env.KTN_PORT ?? 7777);
 const escritorio = new Escritorio(abrirBanco());
@@ -53,6 +54,11 @@ app.delete("/mcp", metodoNaoPermitido);
 // Painel rápido (JSON) para você acompanhar pelo navegador.
 app.get("/status", (_req: Request, res: Response) => {
   res.json({ equipe: escritorio.statusEquipe(), tarefas: escritorio.listarTarefas() });
+});
+
+// Detecção dos CLIs (pra interface do app usar depois).
+app.get("/equipe", async (_req: Request, res: Response) => {
+  res.json(await detectarEquipe());
 });
 
 app.listen(PORTA, "127.0.0.1", () => {
