@@ -73,6 +73,9 @@ try {
   await gemini.client.close();
   console.log("OK: claude e gemini trocaram tarefa, mensagens, uso e notas.");
 } finally {
+  // No Windows o arquivo do banco fica travado até o processo realmente sair.
+  const saiu = new Promise((ok) => servidor.once("exit", ok));
   servidor.kill();
-  rmSync(dir, { recursive: true, force: true });
+  await saiu;
+  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }

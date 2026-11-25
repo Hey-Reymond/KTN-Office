@@ -124,5 +124,5 @@ try {
   equipe = await detectarEquipe();
   console.log("OK: detecção, conexão, instalação (plano), adição manual e CliAgent.");
 } finally {
-  rmSync(tmp, { recursive: true, force: true });
+  rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }
