@@ -1,0 +1,22 @@
+{
+  "_sobre": "Perfis iniciais da equipe. O gerente usa isso (fase 2) pra decidir quem faz o quê. Ajuste à vontade.",
+  "claude": {
+    "modelo": "opus",
+    "comando": ["claude", "--model", "opus", "-p"],
+    "especialidades": ["escrever código", "refatorar", "debugar", "arquitetura", "revisão de código"],
+    "evitar": ["ler arquivos gigantes de uma vez"]
+  },
+  "gemini": {
+    "modelo": "gemini-4-neon",
+    "comando": ["gemini", "-m", "gemini-4-neon", "-p"],
+    "especialidades": ["contexto gigante (1M tokens)", "pesquisa na web", "analisar disassembly e logs longos", "vídeos e transcrição"],
+    "evitar": []
+  },
+  "codex": {
+    "modelo": "padrão",
+    "comando": ["codex", "exec"],
+    "especialidades": ["segunda opinião em código", "testes"],
+    "evitar": [],
+    "ativo": false
+  }
+}
