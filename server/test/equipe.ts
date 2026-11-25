@@ -28,9 +28,15 @@ if (p === "falhe") { console.error("deu ruim"); process.exit(2); }
 if (a.includes("json")) console.log(JSON.stringify({ result: "eco(" + modelo + "): " + p, usage: { input_tokens: 10, cache_read_input_tokens: 5, output_tokens: 7 } }));
 else console.log("eco(" + modelo + "): " + p);
 `;
-const fakeBin = path.join(bin, "fakeclaude");
-writeFileSync(fakeBin, fake);
-chmodSync(fakeBin, 0o755);
+// No Windows não existe shebang: cria um .cmd que chama o node (igual o npm faz com os CLIs reais).
+const ehWindows = process.platform === "win32";
+const fakeJs = path.join(bin, ehWindows ? "fakeclaude.js" : "fakeclaude");
+writeFileSync(fakeJs, fake);
+let fakeBin = fakeJs;
+if (ehWindows) {
+  fakeBin = path.join(bin, "fakeclaude.cmd");
+  writeFileSync(fakeBin, `@"${process.execPath}" "%~dp0fakeclaude.js" %*\r\n`);
+} else chmodSync(fakeBin, 0o755);
 
 const clis = path.join(tmp, "clis.json");
 writeFileSync(
