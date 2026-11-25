@@ -1,6 +1,6 @@
 import { localizar } from "./detectar.js";
 import { rodar } from "./processo.js";
-import type { ConfigCli } from "./registro.js";
+import { resolverModelo, type ConfigCli } from "./registro.js";
 
 export interface OpcoesTrabalho {
   modelo?: string;
@@ -60,7 +60,7 @@ export class CliAgent implements Funcionario {
   }
 
   montarArgs(prompt: string, modelo?: string): string[] {
-    const m = modelo ?? this.cfg.modeloPadrao;
+    const m = resolverModelo(this.cfg, modelo);
     const args: string[] = [];
     if (m && this.cfg.modelo) args.push(...substituir(this.cfg.modelo, { modelo: m }));
     if (this.cfg.saidaJson) args.push(...this.cfg.saidaJson);

@@ -54,6 +54,7 @@ writeFileSync(
       nome: "Fake Claude", executavel: "fakeclaude", versao: ["--version"], prompt: ["-p", "{prompt}"],
       modelo: ["--model", "{modelo}"], modeloPadrao: "opus", saidaJson: ["--output-format", "json"],
       leitorSaida: "claude-json", pastaConfig: "~/.fakeclaude", conexaoOffice: "claude-mcp",
+      modelos: { topo: { id: "modelo-topo-v9" } },
       instalar: { npm: "fake-pkg" }, especialidades: ["código"],
     },
     fakegemini: {
@@ -163,6 +164,7 @@ try {
   assert.equal(r.texto, `eco(opus): oi "mundo"; rm -rf /`);
   assert.deepEqual(r.tokens, { entrada: 15, saida: 7 });
   assert.equal((await agente.trabalhar("x", { modelo: "sonnet" })).texto, "eco(sonnet): x");
+  assert.equal((await agente.trabalhar("x", { modelo: "topo" })).texto, "eco(modelo-topo-v9): x", "apelido vira id");
 
   const falha = await agente.trabalhar("falhe");
   assert.equal(falha.ok, false);

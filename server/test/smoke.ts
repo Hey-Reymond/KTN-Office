@@ -66,6 +66,15 @@ try {
   const caixaClaude = (await claude.chamar("ler_caixa")).dados;
   assert.match(caixaClaude[0].texto, /entregue/);
 
+  // Coordenação escolhe o modelo da tarefa
+  const comModelo = (await claude.chamar("criar_tarefa", { titulo: "Bug difícil", para: "antigravity", modelo: "carbon" })).dados;
+  assert.equal(comModelo.modelo, "carbon");
+  const invalido = await claude.chamar("criar_tarefa", { titulo: "x", para: "antigravity", modelo: "turbo" });
+  assert.ok(invalido.erro && /Opções: .*carbon/.test(invalido.dados), "recusa modelo que não existe");
+  const catalogo = (await claude.chamar("modelos_equipe")).dados;
+  assert.ok(catalogo.antigravity.modelos.hydrogen && catalogo.claude.modelos.haiku);
+  assert.equal(catalogo.gemini, undefined, "CLI desativado não aparece");
+
   await claude.chamar("escrever_nota", { chave: "decisoes", conteudo: "Usar SQLite como estado." });
   assert.equal((await gemini.chamar("ler_notas", { chave: "decisoes" })).dados[0].autor, "claude");
 

@@ -43,11 +43,24 @@ Antigravity    ✅ 1.5.17                  ✅ logado       ⚠️ conectar
 - Instaladores que não mexem no PATH da janela atual (ex.: Antigravity) são achados nas pastas padrão deles.
 - `GET /equipe` no servidor devolve a mesma detecção em JSON.
 
+## Escolha de modelo
+
+A coordenação escolhe o modelo de cada tarefa (`criar_tarefa` com `modelo`).
+O catálogo fica em `agents/clis.json` → `modelos`, com apelidos:
+
+| IA | Apelidos |
+|---|---|
+| Claude | `opus` (topo), `sonnet` (médio), `haiku` (rápido/barato) |
+| Antigravity | `carbon` (topo), `neon` (médio-alto), `hydrogen` (rápido/barato), `argon` (antigo) |
+
+O runner (próxima etapa) roda a tarefa com esse modelo. Confira os ids exatos com `/model` no `agy`.
+
 ## Ferramentas que cada IA ganha
 
 | Ferramenta | Pra quê |
 |---|---|
-| `criar_tarefa` | Cria/delega uma tarefa (`para: "gemini"`) |
+| `criar_tarefa` | Cria/delega uma tarefa (`para: "antigravity"`, `modelo: "carbon"`) |
+| `modelos_equipe` | Modelos que cada IA pode usar (nível, custo, velocidade, quando usar) |
 | `listar_tarefas` | Vê o quadro |
 | `pegar_tarefa` | Assume uma tarefa (atômico, ninguém pega duas vezes) |
 | `entregar_tarefa` | Entrega o resultado pra quem pediu |

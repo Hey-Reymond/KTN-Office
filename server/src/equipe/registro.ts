@@ -17,6 +17,8 @@ export interface ConfigCli {
   /** Argumentos pra escolher o modelo. Use {modelo}. */
   modelo?: string[];
   modeloPadrao?: string;
+  /** Catálogo de modelos que o plano libera. A chave é o apelido (ex.: "carbon"). */
+  modelos?: Record<string, InfoModelo>;
   /** Argumentos extras pra saída estruturada (ex.: JSON com uso de tokens). */
   saidaJson?: string[];
   leitorSaida?: "texto" | "claude-json";
@@ -37,7 +39,23 @@ export interface ConfigCli {
   ativo?: boolean;
 }
 
+export interface InfoModelo {
+  /** Nome que o CLI entende em -m/--model. */
+  id: string;
+  nivel?: string;
+  custo?: string;
+  velocidade?: string;
+  quando?: string;
+}
+
 export type Registro = Record<string, ConfigCli>;
+
+/** Converte apelido ("carbon") no id do CLI ("gemini-4-carbon"). Id desconhecido passa direto. */
+export function resolverModelo(cfg: ConfigCli, modelo?: string): string | undefined {
+  const m = modelo ?? cfg.modeloPadrao;
+  if (!m) return undefined;
+  return cfg.modelos?.[m]?.id ?? m;
+}
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 export const ARQ_PADRAO = process.env.KTN_CLIS ?? path.join(RAIZ, "agents", "clis.json");

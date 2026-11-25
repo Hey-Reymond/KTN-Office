@@ -10,6 +10,7 @@ export interface Tarefa {
   descricao: string;
   criada_por: string;
   para: string | null; // null = qualquer agente pode pegar
+  modelo: string | null; // modelo sugerido pela coordenação (ex.: "carbon", "haiku")
   status: StatusTarefa;
   responsavel: string | null;
   resultado: string | null;
@@ -66,6 +67,9 @@ export function abrirBanco(arquivo = process.env.KTN_DB ?? path.resolve("office.
       atualizada_em TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+  // Migração: bancos da fase 1 não têm a coluna "modelo".
+  const colunas = db.prepare(`PRAGMA table_info(tarefas)`).all() as { name: string }[];
+  if (!colunas.some((c) => c.name === "modelo")) db.exec(`ALTER TABLE tarefas ADD COLUMN modelo TEXT`);
   return db;
 }
 
@@ -84,13 +88,20 @@ export class Escritorio {
       .run(agente);
   }
 
-  criarTarefa(criadaPor: string, titulo: string, descricao: string, para: string | null): Tarefa {
+  criarTarefa(
+    criadaPor: string,
+    titulo: string,
+    descricao: string,
+    para: string | null,
+    modelo: string | null = null,
+  ): Tarefa {
     const info = this.db
-      .prepare(`INSERT INTO tarefas (titulo, descricao, criada_por, para) VALUES (?, ?, ?, ?)`)
-      .run(titulo, descricao, criadaPor, para);
+      .prepare(`INSERT INTO tarefas (titulo, descricao, criada_por, para, modelo) VALUES (?, ?, ?, ?, ?)`)
+      .run(titulo, descricao, criadaPor, para, modelo);
     const tarefa = this.tarefa(Number(info.lastInsertRowid))!;
     if (para) {
-      this.enviarMensagem(criadaPor, para, `Nova tarefa #${tarefa.id} pra você: ${titulo}`, tarefa.id);
+      const sugestao = modelo ? ` (modelo sugerido: ${modelo})` : "";
+      this.enviarMensagem(criadaPor, para, `Nova tarefa #${tarefa.id} pra você: ${titulo}${sugestao}`, tarefa.id);
     }
     return tarefa;
   }

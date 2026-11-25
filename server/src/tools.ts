@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { Escritorio } from "./db.js";
+import { carregarRegistro } from "./equipe/registro.js";
 
 const json = (dados: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(dados, null, 2) }],
@@ -27,7 +28,18 @@ const INSTRUCOES = `Você é um funcionário do KTN Office, um escritório onde 
 - Para pedir algo a outra IA, use criar_tarefa com "para" = nome dela; depois acompanhe pela caixa.
 - Ao terminar uma tarefa, use entregar_tarefa com um resultado completo e objetivo.
 - Guarde decisões e contexto útil em escrever_nota, para ninguém gastar tokens repetindo trabalho.
-- Prefira delegar a quem tem a especialidade certa e mais folga de uso.`;
+- Prefira delegar a quem tem a especialidade certa e mais folga de uso.
+- Ao delegar, escolha o modelo (modelos_equipe): o mais barato que dá conta. Modelos de topo só para o que é difícil.`;
+
+/** Valida o modelo contra o catálogo do agente. Agente sem catálogo aceita qualquer nome. */
+function validarModelo(para: string | null, modelo?: string): string | null {
+  if (!modelo) return null;
+  const catalogo = para ? carregarRegistro()[para]?.modelos : undefined;
+  if (catalogo && !(modelo in catalogo) && !Object.values(catalogo).some((m) => m.id === modelo)) {
+    throw new Error(`Modelo "${modelo}" não existe para ${para}. Opções: ${Object.keys(catalogo).join(", ")}`);
+  }
+  return modelo;
+}
 
 export function criarServidor(escritorio: Escritorio, agente: string) {
   const server = new McpServer({ name: "ktn-office", version: "0.1.0" }, { instructions: INSTRUCOES });
@@ -47,10 +59,30 @@ export function criarServidor(escritorio: Escritorio, agente: string) {
         titulo: z.string().min(1).describe("Resumo curto da tarefa"),
         descricao: z.string().default("").describe("O que precisa ser feito, contexto e critério de pronto"),
         para: z.string().optional().describe("Nome da IA que deve fazer (opcional)"),
+        modelo: z
+          .string()
+          .optional()
+          .describe("Modelo que a IA deve usar (ex.: carbon, neon, hydrogen, opus, sonnet, haiku). Veja modelos_equipe."),
       },
     },
-    seguro(({ titulo, descricao, para }: { titulo: string; descricao: string; para?: string }) =>
-      escritorio.criarTarefa(agente, titulo, descricao, para?.trim() || null),
+    seguro(({ titulo, descricao, para, modelo }: { titulo: string; descricao: string; para?: string; modelo?: string }) => {
+      const destino = para?.trim().toLowerCase() || null;
+      return escritorio.criarTarefa(agente, titulo, descricao, destino, validarModelo(destino, modelo?.trim()));
+    }),
+  );
+
+  server.registerTool(
+    "modelos_equipe",
+    {
+      description:
+        "Mostra os modelos que cada IA da equipe pode usar (nível, custo, velocidade, quando usar) e as especialidades. Use antes de delegar.",
+    },
+    seguro(() =>
+      Object.fromEntries(
+        Object.entries(carregarRegistro())
+          .filter(([, c]) => c.ativo !== false)
+          .map(([id, c]) => [id, { especialidades: c.especialidades ?? [], padrao: c.modeloPadrao ?? null, modelos: c.modelos ?? {} }]),
+      ),
     ),
   );
 

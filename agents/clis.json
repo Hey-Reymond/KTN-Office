@@ -32,7 +32,30 @@
       "debugar",
       "arquitetura",
       "revisão de código"
-    ]
+    ],
+    "modelos": {
+      "opus": {
+        "id": "opus",
+        "nivel": "topo",
+        "custo": "alto",
+        "velocidade": "lento",
+        "quando": "arquitetura, bugs difíceis, código crítico"
+      },
+      "sonnet": {
+        "id": "sonnet",
+        "nivel": "médio",
+        "custo": "médio",
+        "velocidade": "médio",
+        "quando": "código do dia a dia, refatoração"
+      },
+      "haiku": {
+        "id": "haiku",
+        "nivel": "básico",
+        "custo": "baixo",
+        "velocidade": "rápido",
+        "quando": "tarefas simples, resumos, formatação"
+      }
+    }
   },
   "antigravity": {
     "nome": "Antigravity CLI",
@@ -64,7 +87,39 @@
       "pesquisa na web",
       "analisar disassembly e logs longos",
       "vídeos e transcrição"
-    ]
+    ],
+    "modelos": {
+      "carbon": {
+        "id": "gemini-4-carbon",
+        "nivel": "topo",
+        "custo": "alto",
+        "velocidade": "lento",
+        "quando": "problemas mais difíceis e projetos longos"
+      },
+      "neon": {
+        "id": "gemini-4-neon",
+        "nivel": "médio-alto",
+        "custo": "médio",
+        "velocidade": "rápido",
+        "quando": "análise profunda e código, quando o hydrogen não dá conta"
+      },
+      "hydrogen": {
+        "id": "gemini-4-hydrogen",
+        "nivel": "básico",
+        "custo": "baixo",
+        "velocidade": "muito rápido",
+        "quando": "tarefas do dia a dia, pesquisa simples"
+      },
+      "argon": {
+        "id": "gemini-4-argon",
+        "nivel": "antigo",
+        "custo": "médio",
+        "velocidade": "médio",
+        "quando": "evitar: substituído pelo neon"
+      }
+    },
+    "modeloPadrao": "neon",
+    "_notaModelos": "Confira os ids exatos com /model dentro do agy e ajuste 'id' se precisar."
   },
   "codex": {
     "nome": "Codex CLI",
