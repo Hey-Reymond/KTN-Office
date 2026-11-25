@@ -38,6 +38,7 @@ Antigravity    ✅ 1.5.17                  ✅ logado       ⚠️ conectar
 
 - CLIs conhecidos ficam em `agents/clis.json`; os seus (caminhos, CLIs novos) em `agents/clis.custom.json` (fora do git).
 - O login é feito por você, no próprio CLI. O KTN Office nunca lê arquivos de credencial: só confere se a pasta de config existe.
+- `conectar` também libera **só as ferramentas do office** (Claude: `mcp__office`; Antigravity: `mcp(office/*)`), pra não pedir confirmação a cada chamada. Use `--sem-liberar` pra aprovar na mão.
 - Antes de mexer em arquivos de configuração (`mcp_config.json`, `settings.json`), é feito um backup (`.bak`).
 - Instaladores que não mexem no PATH da janela atual (ex.: Antigravity) são achados nas pastas padrão deles.
 - `GET /equipe` no servidor devolve a mesma detecção em JSON.

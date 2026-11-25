@@ -70,6 +70,48 @@ function gravarOfficeNoJson(arq: string, entrada: Record<string, string>) {
   writeFileSync(arq, JSON.stringify(dados, null, 2) + "\n");
 }
 
+/** Adiciona uma regra em permissions.allow de um settings.json (sem duplicar, com backup). */
+export function liberarNoSettings(arq: string, regra: string): boolean {
+  mkdirSync(path.dirname(arq), { recursive: true });
+  let dados: Record<string, any> = {};
+  if (existsSync(arq)) {
+    const bruto = readFileSync(arq, "utf8");
+    try {
+      dados = lerJsonTolerante(arq);
+    } catch {
+      throw new Error(`${arq} não é um JSON válido. Corrija o arquivo antes de liberar as ferramentas.`);
+    }
+    writeFileSync(arq + ".bak", bruto);
+  }
+  const permissoes = (dados.permissions ??= {});
+  const allow: string[] = Array.isArray(permissoes.allow) ? permissoes.allow : [];
+  if (allow.includes(regra)) return false;
+  permissoes.allow = [...allow, regra];
+  writeFileSync(arq, JSON.stringify(dados, null, 2) + "\n");
+  return true;
+}
+
+/**
+ * Libera todas as ferramentas do "office" no CLI, pra ele não pedir confirmação a cada chamada.
+ * Só afeta o servidor local do escritório; o resto das permissões continua como estava.
+ */
+export function liberarFerramentasOffice(cfg: ConfigCli): string | null {
+  switch (cfg.conexaoOffice) {
+    case "claude-mcp": {
+      const arq = path.join(os.homedir(), ".claude", "settings.json");
+      liberarNoSettings(arq, "mcp__office");
+      return `Ferramentas do office liberadas no Claude (${arq})`;
+    }
+    case "antigravity-mcp": {
+      const arq = path.join(os.homedir(), ".gemini", "antigravity-cli", "settings.json");
+      liberarNoSettings(arq, "mcp(office/*)");
+      return `Ferramentas do office liberadas no Antigravity (${arq})`;
+    }
+    default:
+      return null;
+  }
+}
+
 /** Liga o CLI ao servidor do escritório. */
 export async function conectarAoOffice(id: string, cfg: ConfigCli, caminho: string): Promise<string> {
   const url = URL_OFFICE(id);

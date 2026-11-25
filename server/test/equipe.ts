@@ -78,7 +78,7 @@ Object.assign(process.env, {
 
 const { detectarEquipe, detectarUm } = await import("../src/equipe/detectar.js");
 const { carregarRegistro, salvarCustom } = await import("../src/equipe/registro.js");
-const { conectarAoOffice, planejarInstalacao } = await import("../src/equipe/instalar.js");
+const { conectarAoOffice, planejarInstalacao, liberarFerramentasOffice } = await import("../src/equipe/instalar.js");
 const { CliAgent } = await import("../src/equipe/funcionario.js");
 
 try {
@@ -131,6 +131,20 @@ try {
   assert.equal(planoAgy.comando, process.platform === "win32" ? "powershell" : "bash");
   const r2 = await new CliAgent("fakeagy", reg.fakeagy).trabalhar("ola");
   assert.equal(r2.texto, "eco(padrao): ola");
+
+  // 2c. Liberar ferramentas do office: preserva regras existentes e não duplica
+  const setAgy = path.join(home, ".gemini", "antigravity-cli", "settings.json");
+  mkdirSync(path.dirname(setAgy), { recursive: true });
+  writeFileSync(setAgy, JSON.stringify({ theme: "x", permissions: { allow: ["mcp(docs/*)"], deny: ["shell(rm *)"] } }));
+  liberarFerramentasOffice(reg.fakeagy);
+  liberarFerramentasOffice(reg.fakeagy);
+  const sa = JSON.parse(readFileSync(setAgy, "utf8"));
+  assert.deepEqual(sa.permissions.allow, ["mcp(docs/*)", "mcp(office/*)"]);
+  assert.deepEqual(sa.permissions.deny, ["shell(rm *)"], "não mexe nas regras de bloqueio");
+  assert.equal(sa.theme, "x");
+  liberarFerramentasOffice(reg.fakeclaude);
+  const sc = JSON.parse(readFileSync(path.join(home, ".claude", "settings.json"), "utf8"));
+  assert.deepEqual(sc.permissions.allow, ["mcp__office"]);
 
   // 3. Plano de instalação não executa nada, só descreve
   const plano = planejarInstalacao(reg.ausente);

@@ -2,13 +2,13 @@
  * Gerencia a equipe pelo terminal.
  *   npm run equipe                       detecta os CLIs
  *   npm run equipe -- instalar gemini    instala (pede confirmação)
- *   npm run equipe -- conectar gemini    liga ao escritório
+ *   npm run equipe -- conectar antigravity   liga ao escritório e libera as ferramentas do office
  *   npm run equipe -- caminho claude "C:\tools\claude.cmd"
  *   npm run equipe -- adicionar          cadastra um CLI novo (perguntas)
  */
 import { createInterface } from "node:readline/promises";
 import { acharNoPath, detectarEquipe, detectarUm, localizar, type Deteccao } from "./detectar.js";
-import { conectarAoOffice, executarInstalacao, planejarInstalacao } from "./instalar.js";
+import { conectarAoOffice, executarInstalacao, liberarFerramentasOffice, planejarInstalacao } from "./instalar.js";
 import { carregarRegistro, salvarCustom, type ConexaoOffice } from "./registro.js";
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -59,6 +59,9 @@ async function conectar(id: string) {
   const caminho = localizar(cfg);
   if (!caminho) return console.log(`${cfg.nome} não está instalado.`);
   console.log(await conectarAoOffice(id, cfg, caminho));
+  if (process.argv.includes("--sem-liberar")) return;
+  const liberado = liberarFerramentasOffice(cfg);
+  if (liberado) console.log(`${liberado}\n(Use --sem-liberar se preferir aprovar cada ferramenta na mão.)`);
 }
 
 async function definirCaminho(id: string, caminho: string) {
