@@ -262,6 +262,13 @@
     .sugestoes, .duasColunas { grid-template-columns: 1fr; }
     .modelo { grid-template-columns: 22px 1fr; } .modelo .desc, .modelo .selo { grid-column: 2; }
   }
+[hidden] { display: none !important; }
+.compositor { position: relative; }
+.menuReceitas { position: absolute; bottom: calc(100% - 6px); left: 0; z-index: 20; width: min(420px, 100%); max-height: 360px; overflow: auto; padding: 6px; border: 1px solid var(--borda); border-radius: 12px; background: var(--fundo-2, var(--fundo)); box-shadow: 0 12px 32px rgba(0,0,0,.25); }
+.menuReceitas button { display: block; width: 100%; text-align: left; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: inherit; cursor: pointer; font: inherit; }
+.menuReceitas button:hover, .menuReceitas button:focus-visible { background: var(--hover, rgba(127,127,127,.12)); }
+.menuReceitas small { display: block; color: var(--fraco); font-size: 12px; }
+.menuReceitas hr { border: 0; border-top: 1px solid var(--borda); margin: 6px 0; }
 .anexosPendentes { display: flex; flex-wrap: wrap; gap: 6px; }
 .anexosPendentes:not(:empty) { padding: 2px 2px 8px; }
 .chipAnexo { display: inline-flex; align-items: center; gap: 6px; max-width: 240px; padding: 4px 6px 4px 10px; border: 1px solid var(--borda); border-radius: 8px; background: var(--superficie-2, transparent); font-size: 12.5px; }
@@ -284,6 +291,7 @@
   <symbol id="i-enviar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
   <symbol id="i-equipe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.5 3-5.5 6-5.5s5.4 2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14.5c2.4.2 4 1.9 4.5 4.5"/></symbol>
+  <symbol id="i-receita" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1z"/><path d="M8 6H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-2"/><path d="M9 12h6M9 16h4"/></symbol>
   <symbol id="i-clipe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21 11-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6L15 6.6"/></symbol>
   <symbol id="i-pasta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
   <symbol id="i-globo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.4 3.6 5.2 3.6 8.5s-1.1 6.1-3.6 8.5c-2.5-2.4-3.6-5.2-3.6-8.5s1.1-6.1 3.6-8.5z"/></symbol>
@@ -322,10 +330,12 @@
     <div class="rolagem" id="rolagem"><div class="fio" id="fio"></div></div>
     <div class="faixaProjeto" id="faixaProjeto"></div>
     <form class="compositor" id="formChat">
+      <div class="menuReceitas" id="menuReceitas" role="menu" hidden></div>
       <div class="caixaTexto" id="caixaTexto">
         <div class="anexosPendentes" id="anexosPendentes"></div>
         <textarea id="texto" rows="1" placeholder="Peça algo pra equipe…" aria-label="Mensagem"></textarea>
         <div class="linhaAcoes">
+          <button class="botaoIcone" type="button" id="btnReceitas" title="Receitas: pedidos prontos com a divisão de papéis" aria-label="Receitas" aria-haspopup="menu"><svg><use href="#i-receita"/></svg></button>
           <button class="botaoIcone" type="button" id="btnAnexar" title="Anexar arquivos (ou arraste / cole aqui)" aria-label="Anexar arquivos"><svg><use href="#i-clipe"/></svg></button>
           <input type="file" id="arquivo" multiple hidden>
           <span id="paraQuem"></span>
@@ -376,6 +386,7 @@
       <button role="tab" data-painel="equipe" aria-selected="true"><svg><use href="#i-equipe"/></svg>Equipe e modelos</button>
       <button role="tab" data-painel="ferramentas" aria-selected="false"><svg><use href="#i-globo"/></svg>Ferramentas</button>
       <button role="tab" data-painel="expediente" aria-selected="false"><svg><use href="#i-relogio"/></svg>Expediente</button>
+      <button role="tab" data-painel="receitas" aria-selected="false"><svg><use href="#i-receita"/></svg>Receitas</button>
       <button role="tab" data-painel="quadro" aria-selected="false"><svg><use href="#i-quadro"/></svg>Quadro de tarefas</button>
       <button role="tab" data-painel="bastidores" aria-selected="false"><svg><use href="#i-bastidores"/></svg>Bastidores</button>
     </nav>
@@ -445,6 +456,17 @@
         <h3>Quadro de tarefas</h3>
         <p class="sub">Todas as tarefas, de todos os chats, da mais recente para a mais antiga.</p>
         <div id="tarefas"></div>
+      </section>
+      <section data-conteudo="receitas" hidden>
+        <h3>Receitas</h3>
+        <p class="sub">Pedidos prontos que já dizem como dividir o trabalho. Use pelo ícone de prancheta no chat. Texto entre «» é o que você completa na hora.</p>
+        <div id="listaReceitas"></div>
+        <form class="membroCfg" id="formReceita" style="margin-top:14px">
+          <div class="campo"><label for="rcNome">Nome</label><input id="rcNome" placeholder="ex.: Revisar PR" maxlength="60"></div>
+          <div class="campo"><label for="rcDesc">Descrição curta (opcional)</label><input id="rcDesc" maxlength="80"></div>
+          <div class="campo"><label for="rcTexto">Pedido</label><textarea id="rcTexto" rows="6" placeholder="Revise «link do PR».&#10;&#10;Divisão sugerida:&#10;- uma IA…&#10;- outra…"></textarea></div>
+          <button class="btn primario" type="submit">Salvar receita</button>
+        </form>
       </section>
       <section data-conteudo="bastidores" hidden>
         <h3>Bastidores</h3>
@@ -686,10 +708,7 @@ function boasVindas(equipe) {
     <h2>O que a equipe vai fazer hoje?</h2>
     <p>Você fala com a coordenadora. Ela divide o trabalho entre ${equipe.length > 1 ? `as ${equipe.length} IAs da equipe` : "a equipe"} e junta tudo no final.</p>
     <div class="sugestoes">
-      <button data-sugestao="Leia o README do projeto na pasta de trabalho e me diga, em 5 tópicos, o que ele faz e o que falta.">Entender um projeto<small>Resumo e o que falta fazer</small></button>
-      <button data-sugestao="Revise o código da pasta de trabalho e liste os 5 problemas mais importantes, com a correção sugerida.">Revisar código<small>Problemas e correções</small></button>
-      <button data-sugestao="Pesquise as opções e me traga uma comparação com prós, contras e uma recomendação.">Pesquisar e comparar<small>Com recomendação no final</small></button>
-      <button data-sugestao="Crie uma página HTML simples e bonita para apresentar o projeto, salvando como index.html na pasta de trabalho.">Criar algo do zero<small>Do plano ao arquivo pronto</small></button>
+      ${(estado?.receitas || []).slice(0, 6).map((r) => `<button data-receita="${esc(r.id)}">${esc(r.nome)}<small>${esc(r.descricao || "")}</small></button>`).join("")}
     </div></div>`;
 }
 
@@ -721,6 +740,7 @@ function seloCota(c) {
 }
 function renderConfig() {
   const e = estado; if (!e || editandoCfg) return;
+  desenharReceitas();
   // Equipe e modelos
   $("#equipe").innerHTML = e.equipe.map((d) => {
     const cat = e.modelos.find((c) => c.cli === d.id);
@@ -854,7 +874,52 @@ $("#formChat").addEventListener("submit", async (ev) => {
     await atualizar(); $("#rolagem").scrollTop = 1e9;
   } catch (e) { avisar(e.message); ajustarAltura(); }
 });
+function usarReceita(id) {
+  const r = (estado?.receitas || []).find((x) => x.id === id); if (!r) return;
+  texto.value = r.texto; ajustarAltura(); texto.focus();
+  const ini = r.texto.indexOf("«"), fim = r.texto.indexOf("»", ini);
+  if (ini >= 0 && fim > ini) texto.setSelectionRange(ini, fim + 1); // já seleciona o primeiro campo para completar
+  $("#menuReceitas").hidden = true;
+}
+$("#btnReceitas").addEventListener("click", () => {
+  const m = $("#menuReceitas");
+  if (!m.hidden) { m.hidden = true; return; }
+  m.innerHTML = (estado?.receitas || []).map((r) => `<button type="button" role="menuitem" data-receita="${esc(r.id)}">${esc(r.nome)}<small>${esc(r.descricao || "")}</small></button>`).join("")
+    + `<hr><button type="button" role="menuitem" id="rcSalvarAtual">Salvar o texto atual como receita<small>Para reusar depois</small></button>`;
+  m.hidden = false; m.querySelector("button")?.focus();
+});
+$("#menuReceitas").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("button"); if (!b) return;
+  if (b.dataset.receita) return usarReceita(b.dataset.receita);
+  if (b.id === "rcSalvarAtual") {
+    $("#menuReceitas").hidden = true;
+    if (!texto.value.trim()) return avisar("Escreva o pedido no chat primeiro.");
+    const nomeR = prompt("Nome da receita:"); if (!nomeR) return;
+    try { await api("receita", { nome: nomeR, texto: texto.value }); avisar("Receita salva."); } catch (e) { avisar(e.message); }
+    atualizar();
+  }
+});
+document.addEventListener("click", (ev) => { if (!ev.target.closest("#menuReceitas, #btnReceitas")) $("#menuReceitas").hidden = true; });
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") $("#menuReceitas").hidden = true; });
+function desenharReceitas() {
+  const lista = estado?.receitas || [];
+  $("#listaReceitas").innerHTML = lista.map((r) => `<div class="membroCfg"><div class="cab"><span class="nome">${esc(r.nome)}</span><span class="selos">${r.propria ? `<span class="selo acento">sua</span>` : `<span class="selo">pronta</span>`}</span>
+    <span class="direita">${r.propria ? `<button class="btn pequeno" data-rc-editar="${esc(r.id)}">Editar</button><button class="btn pequeno" data-rc-apagar="${esc(r.id)}">Apagar</button>` : `<button class="btn pequeno" data-rc-editar="${esc(r.id)}">Copiar e editar</button>`}</span></div>
+    <div style="color:var(--fraco);font-size:12.5px">${esc(r.descricao || r.texto.slice(0, 120))}</div></div>`).join("");
+}
+$("#listaReceitas").addEventListener("click", async (ev) => {
+  const ed = ev.target.closest("[data-rc-editar]"); const ap = ev.target.closest("[data-rc-apagar]");
+  if (ed) { const r = estado.receitas.find((x) => x.id === ed.dataset.rcEditar); $("#rcNome").value = r.propria ? r.nome : r.nome + " (minha)"; $("#rcDesc").value = r.descricao || ""; $("#rcTexto").value = r.texto; $("#rcNome").focus(); }
+  if (ap && confirm("Apagar esta receita?")) { try { await api("receita/apagar", { id: ap.dataset.rcApagar }); } catch (e) { avisar(e.message); } atualizar(); }
+});
+$("#formReceita").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  try { await api("receita", { nome: $("#rcNome").value, descricao: $("#rcDesc").value, texto: $("#rcTexto").value }); avisar("Receita salva."); $("#formReceita").reset(); editandoCfg = false; } catch (e) { avisar(e.message); }
+  atualizar();
+});
+for (const id of ["#rcNome", "#rcDesc", "#rcTexto"]) $(id).addEventListener("focus", () => (editandoCfg = true));
 $("#fio").addEventListener("click", (ev) => {
+  const rc = ev.target.closest("[data-receita]"); if (rc) return usarReceita(rc.dataset.receita);
   const s = ev.target.closest("[data-sugestao]"); if (!s) return;
   texto.value = s.dataset.sugestao; ajustarAltura(); texto.focus();
 });
@@ -895,6 +960,7 @@ $("#agTipo").addEventListener("change", campoAgenda);
 function desenharAgenda() {
   if (!estado) return;
   const lista = (estado.agendamentos || []).filter((a) => !conversaAtual || a.conversa_id === conversaAtual);
+  $("#formAgenda").hidden = !conversaAtual;
   $("#listaAgenda").innerHTML = lista.length ? lista.map((a) => `<div class="membroCfg ${a.ativo ? "" : "off"}">
       <div style="font-weight:600">${esc(a.texto)}</div>
       <div style="color:var(--fraco);font-size:12.5px;margin:4px 0 8px">${esc(a.quando)}${a.ativo && a.proxima ? ` · próxima: ${new Date(a.proxima).toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : " · pausado"}</div>

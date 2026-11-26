@@ -90,6 +90,12 @@ pega tarefas, conversa pelo escritório e lê/escreve arquivos **só dentro da p
 
 As chaves ficam em `~/KTN-Office-dados/chaves-api.json`, fora da pasta do projeto (nunca vão pro git).
 
+### Receitas
+Pedidos prontos que já dizem como dividir o trabalho: Revisar código, Nova funcionalidade, Corrigir bug,
+Pesquisar e comparar, Documentar projeto e Estudar para prova. Ficam na tela inicial e no ícone de prancheta
+do chat; o texto entre «» já vem selecionado para você completar. Crie as suas em Configurações → Receitas
+(ou "Salvar o texto atual como receita"). As suas ficam em `~/KTN-Office-dados/receitas.json`.
+
 ### Agenda
 Aba **Agenda** no painel da direita, ou peça no chat ("todo dia às 9h resuma os commits"):
 todo dia, dias da semana, a cada X minutos (mínimo 15) ou uma vez. Na hora, o pedido entra no chat

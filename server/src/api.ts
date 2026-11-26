@@ -12,6 +12,7 @@ import { aplicarNoProjeto, ehRepositorio, limparWorktrees } from "./git.js";
 import { pastaDoChat } from "./integracao.js";
 import { salvarAnexos, textoAnexos } from "./anexos.js";
 import { descrever, dispararUm } from "./agenda.js";
+import { apagarReceita, listarReceitas, salvarReceita } from "./receitas.js";
 import { salvarCustom } from "./equipe/registro.js";
 import { chaveDe, listarModelosApi, PROVEDORES, salvarChave } from "./equipe/apis.js";
 import { enviarNtfy, type ConfigNotificacoes } from "./notificar.js";
@@ -72,6 +73,7 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       revisaoCruzada: escritorio.lerConfig("revisaoCruzada", true),
       notificacoes: escritorio.lerConfig<ConfigNotificacoes>("notificacoes", {}),
       provedores: PROVEDORES,
+      receitas: listarReceitas(),
       agendamentos: escritorio.listarAgendamentos().map((a) => ({ ...a, quando: descrever(a) })),
       projetos: escritorio.listarProjetos(15),
       foraDaEquipe: escritorio.lerConfig<string[]>("foraDaEquipe", []),
@@ -152,6 +154,10 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       if (!ok) throw new Error("Não consegui enviar. Confira o tópico e a internet.");
     }),
   );
+  // ---------- Receitas ----------
+  api.post("/receita", protegido, tentar((req) => salvarReceita(req.body ?? {})));
+  api.post("/receita/apagar", protegido, tentar((req) => apagarReceita(String(req.body?.id ?? ""))));
+
   // ---------- Agenda ----------
   api.post("/agendamento", protegido, tentar((req) => {
     const b = req.body ?? {};
