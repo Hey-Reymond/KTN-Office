@@ -1,3 +1,4 @@
+import { ligarNotificacoes } from "./notificar.js";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { Request, Response } from "express";
@@ -19,6 +20,7 @@ function nomeDoAgente(req: Request): string | null {
 const app = createMcpExpressApp(); // escuta só em 127.0.0.1, com proteção contra DNS rebinding
 const runner = new Runner(escritorio);
 montarApi(app, escritorio, runner);
+ligarNotificacoes(escritorio);
 
 // Modo sem sessão: cada requisição cria um servidor leve; o estado fica todo no SQLite.
 app.post("/mcp", async (req: Request, res: Response) => {

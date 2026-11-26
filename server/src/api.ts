@@ -11,6 +11,7 @@ import { aplicarFerramenta, catalogoFerramentas, estadoFerramentas, navegadoresI
 import { aplicarNoProjeto, ehRepositorio, limparWorktrees } from "./git.js";
 import { pastaDoChat } from "./integracao.js";
 import { salvarAnexos, textoAnexos } from "./anexos.js";
+import { enviarNtfy, type ConfigNotificacoes } from "./notificar.js";
 import { existsSync, statSync } from "node:fs";
 import { apagarMemoria, arquivoMemoria, escreverMemoria, lerMemoria } from "./memoria.js";
 
@@ -66,6 +67,7 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       teste,
       runner: runner.estado(),
       revisaoCruzada: escritorio.lerConfig("revisaoCruzada", true),
+      notificacoes: escritorio.lerConfig<ConfigNotificacoes>("notificacoes", {}),
       projetos: escritorio.listarProjetos(15),
       foraDaEquipe: escritorio.lerConfig<string[]>("foraDaEquipe", []),
       ferramentas: {
@@ -126,6 +128,25 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
     }),
   );
 
+  api.post(
+    "/notificacoes",
+    protegido,
+    tentar((req) => {
+      const topico = String(req.body?.ntfyTopico ?? "").trim();
+      const servidor = String(req.body?.ntfyServidor ?? "").trim();
+      if (topico && !/^[\w-]{6,64}$/.test(topico)) throw new Error("Tópico do ntfy: use de 6 a 64 letras, números, - ou _ (difícil de adivinhar, ele é público).");
+      if (servidor && !/^https?:\/\//.test(servidor)) throw new Error("Servidor do ntfy deve começar com https://");
+      escritorio.gravarConfig("notificacoes", { ntfyTopico: topico || undefined, ntfyServidor: servidor || undefined });
+    }),
+  );
+  api.post(
+    "/notificacoes/testar",
+    protegido,
+    tentar(async () => {
+      const ok = await enviarNtfy(escritorio.lerConfig<ConfigNotificacoes>("notificacoes", {}), "KTN Office", "Teste: os avisos estão chegando no celular.");
+      if (!ok) throw new Error("Não consegui enviar. Confira o tópico e a internet.");
+    }),
+  );
   api.post("/cota/limite", protegido, tentar((req) => escritorio.definirLimite5h(String(req.body?.cli), Number(req.body?.limite) || null)));
   api.post("/cota/liberar", protegido, tentar((req) => escritorio.marcarSemCota(String(req.body?.cli), null)));
   api.post(

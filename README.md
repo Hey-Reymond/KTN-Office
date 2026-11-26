@@ -61,6 +61,10 @@ branch `ktn/projN-ia-tN`). Assim as IAs editam ao mesmo tempo sem atrapalhar uma
 4. você clica em **Aplicar no meu projeto** (git merge na sua branch atual). Seu projeto nunca muda antes disso.
 **Limpar cópias** remove as pastas temporárias (as branches ficam).
 
+### Notificações
+- **No PC:** em Configurações → Expediente, ligue "Avisar nesta tela". Respostas, projetos concluídos e pedidos de permissão viram notificação do sistema quando você está em outra janela. A aba mostra `(N)` quando há permissão esperando.
+- **No celular:** instale o app **ntfy**, assine um tópico difícil de adivinhar e coloque o mesmo tópico no Office. Pedidos de permissão chegam com prioridade alta.
+
 ### Cota real
 - O Office lê a cota que o CLI informa na saída (Codex e Claude mostram % usado e quando renova).
 - Se a IA bater no limite do plano, ela fica **sem cota** até renovar (lê "try again in 2 hours" e afins). Isso não conta como falha: você é avisado e a coordenadora repassa as tarefas dela.

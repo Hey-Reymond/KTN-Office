@@ -201,8 +201,21 @@ export function abrirBanco(arquivo = process.env.KTN_DB ?? path.resolve("office.
 export type Banco = ReturnType<typeof abrirBanco>;
 
 /** Camada de acesso ao escritório. Toda regra de negócio fica aqui, fora do MCP. */
+export interface AvisoHumano { titulo: string; texto: string; urgente: boolean }
+
 export class Escritorio {
   constructor(private db: Banco) {}
+
+  private ouvintes: ((a: AvisoHumano) => void)[] = [];
+  /** Quem quer saber quando o humano precisa ser avisado (ntfy, app de desktop…). */
+  aoAvisarHumano(fn: (a: AvisoHumano) => void) {
+    this.ouvintes.push(fn);
+  }
+  private avisarHumano(a: AvisoHumano) {
+    for (const fn of this.ouvintes) {
+      try { fn(a); } catch { /* aviso nunca quebra o escritório */ }
+    }
+  }
 
   registrarPresenca(agente: string) {
     this.db
@@ -314,7 +327,9 @@ export class Escritorio {
     const info = this.db
       .prepare(`INSERT INTO mensagens (de, para, texto, tarefa_id, conversa_id) VALUES (?, ?, ?, ?, ?)`)
       .run(de, para, texto, tarefaId, conversa);
-    return this.db.prepare(`SELECT * FROM mensagens WHERE id = ?`).get(info.lastInsertRowid) as Mensagem;
+    const m = this.db.prepare(`SELECT * FROM mensagens WHERE id = ?`).get(info.lastInsertRowid) as Mensagem;
+    if (para === "humano") this.avisarHumano({ titulo: de === "escritorio" ? "KTN Office" : `${de} respondeu`, texto, urgente: false });
+    return m;
   }
 
   // ---------- Chats (conversas com o humano) ----------
@@ -734,6 +749,7 @@ export class Escritorio {
       .prepare(`INSERT INTO permissoes (agente, ferramenta, detalhe, tipo, tarefa_id) VALUES (?, ?, ?, ?, ?)`)
       .run(agente, ferramenta, detalhe.slice(0, 2000), tipo, tarefaId);
     this.registrarEvento(agente, "permissao", `${agente} pediu permissão: ${ferramenta}. ${detalhe.slice(0, 200)}`);
+    this.avisarHumano({ titulo: `${agente} pede permissão`, texto: `${ferramenta}: ${detalhe.slice(0, 300)}\nAbra o KTN Office para responder.`, urgente: true });
     return this.pedido(Number(info.lastInsertRowid))!;
   }
 
