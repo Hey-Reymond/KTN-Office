@@ -65,6 +65,9 @@ writeFileSync(
       instalar: { windows: "irm https://exemplo/install.ps1 | iex", unix: "curl -fsSL https://exemplo/install.sh | bash",
         caminhosExtras: ["~/AppData/Local/fakeagy/bin"] },
     },
+    fakecodex: {
+      nome: "Fake Codex", executavel: "fakeclaude", prompt: ["exec", "{prompt}"], conexaoOffice: "codex-mcp",
+    },
     ausente: { nome: "Ausente", executavel: "nao-existe-xyz", prompt: ["-p", "{prompt}"], instalar: { npm: "x" } },
   }),
 );
@@ -112,6 +115,12 @@ try {
   assert.match(s.mcpServers.office.httpUrl, /agent=fakegemini/);
   assert.ok(existsSync(settings + ".bak"), "faz backup");
   assert.equal((await detectarUm("fakegemini", reg.fakegemini)).office, "conectado");
+
+  // 2a. Codex: codex mcp add office --url ...
+  rmSync(path.join(home, ".fake-mcp"), { force: true });
+  assert.equal((await detectarUm("fakecodex", reg.fakecodex)).office, "nao");
+  await conectarAoOffice("fakecodex", reg.fakecodex, fakeBin);
+  assert.equal((await detectarUm("fakecodex", reg.fakecodex)).office, "conectado");
 
   // 2b. Antigravity: acha fora do PATH e conecta no mcp_config.json global
   const agy = await detectarUm("fakeagy", reg.fakeagy);

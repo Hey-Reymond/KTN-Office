@@ -77,6 +77,11 @@ async function conexaoOffice(id: string, cfg: ConfigCli, caminho: string): Promi
       if (r.estourouTempo) return "desconhecido";
       return r.codigo === 0 && r.stdout.includes(`agent=${id}`) ? "conectado" : "nao";
     }
+    case "codex-mcp": {
+      const r = await rodar(caminho, ["mcp", "get", "office", "--json"], { timeoutMs: 20_000 });
+      if (r.estourouTempo) return "desconhecido";
+      return r.codigo === 0 && r.stdout.includes(`agent=${id}`) ? "conectado" : "nao";
+    }
     case "gemini-settings":
     case "antigravity-mcp": {
       const [arq, campo] =

@@ -155,7 +155,7 @@
       "npm": "@openai/codex"
     },
     "login": "Abra um terminal e rode 'codex login' (entre com sua conta do ChatGPT).",
-    "conexaoOffice": "manual",
+    "conexaoOffice": "codex-mcp",
     "especialidades": [
       "segunda opinião em código",
       "testes"

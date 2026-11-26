@@ -124,6 +124,12 @@ export async function conectarAoOffice(id: string, cfg: ConfigCli, caminho: stri
       if (r.codigo !== 0) throw new Error(`Falhou ao conectar: ${r.stderr || r.stdout}`);
       return `Conectado (claude mcp add office ${url})`;
     }
+    case "codex-mcp": {
+      await rodar(caminho, ["mcp", "remove", "office"], { timeoutMs: 20_000 }); // se existir
+      const r = await rodar(caminho, ["mcp", "add", "office", "--url", url], { timeoutMs: 20_000 });
+      if (r.codigo !== 0) throw new Error(`Falhou ao conectar: ${r.stderr || r.stdout}`);
+      return `Conectado (codex mcp add office --url ${url})`;
+    }
     case "gemini-settings": {
       const arq = path.join(os.homedir(), ".gemini", "settings.json");
       gravarOfficeNoJson(arq, { httpUrl: url });
