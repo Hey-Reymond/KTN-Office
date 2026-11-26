@@ -107,6 +107,28 @@ export function explicarErro(stderr: string, stdout: string, codigo: number | nu
 
 /** Lê saídas JSON de outros CLIs (agy, codex…): procura o texto e o objeto usage nos campos mais comuns. */
 function lerJsonGenerico(stdout: string): Pick<ResultadoTrabalho, "texto" | "tokens"> {
+  // Saída em array de mensagens (ex.: qwen --output-format json): usa a mensagem "result" ou a última com texto.
+  try {
+    const arr = JSON.parse(stdout.trim());
+    if (Array.isArray(arr)) {
+      const fim = [...arr].reverse().find((m) => m?.type === "result" || typeof m?.result === "string");
+      if (fim) return lerJsonGenerico(JSON.stringify(fim));
+    }
+  } catch { /* não é um array único */ }
+  // Eventos NDJSON com pedaços de texto (ex.: opencode run --format json): junta os textos da resposta.
+  const eventos = stdout.trim().split("\n").map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  if (eventos.length > 1 && eventos.every((e: any) => typeof e === "object") && !eventos.some((e: any) => typeof e.result === "string" || typeof e.response === "string")) {
+    const textos = eventos
+      .filter((e: any) => /text/i.test(String(e.type ?? "")) )
+      .map((e: any) => e.part?.text ?? e.text ?? e.content ?? "")
+      .filter((t: unknown) => typeof t === "string" && t);
+    let entrada = 0, saida = 0, temUso = false;
+    for (const e of eventos as any[]) {
+      const t = e.part?.tokens ?? e.tokens ?? e.usage;
+      if (t && typeof t === "object") { temUso = true; entrada += t.input ?? t.input_tokens ?? 0; saida += t.output ?? t.output_tokens ?? 0; }
+    }
+    if (textos.length) return { texto: textos.join(""), tokens: temUso ? { entrada, saida } : undefined };
+  }
   const linhas = stdout.trim().split("\n").reverse();
   for (const linha of [stdout.trim(), ...linhas]) {
     try {

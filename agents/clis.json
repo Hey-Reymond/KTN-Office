@@ -248,6 +248,207 @@
       ]
     }
   },
+  "copilot": {
+    "nome": "GitHub Copilot CLI",
+    "executavel": "copilot",
+    "versao": [
+      "--version"
+    ],
+    "prompt": [
+      "-p",
+      "{prompt}",
+      "-s",
+      "--no-ask-user"
+    ],
+    "modelo": [
+      "--model",
+      "{modelo}"
+    ],
+    "pastaConfig": "~/.copilot",
+    "instalar": {
+      "npm": "@github/copilot"
+    },
+    "login": "Abra um terminal, rode 'copilot' e digite /login (conta do GitHub; Copilot Pro é grátis no GitHub Student).",
+    "conexaoOffice": "json-mcp",
+    "mcpJson": {
+      "arquivo": "~/.copilot/mcp-config.json",
+      "chave": "mcpServers",
+      "entrada": {
+        "type": "http",
+        "url": "{url}",
+        "tools": [
+          "*"
+        ]
+      }
+    },
+    "especialidades": [
+      "vários modelos numa assinatura",
+      "GitHub (issues, PRs, Actions)",
+      "código"
+    ],
+    "leitorSaida": "texto",
+    "_notaModelos": "O Copilot muda os modelos com frequência. Sem modelo, ele usa o padrão da sua conta; para fixar, adicione em 'modelos' o id que aparece em /model.",
+    "niveis": {
+      "leitura": [
+        "--allow-all-tools",
+        "--deny-tool",
+        "write",
+        "--deny-tool",
+        "shell"
+      ],
+      "edicao": [
+        "--allow-all-tools",
+        "--deny-tool",
+        "shell"
+      ],
+      "comandos": [
+        "--allow-all-tools"
+      ]
+    }
+  },
+  "qwen": {
+    "nome": "Qwen Code",
+    "executavel": "qwen",
+    "versao": [
+      "--version"
+    ],
+    "prompt": [
+      "-p",
+      "{prompt}"
+    ],
+    "modelo": [
+      "-m",
+      "{modelo}"
+    ],
+    "saidaJson": [
+      "--output-format",
+      "json"
+    ],
+    "leitorSaida": "json",
+    "pastaConfig": "~/.qwen",
+    "instalar": {
+      "npm": "@qwen-code/qwen-code"
+    },
+    "login": "Abra um terminal, rode 'qwen' e entre com Qwen OAuth (tem cota grátis diária).",
+    "conexaoOffice": "json-mcp",
+    "mcpJson": {
+      "arquivo": "~/.qwen/settings.json",
+      "chave": "mcpServers",
+      "entrada": {
+        "httpUrl": "{url}",
+        "trust": true
+      }
+    },
+    "especialidades": [
+      "código",
+      "cota grátis diária",
+      "tarefas longas de refatoração"
+    ],
+    "niveis": {
+      "leitura": [],
+      "edicao": [
+        "--approval-mode",
+        "auto-edit"
+      ],
+      "comandos": [
+        "--approval-mode",
+        "yolo"
+      ]
+    }
+  },
+  "opencode": {
+    "nome": "OpenCode",
+    "executavel": "opencode",
+    "versao": [
+      "--version"
+    ],
+    "prompt": [
+      "run",
+      "--format",
+      "json",
+      "{extras}",
+      "{modeloArgs}",
+      "{prompt}"
+    ],
+    "modelo": [
+      "--model",
+      "{modelo}"
+    ],
+    "leitorSaida": "json",
+    "pastaConfig": "~/.local/share/opencode",
+    "instalar": {
+      "npm": "opencode-ai"
+    },
+    "login": "Abra um terminal e rode 'opencode auth login' para escolher o provedor (ex.: GitHub Copilot, OpenRouter, Ollama).",
+    "conexaoOffice": "json-mcp",
+    "mcpJson": {
+      "arquivo": "~/.config/opencode/opencode.json",
+      "chave": "mcp",
+      "entrada": {
+        "type": "remote",
+        "url": "{url}",
+        "enabled": true
+      }
+    },
+    "especialidades": [
+      "usa qualquer provedor (inclusive modelos locais)",
+      "código"
+    ],
+    "aviso": "No modo sem interação o OpenCode aprova as ferramentas sozinho; em 'Só ler' o Office usa o agente 'plan' (sem editar).",
+    "_notaModelos": "Modelos no formato provedor/modelo (veja com 'opencode models').",
+    "niveis": {
+      "leitura": [
+        "--agent",
+        "plan"
+      ],
+      "edicao": [],
+      "comandos": []
+    }
+  },
+  "kimi": {
+    "nome": "Kimi Code CLI",
+    "executavel": "kimi",
+    "versao": [
+      "--version"
+    ],
+    "prompt": [
+      "-p",
+      "{prompt}"
+    ],
+    "modelo": [
+      "-m",
+      "{modelo}"
+    ],
+    "leitorSaida": "texto",
+    "pastaConfig": "~/.kimi",
+    "instalar": {
+      "npm": "@moonshot-ai/kimi-code",
+      "windows": "irm https://code.kimi.com/kimi-code/install.ps1 | iex",
+      "unix": "curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash",
+      "caminhosExtras": [
+        "~/.local/bin"
+      ]
+    },
+    "login": "Abra um terminal, rode 'kimi' e use /login (no Windows precisa do Git for Windows instalado).",
+    "conexaoOffice": "json-mcp",
+    "mcpJson": {
+      "arquivo": "~/.kimi/mcp.json",
+      "chave": "mcpServers",
+      "entrada": {
+        "url": "{url}"
+      }
+    },
+    "especialidades": [
+      "código",
+      "contexto longo"
+    ],
+    "aviso": "No modo sem interação o Kimi aprova as ferramentas sozinho; o nível de permissão do Office não consegue limitá-lo.",
+    "niveis": {
+      "leitura": [],
+      "edicao": [],
+      "comandos": []
+    }
+  },
   "gemini": {
     "nome": "Gemini CLI (legado)",
     "executavel": "gemini",

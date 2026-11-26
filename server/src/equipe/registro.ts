@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** Como o KTN Office liga um CLI ao servidor do escritório. */
-export type ConexaoOffice = "claude-mcp" | "codex-mcp" | "gemini-settings" | "antigravity-mcp" | "manual";
+export type ConexaoOffice = "claude-mcp" | "codex-mcp" | "gemini-settings" | "antigravity-mcp" | "json-mcp" | "manual";
 
 /** Descrição de um CLI de IA. Vem de agents/clis.json + agents/clis.custom.json. */
 export interface ConfigCli {
@@ -45,6 +45,10 @@ export interface ConfigCli {
   };
   login?: string;
   conexaoOffice?: ConexaoOffice;
+  /** Para conexaoOffice "json-mcp": em que arquivo e formato o servidor "office" é gravado. {url} vira o endereço. */
+  mcpJson?: { arquivo: string; chave: string; entrada: Record<string, unknown> };
+  /** Aviso mostrado na interface (ex.: CLI que aprova tudo sozinho no modo sem interação). */
+  aviso?: string;
   especialidades?: string[];
   /** false = ignorado na detecção. */
   ativo?: boolean;

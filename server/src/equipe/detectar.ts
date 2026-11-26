@@ -19,6 +19,7 @@ export interface Deteccao {
   podeInstalar: boolean;
   /** true = IA por API (chave ou servidor local), não um programa. */
   api?: boolean;
+  aviso?: string;
   dicaLogin?: string;
   problemas: string[];
 }
@@ -98,6 +99,17 @@ async function conexaoOffice(id: string, cfg: ConfigCli, caminho: string): Promi
         return "desconhecido";
       }
     }
+    case "json-mcp": {
+      if (!cfg.mcpJson) return "manual";
+      try {
+        const arq = expandirHome(cfg.mcpJson.arquivo);
+        if (!existsSync(arq)) return "nao";
+        const office = lerJsonTolerante(arq)?.[cfg.mcpJson.chave]?.office;
+        return JSON.stringify(office ?? "").includes(`agent=${id}`) ? "conectado" : "nao";
+      } catch {
+        return "desconhecido";
+      }
+    }
     default:
       return "manual";
   }
@@ -114,6 +126,7 @@ export async function detectarUm(id: string, cfg: ConfigCli): Promise<Deteccao> 
     office: "desconhecido",
     podeInstalar: !!(cfg.instalar?.npm || cfg.instalar?.windows || cfg.instalar?.unix),
     dicaLogin: cfg.login,
+    aviso: cfg.aviso,
     problemas: [],
   };
 

@@ -61,6 +61,19 @@ branch `ktn/projN-ia-tN`). Assim as IAs editam ao mesmo tempo sem atrapalhar uma
 4. você clica em **Aplicar no meu projeto** (git merge na sua branch atual). Seu projeto nunca muda antes disso.
 **Limpar cópias** remove as pastas temporárias (as branches ficam).
 
+### Mais CLIs
+Além de Claude Code, Antigravity e Codex, o Office reconhece:
+
+| CLI | Instalar | Login | Observação |
+|---|---|---|---|
+| GitHub Copilot CLI | `npm i -g @github/copilot` | `copilot` → `/login` | grátis com GitHub Student (Copilot Pro) |
+| Qwen Code | `npm i -g @qwen-code/qwen-code` | `qwen` → Qwen OAuth | cota grátis diária |
+| OpenCode | `npm i -g opencode-ai` | `opencode auth login` | usa qualquer provedor, até modelos locais |
+| Kimi Code CLI | `npm i -g @moonshot-ai/kimi-code` | `kimi` → `/login` | no Windows precisa do Git for Windows |
+
+Depois de instalar: `npm run equipe -- conectar <id>` (ou o botão na interface).
+OpenCode e Kimi aprovam ferramentas sozinhos no modo sem interação, e a interface avisa isso.
+
 ### IAs por API (chave própria ou local)
 Em Configurações → Equipe → **Adicionar IA por API**: escolha o provedor, cole a chave (se precisar),
 clique em **Buscar modelos**, marque os que quer e coloque na equipe. Ela trabalha igual às outras:

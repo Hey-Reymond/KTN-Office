@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { acharNoPath, ARQ_MCP_ANTIGRAVITY, lerJsonTolerante, URL_OFFICE } from "./detectar.js";
 import { rodar } from "./processo.js";
-import type { ConfigCli } from "./registro.js";
+import { expandirHome, type ConfigCli } from "./registro.js";
 
 export interface PlanoInstalacao {
   possivel: boolean;
@@ -54,7 +54,7 @@ export async function executarInstalacao(plano: PlanoInstalacao, aoReceber?: (t:
 }
 
 /** Coloca o servidor "office" num arquivo JSON de MCP, preservando o resto e fazendo backup. */
-function gravarOfficeNoJson(arq: string, entrada: Record<string, string>) {
+function gravarOfficeNoJson(arq: string, entrada: Record<string, unknown>, chave = "mcpServers") {
   mkdirSync(path.dirname(arq), { recursive: true });
   let dados: Record<string, any> = {};
   if (existsSync(arq)) {
@@ -66,7 +66,7 @@ function gravarOfficeNoJson(arq: string, entrada: Record<string, string>) {
     }
     writeFileSync(arq + ".bak", bruto); // backup antes de mexer
   }
-  dados.mcpServers = { ...dados.mcpServers, office: entrada };
+  dados[chave] = { ...dados[chave], office: entrada };
   writeFileSync(arq, JSON.stringify(dados, null, 2) + "\n");
 }
 
@@ -140,7 +140,21 @@ export async function conectarAoOffice(id: string, cfg: ConfigCli, caminho: stri
       gravarOfficeNoJson(arq, { serverUrl: url });
       return `Conectado (${arq}). Reinicie o agy pra ele carregar o servidor.`;
     }
-    default:
-      return `Conexão manual: configure um servidor MCP HTTP chamado "office" com a URL ${url}`;
+    case "json-mcp": {
+      if (!cfg.mcpJson) break;
+      const arq = expandirHome(cfg.mcpJson.arquivo);
+      gravarOfficeNoJson(arq, trocarUrl(cfg.mcpJson.entrada, url), cfg.mcpJson.chave);
+      return `Conectado (${arq}).`;
+    }
   }
+  return `Conexão manual: configure um servidor MCP HTTP chamado "office" com a URL ${url}`;
 }
+
+/** Troca "{url}" pelo endereço do escritório em qualquer campo da entrada. */
+export function trocarUrl(v: unknown, url: string): any {
+  if (typeof v === "string") return v.replace("{url}", url);
+  if (Array.isArray(v)) return v.map((x) => trocarUrl(x, url));
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, trocarUrl(x, url)]));
+  return v;
+}
+

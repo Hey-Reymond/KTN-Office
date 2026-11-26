@@ -83,7 +83,7 @@ async function adicionar() {
   const modeloPadrao = await perguntar("Modelo padrão (vazio = do próprio CLI)", "");
   const especialidades = (await perguntar("Especialidades, separadas por vírgula", ""))
     .split(",").map((s) => s.trim()).filter(Boolean);
-  const conexaoOffice = (await perguntar("Conexão ao escritório (claude-mcp, antigravity-mcp, gemini-settings, manual)", "manual")) as ConexaoOffice;
+  const conexaoOffice = (await perguntar("Conexão ao escritório (claude-mcp, codex-mcp, antigravity-mcp, gemini-settings, manual)", "manual")) as ConexaoOffice;
 
   salvarCustom(id, {
     nome, executavel, prompt, especialidades, conexaoOffice,

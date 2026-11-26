@@ -462,10 +462,10 @@ const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hora = (t) => (t ? new Date(t.replace(" ", "T") + "Z").toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "");
 const dur = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}min ${String(s % 60).padStart(2, "0")}s`; };
-const NOMES = { claude: "Claude", antigravity: "Antigravity", codex: "Codex", gemini: "Gemini", escritorio: "Escritório", humano: "Você" };
+const NOMES = { claude: "Claude", antigravity: "Antigravity", codex: "Codex", gemini: "Gemini", copilot: "Copilot", qwen: "Qwen", opencode: "OpenCode", kimi: "Kimi", escritorio: "Escritório", humano: "Você" };
 const nome = (id) => NOMES[id] || (id ? id[0].toUpperCase() + id.slice(1) : "");
 const cor = (id) => (["claude", "antigravity", "codex"].includes(id) ? `var(--${id})` : "var(--outra)");
-const INICIAL = { claude: "C", antigravity: "A", codex: "X", gemini: "G", escritorio: "E" };
+const INICIAL = { claude: "C", antigravity: "A", codex: "X", gemini: "G", copilot: "P", qwen: "Q", opencode: "O", kimi: "K", escritorio: "E" };
 const avatar = (id, extra = "") => `<span class="av ${extra}" style="--cor:${cor(id)}" aria-hidden="true">${esc(INICIAL[id] || (nome(id)[0] || "?").toUpperCase())}</span>`;
 
 /** Markdown mínimo e seguro: escapa tudo antes de formatar. */
@@ -738,7 +738,8 @@ function renderConfig() {
         <input type="number" min="0" step="10000" placeholder="limite por 5h (opcional)" value="${st?.cota?.limite_5h ?? ""}" data-limite="${esc(d.id)}" style="max-width:190px" aria-label="Limite de tokens por 5 horas de ${esc(nome(d.id))}">
         ${st?.cota?.situacao === "sem_cota" ? `<button class="btn pequeno" data-liberar="${esc(d.id)}">Já renovou</button>` : ""}
         <span style="color:var(--fraco);font-size:12px">${st?.cota?.fonte === "informada pelo CLI" ? "Este CLI informa a cota sozinho." : "Se o CLI não informar, o Office estima pelo limite que você colocar."}</span></div>`;
-    return `<div class="membroCfg"><div class="cab">${avatar(d.id)}<span class="nome">${esc(d.nome)}</span><span class="selos">${selos}</span><span class="direita">${direita}</span></div>${perm}${modelos}</div>`;
+    const aviso = d.instalado && d.aviso ? `<div class="linhaPerm" style="color:var(--alerta, #c08a00)">⚠️ ${esc(d.aviso)}</div>` : "";
+    return `<div class="membroCfg"><div class="cab">${avatar(d.id)}<span class="nome">${esc(d.nome)}</span><span class="selos">${selos}</span><span class="direita">${direita}</span></div>${aviso}${perm}${modelos}</div>`;
   }).join("");
   const t = e.teste;
   $("#progressoTeste").textContent = t
