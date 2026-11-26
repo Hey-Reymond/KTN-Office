@@ -26,12 +26,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: node-gyp atual no Windows (o do npm ainda não reconhece o Visual Studio mais novo)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          npm i -g node-gyp@latest
-          echo "npm_config_node_gyp=$(npm root -g)/node-gyp/bin/node-gyp.js" >> "$GITHUB_ENV"
+      - name: npm atual (traz um node-gyp que reconhece o Visual Studio mais novo do Windows)
+        run: npm i -g npm@latest
       - name: Servidor
         working-directory: server
         run: |
