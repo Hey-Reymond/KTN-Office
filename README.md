@@ -9,21 +9,55 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/reireymond/KTN-Office/releases/latest"><b>⬇️ Baixar</b></a> ·
-  <a href="#como-funciona">Como funciona</a> ·
-  <a href="SECURITY.md">Segurança</a> ·
-  <a href="CONTRIBUTING.md">Contribuir</a>
+  <a href="https://github.com/reireymond/KTN-Office/releases/latest"><img src="https://img.shields.io/github/v/release/reireymond/KTN-Office?label=%C3%BAltima%20vers%C3%A3o&style=for-the-badge&color=4f5fd9" alt="Última versão"></a>
+  <a href="https://github.com/reireymond/KTN-Office/releases"><img src="https://img.shields.io/github/downloads/reireymond/KTN-Office/total?label=downloads&style=for-the-badge&color=26a69a" alt="Downloads"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/reireymond/KTN-Office/actions/workflows/ci.yml"><img src="https://github.com/reireymond/KTN-Office/actions/workflows/ci.yml/badge.svg" alt="Testes"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/licen%C3%A7a-MIT-blue" alt="Licença MIT"></a>
+  <a href="https://github.com/reireymond/KTN-Office/releases/latest"><img src="https://img.shields.io/badge/Baixar_para_Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Baixar para Windows" height="40"></a>
+  <a href="https://github.com/reireymond/KTN-Office/releases/latest"><img src="https://img.shields.io/badge/Linux-333?style=for-the-badge&logo=linux&logoColor=white" alt="Baixar para Linux" height="40"></a>
+  <a href="https://github.com/reireymond/KTN-Office/releases/latest"><img src="https://img.shields.io/badge/macOS-555?style=for-the-badge&logo=apple&logoColor=white" alt="Baixar para macOS" height="40"></a>
+</p>
+
+<p align="center">
+  <a href="#download">Como instalar</a> ·
+  <a href="#como-funciona">Como funciona</a> ·
+  <a href="SECURITY.md">Segurança</a> ·
+  <a href="CONTRIBUTING.md">Contribuir</a> ·
+  <a href="https://github.com/reireymond/KTN-Office/actions/workflows/ci.yml"><img src="https://github.com/reireymond/KTN-Office/actions/workflows/ci.yml/badge.svg" alt="Testes" align="absmiddle"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licen%C3%A7a-MIT-blue" alt="Licença MIT" align="absmiddle"></a>
 </p>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/tela-escuro.png">
   <img src="docs/tela-claro.png" alt="Tela do KTN Office: chats à esquerda, conversa com a coordenadora no centro e atividade das IAs à direita">
 </picture>
+
+## Download
+
+> **Última versão disponível:** [página de download ↗](https://github.com/reireymond/KTN-Office/releases/latest). Lá, abra **Assets** e baixe o arquivo do seu sistema.
+
+| Sistema | Arquivo | Como instalar |
+|---|---|---|
+| **Windows** (recomendado) | `KTN-Office-Setup-….exe` | Dê dois cliques e siga o instalador. Cria atalho na área de trabalho. |
+| Windows sem instalar | `KTN-Office-Portatil-….exe` | Só abrir. Bom para pendrive ou para testar. |
+| Linux | `KTN-Office-….AppImage` | Clique com o botão direito → Propriedades → *Permitir executar*. Depois, dois cliques. |
+| macOS | `KTN-Office-….dmg` | Abra e arraste para *Aplicativos*. Na 1ª vez: botão direito → *Abrir*. |
+
+<details>
+<summary><b>Apareceu "O Windows protegeu o computador"?</b></summary>
+
+É normal em programas novos sem assinatura digital paga. Clique em **Mais informações → Executar assim mesmo**.
+O instalador é compilado pelo próprio GitHub a partir deste código aberto (dá para conferir na aba *Actions*),
+e o arquivo `SHA256SUMS.txt` da versão serve para conferir que o download não foi alterado.
+</details>
+
+<details>
+<summary><b>Já baixei. E agora?</b></summary>
+
+O KTN Office coordena IAs que você já usa. Então, além dele, instale e faça login em **pelo menos uma** delas
+(veja [Começar em 3 passos](#começar-em-3-passos)). Sem nenhuma IA, ele abre, mas não tem quem trabalhe.
+</details>
 
 ## Por que usar
 
@@ -40,11 +74,9 @@
    - Antigravity (Google AI Pro): veja [antigravity.google/cli](https://antigravity.google/cli)
    - Codex (ChatGPT): `npm i -g @openai/codex`, e depois `codex login`
    - Copilot (grátis para estudantes): `npm i -g @github/copilot`, e depois `copilot`
-2. **Baixe o KTN Office** na [página de Releases](https://github.com/reireymond/KTN-Office/releases/latest) e instale.
+2. **Baixe o KTN Office** (veja [Download](#download)) e instale.
    (Ou rode do código: `cd server && npm install && npm start` e abra http://127.0.0.1:7777/.)
 3. Em **Configurações → Equipe**, clique em **Conectar ao escritório** em cada IA, ligue o **Expediente** e peça algo no chat.
-
-> O instalador do Windows ainda não tem assinatura digital. Se aparecer "O Windows protegeu o computador", clique em **Mais informações → Executar assim mesmo**.
 
 ## Como funciona
 
