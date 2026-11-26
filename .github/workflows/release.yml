@@ -43,6 +43,22 @@ jobs:
           npx electron-builder ${{ matrix.alvo }} --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false" # sem certificado de assinatura (ainda)
+      - name: Conferir se o servidor liga dentro do app compilado
+        if: runner.os != 'macOS'
+        shell: bash
+        working-directory: desktop/release
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            ./*.AppImage --appimage-extract > /dev/null
+            EXE=squashfs-root/ktn-office; RES=squashfs-root/resources
+          else
+            EXE="win-unpacked/KTN Office.exe"; RES=win-unpacked/resources
+          fi
+          export ELECTRON_RUN_AS_NODE=1 KTN_PORT=7790 KTN_DADOS="$RUNNER_TEMP/dados" KTN_CLIS_CUSTOM="$RUNNER_TEMP/c.json"
+          "$EXE" "$RES/app/server/dist/index.js" > servidor.log 2>&1 &
+          for i in $(seq 1 30); do curl -fs http://127.0.0.1:7790/status > /dev/null && break; sleep 1; done
+          curl -fs http://127.0.0.1:7790/status && curl -fs http://127.0.0.1:7790/ | grep -q "KTN Office" && echo " ✔ servidor e interface OK" || { cat servidor.log; exit 1; }
+          rm -rf squashfs-root
       - uses: actions/upload-artifact@v4
         with:
           name: app-${{ matrix.nome }}
