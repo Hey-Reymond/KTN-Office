@@ -262,6 +262,16 @@
     .sugestoes, .duasColunas { grid-template-columns: 1fr; }
     .modelo { grid-template-columns: 22px 1fr; } .modelo .desc, .modelo .selo { grid-column: 2; }
   }
+.anexosPendentes { display: flex; flex-wrap: wrap; gap: 6px; }
+.anexosPendentes:not(:empty) { padding: 2px 2px 8px; }
+.chipAnexo { display: inline-flex; align-items: center; gap: 6px; max-width: 240px; padding: 4px 6px 4px 10px; border: 1px solid var(--borda); border-radius: 8px; background: var(--superficie-2, transparent); font-size: 12.5px; }
+.chipAnexo span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chipAnexo button { border: 0; background: none; color: inherit; cursor: pointer; opacity: .6; font-size: 15px; line-height: 1; padding: 0 2px; }
+.chipAnexo button:hover { opacity: 1; }
+.caixaTexto.soltando { outline: 2px dashed var(--acento); outline-offset: 2px; }
+.botaoIcone { display: inline-grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 8px; background: none; color: var(--texto-2, inherit); cursor: pointer; }
+.botaoIcone:hover { background: var(--hover, rgba(127,127,127,.12)); }
+.botaoIcone svg { width: 18px; height: 18px; }
 </style>
 </head>
 <body>
@@ -274,6 +284,7 @@
   <symbol id="i-enviar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
   <symbol id="i-equipe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.5 3-5.5 6-5.5s5.4 2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14.5c2.4.2 4 1.9 4.5 4.5"/></symbol>
+  <symbol id="i-clipe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21 11-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6L15 6.6"/></symbol>
   <symbol id="i-pasta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
   <symbol id="i-globo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.4 3.6 5.2 3.6 8.5s-1.1 6.1-3.6 8.5c-2.5-2.4-3.6-5.2-3.6-8.5s1.1-6.1 3.6-8.5z"/></symbol>
   <symbol id="i-relogio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
@@ -311,9 +322,12 @@
     <div class="rolagem" id="rolagem"><div class="fio" id="fio"></div></div>
     <div class="faixaProjeto" id="faixaProjeto"></div>
     <form class="compositor" id="formChat">
-      <div class="caixaTexto">
+      <div class="caixaTexto" id="caixaTexto">
+        <div class="anexosPendentes" id="anexosPendentes"></div>
         <textarea id="texto" rows="1" placeholder="Peça algo pra equipe…" aria-label="Mensagem"></textarea>
         <div class="linhaAcoes">
+          <button class="botaoIcone" type="button" id="btnAnexar" title="Anexar arquivos (ou arraste / cole aqui)" aria-label="Anexar arquivos"><svg><use href="#i-clipe"/></svg></button>
+          <input type="file" id="arquivo" multiple hidden>
           <span id="paraQuem"></span>
           <span class="espaco"></span>
           <button class="enviar" type="submit" id="btnEnviar" disabled aria-label="Enviar"><svg><use href="#i-enviar"/></svg></button>
@@ -721,16 +735,41 @@ async function atualizar(forcar) {
 
 // ---------- Ações: chat ----------
 const texto = $("#texto");
-const ajustarAltura = () => { texto.style.height = "auto"; texto.style.height = Math.min(texto.scrollHeight, 220) + "px"; $("#btnEnviar").disabled = !texto.value.trim(); };
+let anexos = []; // { nome, tamanho, dados(base64) }
+const ajustarAltura = () => { texto.style.height = "auto"; texto.style.height = Math.min(texto.scrollHeight, 220) + "px"; $("#btnEnviar").disabled = !texto.value.trim() && !anexos.length; };
+const MAX_ANEXO = 20 * 1024 * 1024;
+function renderAnexos() {
+  $("#anexosPendentes").innerHTML = anexos.map((a, i) => `<span class="chipAnexo" title="${esc(a.nome)}"><span>📎 ${esc(a.nome)}</span><button type="button" data-tirar="${i}" aria-label="Remover ${esc(a.nome)}">×</button></span>`).join("");
+  ajustarAltura();
+}
+function lerBase64(f) {
+  return new Promise((ok, falha) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = () => falha(r.error); r.readAsDataURL(f); });
+}
+async function adicionarArquivos(lista) {
+  for (const f of lista) {
+    if (anexos.length >= 10) { avisar("No máximo 10 anexos por mensagem."); break; }
+    if (f.size > MAX_ANEXO) { avisar(`"${f.name}" passa de 20 MB.`); continue; }
+    anexos.push({ nome: f.name || "colado.png", tamanho: f.size, dados: await lerBase64(f) });
+  }
+  renderAnexos();
+}
+$("#btnAnexar").addEventListener("click", () => $("#arquivo").click());
+$("#arquivo").addEventListener("change", (ev) => { adicionarArquivos([...ev.target.files]); ev.target.value = ""; });
+$("#anexosPendentes").addEventListener("click", (ev) => { const b = ev.target.closest("[data-tirar]"); if (b) { anexos.splice(Number(b.dataset.tirar), 1); renderAnexos(); } });
+const caixa = $("#caixaTexto");
+caixa.addEventListener("dragover", (ev) => { if ([...ev.dataTransfer.types].includes("Files")) { ev.preventDefault(); caixa.classList.add("soltando"); } });
+caixa.addEventListener("dragleave", () => caixa.classList.remove("soltando"));
+caixa.addEventListener("drop", (ev) => { caixa.classList.remove("soltando"); if (ev.dataTransfer.files.length) { ev.preventDefault(); adicionarArquivos([...ev.dataTransfer.files]); } });
+texto.addEventListener("paste", (ev) => { const fs = [...(ev.clipboardData?.files ?? [])]; if (fs.length) { ev.preventDefault(); adicionarArquivos(fs); } });
 texto.addEventListener("input", ajustarAltura);
 texto.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); $("#formChat").requestSubmit(); } });
 $("#formChat").addEventListener("submit", async (ev) => {
   ev.preventDefault();
-  const t = texto.value.trim(); if (!t) return;
+  const t = texto.value.trim(); if (!t && !anexos.length) return;
   $("#btnEnviar").disabled = true;
   try {
-    const m = await api("mensagem", { texto: t, conversa_id: conversaAtual });
-    texto.value = ""; ajustarAltura();
+    const m = await api("mensagem", { texto: t, conversa_id: conversaAtual, anexos: anexos.map(({ nome, dados }) => ({ nome, dados })) });
+    texto.value = ""; anexos = []; renderAnexos();
     if (m.conversa_id !== conversaAtual) { conversaAtual = m.conversa_id; try { localStorage.setItem("ktn-chat", String(m.conversa_id)); } catch {} memoriaCarregada = null; }
     await atualizar(); $("#rolagem").scrollTop = 1e9;
   } catch (e) { avisar(e.message); ajustarAltura(); }

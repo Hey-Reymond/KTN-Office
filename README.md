@@ -61,6 +61,10 @@ branch `ktn/projN-ia-tN`). Assim as IAs editam ao mesmo tempo sem atrapalhar uma
 4. você clica em **Aplicar no meu projeto** (git merge na sua branch atual). Seu projeto nunca muda antes disso.
 **Limpar cópias** remove as pastas temporárias (as branches ficam).
 
+### Anexos
+Arraste, cole (Ctrl+V) ou use o 📎 no chat: até 10 arquivos de 20 MB. Eles são salvos em
+`<pasta do chat>/.ktn-anexos/` (fora do git) e o caminho vai na mensagem, para as IAs abrirem.
+
 ### Revisão cruzada
 Cada parte de projeto que muda arquivos é revisada por **outra IA** (de preferência uma boa em revisão)
 na mesma cópia do autor, antes do merge. O revisor corrige o que for pequeno e responde APROVADO ou PRECISA AJUSTE;

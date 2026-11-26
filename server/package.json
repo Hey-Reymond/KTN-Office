@@ -8,7 +8,7 @@
     "start": "tsx src/index.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "tsx test/smoke.ts && tsx test/equipe.ts && tsx test/runner.ts && tsx test/git.ts",
+    "test": "tsx test/smoke.ts && tsx test/equipe.ts && tsx test/runner.ts && tsx test/git.ts && tsx test/anexos.ts",
     "equipe": "tsx src/equipe/cli.ts"
   },
   "license": "MIT",

@@ -10,6 +10,7 @@ import type { Runner } from "./runner.js";
 import { aplicarFerramenta, catalogoFerramentas, estadoFerramentas, navegadoresInstalados, prepararNavegador } from "./ferramentas.js";
 import { aplicarNoProjeto, ehRepositorio, limparWorktrees } from "./git.js";
 import { pastaDoChat } from "./integracao.js";
+import { salvarAnexos, textoAnexos } from "./anexos.js";
 import { existsSync, statSync } from "node:fs";
 import { apagarMemoria, arquivoMemoria, escreverMemoria, lerMemoria } from "./memoria.js";
 
@@ -50,7 +51,7 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
 
   app.use(express.static(PUBLICO));
   const api = express.Router();
-  api.use(express.json());
+  api.use(express.json({ limit: "250mb" })); // anexos vão em base64
 
   api.get(
     "/estado",
@@ -134,8 +135,9 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
   api.post(
     "/mensagem",
     protegido,
-    tentar((req) => {
-      const texto = String(req.body?.texto ?? "").trim();
+    tentar(async (req) => {
+      const anexos = Array.isArray(req.body?.anexos) ? req.body.anexos : [];
+      const texto = String(req.body?.texto ?? "").trim() || (anexos.length ? "Veja os arquivos anexados." : "");
       if (!texto) throw new Error("Mensagem vazia.");
       const para = String(req.body?.para || runner.config.coordenadora);
       // Sem chat aberto: cria um, com o começo da mensagem como título.
@@ -143,7 +145,8 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       if (!conversa || !escritorio.conversa(conversa)) {
         conversa = escritorio.criarConversa(texto.split("\n")[0].slice(0, 50)).id;
       }
-      return escritorio.enviarMensagem("humano", para, texto, null, conversa);
+      const salvos = await salvarAnexos(pastaDoChat(escritorio, conversa), anexos);
+      return escritorio.enviarMensagem("humano", para, texto + textoAnexos(salvos), null, conversa);
     }),
   );
 
