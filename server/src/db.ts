@@ -13,6 +13,9 @@ export interface Tarefa {
   modelo: string | null; // modelo sugerido pela coordenação (ex.: "carbon", "haiku")
   projeto_id: number | null; // parte de qual projeto (null = tarefa avulsa)
   conversa_id: number | null; // chat de onde veio o pedido
+  pasta: string | null; // cópia de trabalho (git worktree) desta tarefa, se houver
+  branch: string | null;
+  base: string | null; // commit de partida, para revisão/diff
   status: StatusTarefa;
   responsavel: string | null;
   resultado: string | null;
@@ -23,6 +26,8 @@ export interface Tarefa {
 export interface Conversa {
   id: number;
   titulo: string;
+  /** Pasta (projeto) em que as IAs trabalham neste chat. null = pasta padrão do expediente. */
+  pasta: string | null;
   criada_em: string;
   atualizada_em: string;
 }
@@ -38,7 +43,7 @@ export interface Mensagem {
   criada_em: string;
 }
 
-export type StatusProjeto = "dividindo" | "em_andamento" | "consolidando" | "concluido" | "cancelado";
+export type StatusProjeto = "dividindo" | "em_andamento" | "integrando" | "consolidando" | "concluido" | "cancelado";
 
 export interface Projeto {
   id: number;
@@ -47,6 +52,8 @@ export interface Projeto {
   coordenadora: string;
   status: StatusProjeto;
   conversa_id: number | null;
+  pasta_final: string | null; // cópia onde as partes foram juntadas
+  branch_final: string | null;
   resultado: string | null;
   criado_em: string;
   atualizado_em: string;
@@ -75,6 +82,9 @@ export interface ParteProjeto {
   titulo: string;
   descricao: string;
   modelo?: string | null;
+  pasta?: string | null;
+  branch?: string | null;
+  base?: string | null;
 }
 
 export function abrirBanco(arquivo = process.env.KTN_DB ?? path.resolve("office.db")) {
@@ -163,6 +173,11 @@ export function abrirBanco(arquivo = process.env.KTN_DB ?? path.resolve("office.
   for (const tabela of ["tarefas", "mensagens", "projetos"]) {
     if (!temColuna(tabela, "conversa_id")) db.exec(`ALTER TABLE ${tabela} ADD COLUMN conversa_id INTEGER`);
   }
+  const novas: [string, string][] = [
+    ["conversas", "pasta TEXT"], ["tarefas", "pasta TEXT"], ["tarefas", "branch TEXT"], ["tarefas", "base TEXT"],
+    ["projetos", "pasta_final TEXT"], ["projetos", "branch_final TEXT"],
+  ];
+  for (const [tabela, def] of novas) if (!temColuna(tabela, def.split(" ")[0])) db.exec(`ALTER TABLE ${tabela} ADD COLUMN ${def}`);
   // Mensagens antigas com o humano (antes dos chats existirem) vão para a "Conversa 1".
   const orfas = db.prepare(`SELECT COUNT(*) AS n FROM mensagens WHERE conversa_id IS NULL AND (de = 'humano' OR para = 'humano')`).get() as { n: number };
   if (orfas.n > 0) {
@@ -332,6 +347,14 @@ export class Escritorio {
     ).reverse();
   }
 
+  /** Chat da próxima mensagem não lida de uma IA (para saber em que pasta ela vai trabalhar). */
+  conversaDaProximaMensagem(agente: string): number | null {
+    const r = this.db
+      .prepare(`SELECT conversa_id FROM mensagens WHERE para = ? AND lida = 0 AND conversa_id IS NOT NULL ORDER BY id LIMIT 1`)
+      .get(agente) as { conversa_id: number } | undefined;
+    return r?.conversa_id ?? null;
+  }
+
   conversaAtualCom(agente: string): number | null {
     const r = this.db
       .prepare(`SELECT conversa_id FROM mensagens WHERE de = 'humano' AND para = ? AND conversa_id IS NOT NULL ORDER BY id DESC LIMIT 1`)
@@ -491,8 +514,8 @@ export class Escritorio {
     const criar = this.db.transaction(() => {
       const tarefas = partes.map((x) => {
         const info = this.db
-          .prepare(`INSERT INTO tarefas (titulo, descricao, criada_por, para, modelo, projeto_id, conversa_id) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-          .run(x.titulo, x.descricao, coordenadora, x.para, x.modelo ?? null, id, p.conversa_id);
+          .prepare(`INSERT INTO tarefas (titulo, descricao, criada_por, para, modelo, projeto_id, conversa_id, pasta, branch, base) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+          .run(x.titulo, x.descricao, coordenadora, x.para, x.modelo ?? null, id, p.conversa_id, x.pasta ?? null, x.branch ?? null, x.base ?? null);
         return this.tarefa(Number(info.lastInsertRowid))!;
       });
       this.db.prepare(`UPDATE projetos SET status = 'em_andamento', atualizado_em = datetime('now') WHERE id = ?`).run(id);
@@ -515,17 +538,48 @@ export class Escritorio {
     if (!p || p.status !== "em_andamento") return;
     const partes = this.partesDoProjeto(id);
     if (!partes.length || partes.some((t) => t.status === "aberta" || t.status === "em_andamento")) return;
+    if (partes.some((t) => t.branch)) {
+      // Partes com git: antes de avisar a coordenadora, o escritório junta as branches (ver integracao.ts).
+      this.db.prepare(`UPDATE projetos SET status = 'integrando', atualizado_em = datetime('now') WHERE id = ?`).run(id);
+      this.registrarEvento(p.coordenadora, "projeto", `Projeto #${id}: todas as partes chegaram; juntando as branches.`);
+      return;
+    }
+    this.avisarConsolidacao(id);
+  }
+
+  /** Passa o projeto para a coordenadora juntar e revisar. `extra` traz o resultado do git, se houver. */
+  avisarConsolidacao(id: number, extra = "") {
+    const p = this.projeto(id)!;
+    const partes = this.partesDoProjeto(id);
     this.db.prepare(`UPDATE projetos SET status = 'consolidando', atualizado_em = datetime('now') WHERE id = ?`).run(id);
     const canceladas = partes.filter((t) => t.status === "cancelada").length;
     this.enviarMensagem(
       "escritorio",
       p.coordenadora,
       `Projeto #${id} (${p.titulo}): todas as ${partes.length} partes terminaram${canceladas ? ` (${canceladas} cancelada(s))` : ""}. ` +
-        `Use status_projeto para ler as entregas, faça o merge com a sua parte e finalize com concluir_projeto.`,
+        `Use status_projeto para ler as entregas, faça o merge com a sua parte e finalize com concluir_projeto.${extra ? `\n\n${extra}` : ""}`,
       null,
       p.conversa_id,
     );
     this.registrarEvento(p.coordenadora, "projeto", `Projeto #${id}: todas as partes chegaram; hora do merge.`);
+  }
+
+  definirPastaConversa(id: number, pasta: string | null) {
+    if (!this.conversa(id)) throw new Error(`Chat #${id} não existe.`);
+    this.db.prepare(`UPDATE conversas SET pasta = ? WHERE id = ?`).run(pasta, id);
+  }
+
+  definirIntegracao(id: number, pasta: string | null, branch: string | null) {
+    this.db.prepare(`UPDATE projetos SET pasta_final = ?, branch_final = ? WHERE id = ?`).run(pasta, branch, id);
+  }
+
+  projetosEm(status: StatusProjeto): Projeto[] {
+    return this.db.prepare(`SELECT * FROM projetos WHERE status = ?`).all(status) as Projeto[];
+  }
+
+  /** Acrescenta texto ao resultado de uma tarefa já entregue (ex.: arquivos alterados, revisão). */
+  anexarAoResultado(id: number, texto: string) {
+    this.db.prepare(`UPDATE tarefas SET resultado = COALESCE(resultado, '') || ? WHERE id = ?`).run(texto, id);
   }
 
   concluirProjeto(coordenadora: string, id: number, resultado: string): Projeto {

@@ -51,6 +51,16 @@ Quando você pede algo grande no chat, a coordenadora:
 
 Na interface, a chave **na equipe** em cada IA define quem entra na divisão.
 
+### Pasta do projeto e git
+No topo do chat, o botão 📁 define em que pasta as IAs trabalham naquele chat.
+Se a pasta for um **repositório git**, cada parte de um projeto roda numa **cópia própria** (git worktree,
+branch `ktn/projN-ia-tN`). Assim as IAs editam ao mesmo tempo sem atrapalhar umas às outras:
+1. ao entregar, o escritório faz o commit da parte (a IA não precisa de permissão de git);
+2. quando todas terminam, as branches são juntadas em `ktn/projN`, numa cópia separada;
+3. a coordenadora revisa e resolve conflitos ali e conclui;
+4. você clica em **Aplicar no meu projeto** (git merge na sua branch atual). Seu projeto nunca muda antes disso.
+**Limpar cópias** remove as pastas temporárias (as branches ficam).
+
 ### Ferramentas (navegador)
 Em **Configurações → Ferramentas** você liga, em todas as IAs de uma vez:
 - **Navegador (Playwright)**: abrir sites, clicar, preencher, tirar print. Funciona com Brave, Chrome, Edge ou Firefox

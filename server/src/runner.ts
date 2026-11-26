@@ -1,8 +1,7 @@
 import { mkdirSync } from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { Escritorio, Tarefa } from "./db.js";
 import { localizar } from "./equipe/detectar.js";
+import { PASTA_PADRAO, pastaDaTarefa, pastaDoChat, processarIntegracoes } from "./integracao.js";
 import { CliAgent, type Funcionario, type ResultadoTrabalho } from "./equipe/funcionario.js";
 import { carregarRegistro, modeloDisponivel, resolverModelo, salvarDeteccaoModelo, type ConfigCli } from "./equipe/registro.js";
 
@@ -28,7 +27,7 @@ export interface ConfigRunner {
 export const CONFIG_PADRAO: ConfigRunner = {
   ligado: false,
   coordenadora: "claude",
-  pastaTrabalho: path.join(os.homedir(), "KTN-Office-trabalho"),
+  pastaTrabalho: PASTA_PADRAO,
   intervaloSeg: 5,
   maxPorHora: 20,
   maxTentativas: 2,
@@ -135,7 +134,7 @@ export class Runner {
     }
   }
 
-  private proximoTrabalho(id: string, cli: ConfigCli): { prompt: string; modelo?: string; tarefa?: Tarefa; oque: string } | null {
+  private proximoTrabalho(id: string, cli: ConfigCli): { prompt: string; modelo?: string; tarefa?: Tarefa; oque: string; pasta: string } | null {
     const tarefa = this.escritorio.tarefasAbertasPara(id)[0];
     if (tarefa) {
       const modelo = tarefa.modelo && modeloDisponivel(cli, tarefa.modelo) ? tarefa.modelo : undefined;
@@ -143,6 +142,7 @@ export class Runner {
         tarefa,
         modelo,
         oque: `tarefa #${tarefa.id}`,
+        pasta: pastaDaTarefa(this.escritorio, tarefa),
         prompt: [
           `Você é "${id}" no KTN Office. Use as ferramentas do servidor MCP "office".`,
           `1. pegar_tarefa com id ${tarefa.id}.`,
@@ -155,12 +155,17 @@ export class Runner {
           ...(tarefa.conversa_id
             ? [`Contexto: este trabalho é do chat #${tarefa.conversa_id}. Se precisar, use ler_memoria e historico_conversa com conversa_id ${tarefa.conversa_id}.`]
             : []),
+          ...(tarefa.branch
+            ? [`Você está numa CÓPIA PRÓPRIA do projeto (git worktree, branch ${tarefa.branch}). Edite os arquivos aqui à vontade:`,
+               `outras IAs trabalham em cópias separadas. Não precisa fazer commit; o escritório salva quando você entregar.`]
+            : []),
         ].join("\n"),
       };
     }
     if (this.escritorio.temNaoLidas(id) > 0) {
       return {
         oque: "caixa de entrada",
+        pasta: this.pastaDaCaixa(id),
         prompt: [
           `Você é "${id}" no KTN Office. Use as ferramentas do servidor MCP "office".`,
           `Leia sua caixa (ler_caixa) e dê continuidade:`,
@@ -184,6 +189,13 @@ export class Runner {
     return null;
   }
 
+  /** Pasta para ler a caixa: a cópia final do projeto em fechamento, ou a pasta do chat da mensagem mais recente. */
+  private pastaDaCaixa(id: string): string {
+    const conversa = this.escritorio.conversaDaProximaMensagem(id);
+    const fechando = this.escritorio.projetosEm("consolidando").find((p) => p.coordenadora === id && p.pasta_final && (!conversa || p.conversa_id === conversa));
+    return fechando?.pasta_final ?? pastaDoChat(this.escritorio, conversa);
+  }
+
   private dentroDoLimite(id: string, maxPorHora: number) {
     const umaHora = Date.now() - 3_600_000;
     const lista = (this.execucoes.get(id) ?? []).filter((t) => t > umaHora);
@@ -200,7 +212,7 @@ export class Runner {
   private async executar(
     id: string,
     cli: ConfigCli,
-    trabalho: { prompt: string; modelo?: string; tarefa?: Tarefa; oque: string },
+    trabalho: { prompt: string; modelo?: string; tarefa?: Tarefa; oque: string; pasta: string },
     cfg: ConfigRunner,
   ) {
     const modeloReal = resolverModelo(cli, trabalho.modelo);
@@ -210,7 +222,7 @@ export class Runner {
     this.escritorio.registrarEvento(id, "inicio", `Começou ${trabalho.oque}${modeloReal ? ` (modelo ${modeloReal})` : ""}.`);
     let r: ResultadoTrabalho;
     try {
-      mkdirSync(cfg.pastaTrabalho, { recursive: true });
+      mkdirSync(trabalho.pasta, { recursive: true });
       const nivel = this.escritorio.tomarUmaVez(id) ?? this.escritorio.nivelDe(id);
       const progredir = (frase: string) => {
         estado.ultimoSinal = Date.now();
@@ -222,7 +234,7 @@ export class Runner {
         modelo: trabalho.modelo,
         nivel,
         ferramentas: this.escritorio.sempreDe(id),
-        cwd: cfg.pastaTrabalho,
+        cwd: trabalho.pasta,
         timeoutMs: cfg.timeoutMin * 60_000,
         aoProgredir: progredir,
       });
@@ -237,7 +249,7 @@ export class Runner {
         r = await this.fabrica(id, atualizado).trabalhar(trabalho.prompt, {
           nivel,
           ferramentas: this.escritorio.sempreDe(id),
-          cwd: cfg.pastaTrabalho,
+          cwd: trabalho.pasta,
           timeoutMs: cfg.timeoutMin * 60_000,
           aoProgredir: progredir,
         });
@@ -270,6 +282,7 @@ export class Runner {
       this.falhas.set(id, f);
     }
 
+    await processarIntegracoes(this.escritorio).catch(() => {});
     // Tarefa que continua aberta = a IA não pegou. Conta tentativa e desiste depois do limite.
     if (trabalho.tarefa && this.escritorio.tarefa(trabalho.tarefa.id)?.status === "aberta") {
       const n = (this.tentativas.get(trabalho.tarefa.id) ?? 0) + 1;
@@ -279,6 +292,7 @@ export class Runner {
         this.escritorio.cancelarTarefa(trabalho.tarefa.id, motivo);
         this.escritorio.enviarMensagem("escritorio", "humano", `Tarefa #${trabalho.tarefa.id}: ${motivo}`, trabalho.tarefa.id);
         this.escritorio.registrarEvento(id, "erro", motivo);
+        await processarIntegracoes(this.escritorio).catch(() => {});
       }
     }
   }

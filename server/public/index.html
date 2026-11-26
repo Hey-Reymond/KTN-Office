@@ -274,6 +274,7 @@
   <symbol id="i-enviar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
   <symbol id="i-equipe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.5 3-5.5 6-5.5s5.4 2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14.5c2.4.2 4 1.9 4.5 4.5"/></symbol>
+  <symbol id="i-pasta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
   <symbol id="i-globo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.4 3.6 5.2 3.6 8.5s-1.1 6.1-3.6 8.5c-2.5-2.4-3.6-5.2-3.6-8.5s1.1-6.1 3.6-8.5z"/></symbol>
   <symbol id="i-relogio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
   <symbol id="i-quadro" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/></symbol>
@@ -301,6 +302,7 @@
   <main class="principal">
     <header class="topo">
       <h1 id="tituloChat">Novo chat</h1>
+      <button class="botaoTopo" id="btnPasta" title="Pasta do projeto em que as IAs trabalham neste chat"><svg><use href="#i-pasta"/></svg><span id="nomePasta">pasta</span></button>
       <label class="interruptor" title="Ligado: as IAs acordam sozinhas quando têm tarefa ou mensagem">
         <input type="checkbox" id="expediente"><span class="trilho"></span><span id="expedienteTxt">Expediente</span>
       </label>
@@ -517,7 +519,7 @@ function renderPedido() {
 }
 
 const STATUS_TAREFA = { aberta: ["na fila", "alerta"], em_andamento: ["trabalhando", "acento"], entregue: ["entregue", "ok"], cancelada: ["cancelada", "erro"] };
-const STATUS_PROJ = { dividindo: ["dividindo", "alerta"], em_andamento: ["em andamento", "acento"], consolidando: ["juntando as partes", "alerta"], concluido: ["concluído", "ok"], cancelado: ["cancelado", "erro"] };
+const STATUS_PROJ = { dividindo: ["dividindo", "alerta"], em_andamento: ["em andamento", "acento"], integrando: ["juntando as branches", "alerta"], consolidando: ["revisão final", "alerta"], concluido: ["concluído", "ok"], cancelado: ["cancelado", "erro"] };
 const ESTADO_MODELO = { ligado: null, desligado_usuario: ["desmarcado", ""], indisponivel: ["fora do seu plano", "erro"], nao_testado: ["não testado", "alerta"] };
 
 function render() {
@@ -541,6 +543,10 @@ function render() {
       </span></div>`).join("") || `<div class="vazio">Seus chats aparecem aqui.</div>`;
   const atual = e.conversas.find((c) => c.id === conversaAtual);
   $("#tituloChat").textContent = atual ? atual.titulo : "Novo chat";
+  const pastaAtual = atual ? atual.pastaEfetiva : e.runner.pastaTrabalho;
+  $("#nomePasta").textContent = (pastaAtual || "").split(/[\\/]/).filter(Boolean).pop() || "pasta";
+  $("#btnPasta").title = `Pasta do projeto deste chat: ${pastaAtual}${atual?.pasta ? "" : " (padrão)"}. Clique para trocar.`;
+  $("#btnPasta").hidden = !atual;
   document.title = atual ? `${atual.titulo} · KTN Office` : "KTN Office";
 
   // Topo e compositor
@@ -581,7 +587,8 @@ function render() {
     return `<div class="projeto"><div class="tit">#${p.id} ${esc(p.titulo)}</div>
       <div class="estado"><span class="selo ${cls}">${txt}</span>coordenado por ${esc(nome(p.coordenadora))}</div>
       ${p.partes.map((t) => { const [s, c] = STATUS_TAREFA[t.status]; return `<div class="parte">${avatar(t.para)}<span class="t" title="${esc(t.titulo)}">${esc(t.titulo)}</span>${t.modelo ? `<span class="selo">${esc(t.modelo)}</span>` : ""}<span class="selo ${c}">${s}</span></div>`; }).join("")}
-      ${p.resultado ? `<details class="resultado"><summary>Ver resultado final</summary><div class="md">${md(p.resultado)}</div></details>` : ""}</div>`;
+      ${p.resultado ? `<details class="resultado"><summary>Ver resultado final</summary><div class="md">${md(p.resultado)}</div></details>` : ""}
+      ${p.branch_final ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">${p.status === "concluido" ? `<button class="btn pequeno primario" data-aplicar="${p.id}">Aplicar no meu projeto</button>` : ""}<button class="btn pequeno" data-limpar="${p.id}">Limpar cópias</button><span class="selo" title="${esc(p.pasta_final || "")}">${esc(p.branch_final)}</span></div>` : ""}</div>`;
   }).join("") : `<div class="vazio">Pedidos grandes viram projetos: a coordenadora divide entre a equipe e junta tudo no final.</div>`;
 
   if (!$("#veuConfig").hidden) renderConfig();
@@ -768,6 +775,26 @@ function definirAtividade(visivel) {
 $("#btnAtividade").addEventListener("click", () => definirAtividade($("#atividade").hidden));
 definirAtividade(!$("#atividade").hidden);
 $("#faixaProjeto").addEventListener("click", () => { definirAtividade(true); mostrarAba("projetos"); });
+$("#btnPasta").addEventListener("click", async () => {
+  const atual = estado.conversas.find((c) => c.id === conversaAtual); if (!atual) return;
+  const pasta = prompt("Pasta do projeto para este chat (deixe vazio para usar a pasta padrão).\nDica: se for um repositório git, cada IA ganha uma cópia própria e o resultado vem numa branch.", atual.pasta || "");
+  if (pasta === null) return;
+  try { const r = await api("conversa/pasta", { id: atual.id, pasta }); avisar(pasta ? (r.git ? "Pasta definida. É um repositório git: cada IA vai trabalhar numa cópia própria." : "Pasta definida. Não é um repositório git: as IAs vão dividir a mesma pasta.") : "Usando a pasta padrão."); }
+  catch (e) { avisar(e.message); }
+  atualizar();
+});
+$("#abaProjetos").addEventListener("click", async (ev) => {
+  const ap = ev.target.closest("[data-aplicar]"); const lp = ev.target.closest("[data-limpar]");
+  if (ap) {
+    if (!confirm("Trazer o resultado deste projeto para a branch em que você está no seu projeto (git merge)?")) return;
+    try { const r = await api("projeto/aplicar", { id: Number(ap.dataset.aplicar) }); avisar(r.mensagem); } catch (e) { avisar(e.message); }
+  }
+  if (lp) {
+    if (!confirm("Remover as cópias de trabalho deste projeto? As branches ktn/... continuam no git.")) return;
+    try { const r = await api("projeto/limpar", { id: Number(lp.dataset.limpar) }); avisar(r.mensagem); } catch (e) { avisar(e.message); }
+  }
+  atualizar();
+});
 $("#abaAgora").addEventListener("click", async (ev) => {
   const rt = ev.target.closest("[data-retomar]"); if (!rt) return;
   await api("retomar", { cli: rt.dataset.retomar }).catch((e) => avisar(e.message)); atualizar();

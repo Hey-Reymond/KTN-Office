@@ -4,6 +4,7 @@ import type { Escritorio } from "./db.js";
 import { carregarRegistro, modeloDisponivel, modelosDisponiveis } from "./equipe/registro.js";
 import { equipeAtiva } from "./equipe/detectar.js";
 import { arquivoMemoria, escreverMemoria, lerMemoria } from "./memoria.js";
+import { fecharIntegracao, prepararPartes, processarIntegracoes, salvarEntrega } from "./integracao.js";
 
 const json = (dados: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(dados, null, 2) }],
@@ -19,7 +20,7 @@ const seguro =
   <A>(fn: (args: A) => unknown) =>
   async (args: A) => {
     try {
-      return json(fn(args));
+      return json(await fn(args));
     } catch (e) {
       return erro(e);
     }
@@ -150,12 +151,21 @@ export function criarServidor(escritorio: Escritorio, agente: string) {
           .min(1),
       },
     },
-    seguro(({ projeto_id, partes }: { projeto_id: number; partes: { para: string; titulo: string; descricao: string; modelo?: string }[] }) => {
+    seguro(async ({ projeto_id, partes }: { projeto_id: number; partes: { para: string; titulo: string; descricao: string; modelo?: string }[] }) => {
       const normalizadas = partes.map((x) => {
         const para = x.para.trim().toLowerCase();
         return { ...x, para, modelo: validarModelo(para, x.modelo?.trim()) };
       });
-      return escritorio.distribuirProjeto(agente, projeto_id, normalizadas, equipe());
+      // Valida antes de criar cópias no disco (mesmas regras do distribuirProjeto).
+      const time = equipe();
+      const fora = normalizadas.filter((x) => !time.includes(x.para)).map((x) => x.para);
+      if (fora.length) throw new Error(`Não estão na equipe: ${[...new Set(fora)].join(", ")}. Equipe: ${time.join(", ")}`);
+      const p = escritorio.projeto(projeto_id);
+      if (p && p.coordenadora === agente && p.status === "dividindo" && time.every((a) => normalizadas.some((x) => x.para === a))) {
+        const { partes: prontas } = await prepararPartes(escritorio, projeto_id, normalizadas);
+        return escritorio.distribuirProjeto(agente, projeto_id, prontas, time);
+      }
+      return escritorio.distribuirProjeto(agente, projeto_id, normalizadas, time);
     }),
   );
 
@@ -182,9 +192,13 @@ export function criarServidor(escritorio: Escritorio, agente: string) {
         resultado: z.string().min(1).describe("Resultado final consolidado, pronto para o humano"),
       },
     },
-    seguro(({ projeto_id, resultado }: { projeto_id: number; resultado: string }) =>
-      escritorio.concluirProjeto(agente, projeto_id, resultado),
-    ),
+    seguro(async ({ projeto_id, resultado }: { projeto_id: number; resultado: string }) => {
+      const p = escritorio.projeto(projeto_id);
+      if (!p) throw new Error(`Projeto #${projeto_id} não existe.`);
+      if (p.coordenadora !== agente) throw new Error(`Só ${p.coordenadora} conclui o projeto #${projeto_id}.`);
+      const rodape = await fecharIntegracao(escritorio, projeto_id);
+      return escritorio.concluirProjeto(agente, projeto_id, resultado + rodape);
+    }),
   );
 
   // Usada pelo Claude Code via --permission-prompt-tool: a IA fica esperando você responder no pop-up.
@@ -338,7 +352,15 @@ export function criarServidor(escritorio: Escritorio, agente: string) {
         resultado: z.string().min(1).describe("Resultado completo: resposta, arquivos alterados, próximos passos"),
       },
     },
-    seguro(({ id, resultado }: { id: number; resultado: string }) => escritorio.entregarTarefa(agente, id, resultado)),
+    seguro(async ({ id, resultado }: { id: number; resultado: string }) => {
+      const t = escritorio.tarefa(id);
+      if (!t) throw new Error(`Tarefa #${id} não existe.`);
+      if (t.status !== "em_andamento" || t.responsavel !== agente) return escritorio.entregarTarefa(agente, id, resultado); // mensagem de erro padrão
+      const arquivos = await salvarEntrega(t, agente);
+      const entregue = escritorio.entregarTarefa(agente, id, resultado + arquivos);
+      await processarIntegracoes(escritorio);
+      return entregue;
+    }),
   );
 
   server.registerTool(

@@ -8,6 +8,9 @@ import { catalogoComEstado, testarModelos, type ProgressoTeste } from "./equipe/
 import { carregarRegistro, definirModelo } from "./equipe/registro.js";
 import type { Runner } from "./runner.js";
 import { aplicarFerramenta, catalogoFerramentas, estadoFerramentas, navegadoresInstalados, prepararNavegador } from "./ferramentas.js";
+import { aplicarNoProjeto, ehRepositorio, limparWorktrees } from "./git.js";
+import { pastaDoChat } from "./integracao.js";
+import { existsSync, statSync } from "node:fs";
 import { apagarMemoria, arquivoMemoria, escreverMemoria, lerMemoria } from "./memoria.js";
 
 const PUBLICO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
@@ -56,7 +59,7 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       status: escritorio.statusEquipe(),
       tarefas: escritorio.listarTarefas().slice(-60).reverse(),
       mensagens: escritorio.mensagensRecentes(400),
-      conversas: escritorio.listarConversas(),
+      conversas: escritorio.listarConversas().map((c) => ({ ...c, pastaEfetiva: pastaDoChat(escritorio, c.id) })),
       eventos: escritorio.eventosRecentes(60),
       modelos: catalogoComEstado(),
       teste,
@@ -197,6 +200,42 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       escritorio.apagarConversa(id);
       apagarMemoria(id);
       escritorio.registrarEvento(null, "config", `Chat #${id} apagado (mensagens e memória).`);
+    }),
+  );
+  api.post(
+    "/conversa/pasta",
+    protegido,
+    tentar(async (req) => {
+      const id = Number(req.body?.id);
+      const pasta = String(req.body?.pasta ?? "").trim().replace(/^"(.*)"$/, "$1");
+      if (pasta && (!existsSync(pasta) || !statSync(pasta).isDirectory())) throw new Error(`A pasta não existe: ${pasta}`);
+      escritorio.definirPastaConversa(id, pasta || null);
+      const git = pasta ? await ehRepositorio(pasta) : false;
+      escritorio.registrarEvento(null, "config", `Chat #${id} agora trabalha em ${pasta || "pasta padrão"}${git ? " (repositório git)" : ""}.`);
+      return { git };
+    }),
+  );
+  api.post(
+    "/projeto/aplicar",
+    protegido,
+    tentar(async (req) => {
+      const p = escritorio.projeto(Number(req.body?.id));
+      if (!p?.branch_final) throw new Error("Esse projeto não tem branch de resultado.");
+      const msg = await aplicarNoProjeto(pastaDoChat(escritorio, p.conversa_id), p.id);
+      escritorio.registrarEvento(null, "projeto", msg);
+      return { mensagem: msg };
+    }),
+  );
+  api.post(
+    "/projeto/limpar",
+    protegido,
+    tentar(async (req) => {
+      const p = escritorio.projeto(Number(req.body?.id));
+      if (!p) throw new Error("Projeto não existe.");
+      const pastas = [...escritorio.partesDoProjeto(p.id).map((t) => t.pasta), p.pasta_final].filter((x): x is string => !!x);
+      await limparWorktrees(pastaDoChat(escritorio, p.conversa_id), pastas);
+      escritorio.registrarEvento(null, "projeto", `Cópias de trabalho do projeto #${p.id} removidas (as branches continuam no git).`);
+      return { mensagem: "Cópias removidas. As branches ktn/… continuam no git." };
     }),
   );
   api.get(
