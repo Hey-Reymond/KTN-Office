@@ -108,6 +108,12 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
   );
 
   api.post(
+    "/retomar",
+    protegido,
+    tentar((req) => runner.retomar(String(req.body?.cli))),
+  );
+
+  api.post(
     "/mensagem",
     protegido,
     tentar((req) => {

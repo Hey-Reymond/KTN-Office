@@ -85,6 +85,24 @@ try {
   assert.equal(esc.tarefa(t.id)!.status, "cancelada");
   assert.ok(esc.mensagensRecentes().some((m) => m.para === "humano" && m.texto.includes(`#${t.id}`)));
 
+  // IA que falha seguido (ex.: flag errada) fica pausada e você é avisado, em vez de falhar em loop
+  {
+    const quebrada = new Runner(esc, (id) => ({ id, tipo: "cli", especialidades: [], trabalhar: async () => ({ ok: false, texto: "", erro: "flags provided but not defined: -m\nUsage..." }) }));
+    quebrada.atualizarConfig({ ligado: true, maxPorHora: 99, maxTentativas: 99 });
+    esc.enviarMensagem("x", "antigravity", "oi");
+    const antesFalha = esc.eventosRecentes(500).filter((e: any) => e.tipo === "inicio" && e.agente === "antigravity").length;
+    for (let i = 0; i < 6; i++) { await quebrada.ciclo(); await quebrada.aguardarOcioso(); }
+    const depoisFalha = esc.eventosRecentes(500).filter((e: any) => e.tipo === "inicio" && e.agente === "antigravity").length;
+    assert.equal(depoisFalha - antesFalha, 3, "para depois de 3 falhas seguidas");
+    assert.ok(quebrada.estado().pausadas.antigravity, "aparece como pausada");
+    assert.ok(esc.mensagensRecentes().some((m) => m.para === "humano" && m.texto.includes("antigravity falhou 3 vezes")));
+    assert.ok(!esc.eventosRecentes(5).some((e: any) => String(e.texto).includes("\n")), "erro resumido numa linha na linha do tempo");
+    quebrada.retomar("antigravity");
+    assert.equal(quebrada.estado().pausadas.antigravity, undefined);
+    quebrada.atualizarConfig({ ligado: false });
+    esc.lerCaixa("antigravity");
+  }
+
   // Trava anti-loop: no máximo N execuções por hora
   const loop = new Runner(esc, (id) => ({ id, tipo: "cli", especialidades: [], trabalhar: async () => ({ ok: true, texto: "" }) }));
   loop.atualizarConfig({ ligado: true, maxPorHora: 3, maxTentativas: 99 });

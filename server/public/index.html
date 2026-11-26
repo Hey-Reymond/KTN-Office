@@ -216,6 +216,7 @@ function render() {
       d.instalado ? (d.office === "conectado" ? `<span class="pilula ok">no escritório</span>` : `<button data-conectar="${esc(d.id)}">Conectar</button>`) : "",
       st && st.uso_estimado_tokens ? `<span class="pilula">${st.uso_estimado_tokens.toLocaleString("pt-BR")} tokens</span>` : "",
       e.runner.trabalhando[d.id] ? `<span class="pilula ok">trabalhando</span>` : "",
+      e.runner.pausadas[d.id] ? `<span class="pilula erro">pausada por erros</span> <button data-retomar="${esc(d.id)}">Retomar</button>` : "",
     ].join(" ");
     const naEquipe = d.instalado ? `<label class="chave" style="margin-left:auto" title="Fora da equipe = não recebe partes de projetos nem é acordada">
         <input type="checkbox" data-equipe="${esc(d.id)}" ${e.foraDaEquipe.includes(d.id) ? "" : "checked"}><span class="trilho"></span><span>na equipe</span></label>` : "";
@@ -324,6 +325,8 @@ $("#equipe").addEventListener("change", async (ev) => {
   atualizar();
 });
 $("#equipe").addEventListener("click", async (ev) => {
+  const rt = ev.target.closest("button[data-retomar]");
+  if (rt) { await api("retomar", { cli: rt.dataset.retomar }).catch((e) => avisar(e.message)); return atualizar(); }
   const b = ev.target.closest("button[data-conectar]"); if (!b) return;
   b.disabled = true;
   try { const r = await api("conectar", { cli: b.dataset.conectar }); avisar(r.mensagens.join("\n") + "\nReinicie o CLI pra ele carregar."); }

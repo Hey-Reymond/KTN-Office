@@ -18,6 +18,8 @@ export interface ConfigRunner {
   /** Tentativas antes de desistir de uma tarefa e avisar você. */
   maxTentativas: number;
   timeoutMin: number;
+  /** Minutos de pausa depois de 3 falhas seguidas da mesma IA. */
+  pausaAposFalhasMin: number;
 }
 
 export const CONFIG_PADRAO: ConfigRunner = {
@@ -28,6 +30,7 @@ export const CONFIG_PADRAO: ConfigRunner = {
   maxPorHora: 20,
   maxTentativas: 2,
   timeoutMin: 20,
+  pausaAposFalhasMin: 10,
 };
 
 type Fabrica = (id: string, cfg: ConfigCli) => Funcionario;
@@ -45,6 +48,8 @@ export class Runner {
   private tentativas = new Map<number, number>();
   private timer?: NodeJS.Timeout;
   private emCurso = new Set<Promise<void>>();
+  /** Falhas seguidas por IA: depois de 3, ela fica de molho por um tempo (evita loop de erro). */
+  private falhas = new Map<string, { seguidas: number; pausadaAte: number }>();
 
   constructor(
     private escritorio: Escritorio,
@@ -64,10 +69,20 @@ export class Runner {
   }
 
   estado() {
+    const agora = Date.now();
     return {
       ...this.config,
       trabalhando: Object.fromEntries(this.trabalhando),
+      pausadas: Object.fromEntries(
+        [...this.falhas].filter(([, f]) => f.pausadaAte > agora).map(([id, f]) => [id, f.pausadaAte]),
+      ),
     };
+  }
+
+  /** Tira a pausa de uma IA (botão na interface). */
+  retomar(id: string) {
+    this.falhas.delete(id);
+    this.escritorio.registrarEvento(id, "config", `${id} foi liberada para voltar a trabalhar.`);
   }
 
   iniciar() {
@@ -105,6 +120,7 @@ export class Runner {
     const fora = this.escritorio.lerConfig<string[]>("foraDaEquipe", []);
     for (const [id, cli] of Object.entries(registro)) {
       if (cli.ativo === false || fora.includes(id) || this.trabalhando.has(id)) continue;
+      if ((this.falhas.get(id)?.pausadaAte ?? 0) > Date.now()) continue;
       if (!localizar(cli)) continue;
       const trabalho = this.proximoTrabalho(id, cli);
       if (!trabalho) continue;
@@ -203,15 +219,33 @@ export class Runner {
     }
 
     if (r.tokens) this.escritorio.registrarUso(id, r.tokens.entrada + r.tokens.saida);
-    if (r.ok) this.escritorio.registrarEvento(id, "fim", `Terminou ${trabalho.oque}. ${r.texto.slice(0, 300)}`);
-    else this.escritorio.registrarEvento(id, "erro", `Falhou em ${trabalho.oque}: ${r.erro}`);
+    const erroCurto = (r.erro ?? "").split("\n").slice(0, 3).join(" ").slice(0, 300);
+    if (r.ok) {
+      this.falhas.delete(id);
+      this.escritorio.registrarEvento(id, "fim", `Terminou ${trabalho.oque}. ${r.texto.slice(0, 300)}`);
+    } else {
+      this.escritorio.registrarEvento(id, "erro", `Falhou em ${trabalho.oque}: ${erroCurto}`);
+      const f = this.falhas.get(id) ?? { seguidas: 0, pausadaAte: 0 };
+      f.seguidas++;
+      if (f.seguidas >= 3) {
+        f.pausadaAte = Date.now() + cfg.pausaAposFalhasMin * 60_000;
+        f.seguidas = 0;
+        this.escritorio.registrarEvento(id, "limite", `${id} falhou 3 vezes seguidas; pausada por ${cfg.pausaAposFalhasMin} min.`);
+        this.escritorio.enviarMensagem(
+          "escritorio",
+          "humano",
+          `⚠️ ${id} falhou 3 vezes seguidas e foi pausada por ${cfg.pausaAposFalhasMin} min. Último erro: ${erroCurto}`,
+        );
+      }
+      this.falhas.set(id, f);
+    }
 
     // Tarefa que continua aberta = a IA não pegou. Conta tentativa e desiste depois do limite.
     if (trabalho.tarefa && this.escritorio.tarefa(trabalho.tarefa.id)?.status === "aberta") {
       const n = (this.tentativas.get(trabalho.tarefa.id) ?? 0) + 1;
       this.tentativas.set(trabalho.tarefa.id, n);
       if (n >= cfg.maxTentativas) {
-        const motivo = `Cancelada após ${n} tentativas sem ${id} assumir. Último erro: ${r.erro ?? "nenhum"}`;
+        const motivo = `Cancelada após ${n} tentativas sem ${id} assumir. Último erro: ${erroCurto || "nenhum"}`;
         this.escritorio.cancelarTarefa(trabalho.tarefa.id, motivo);
         this.escritorio.enviarMensagem("escritorio", "humano", `Tarefa #${trabalho.tarefa.id}: ${motivo}`, trabalho.tarefa.id);
         this.escritorio.registrarEvento(id, "erro", motivo);
