@@ -37,12 +37,24 @@ export async function prepararPartes(esc: Escritorio, projetoId: number, partes:
 }
 
 /** Na entrega: o escritório faz o commit do que a IA mudou na cópia dela e anota os arquivos no resultado. */
-export async function salvarEntrega(t: Tarefa, agente: string): Promise<string> {
-  if (!t.pasta || !t.branch) return "";
+export async function salvarEntrega(esc: Escritorio, t: Tarefa, agente: string): Promise<{ texto: string; mudou: boolean }> {
+  // Revisão: salva as correções do revisor na branch de quem foi revisado.
+  const branch = t.branch ?? (t.revisa ? esc.tarefa(t.revisa)?.branch : null);
+  if (!t.pasta || !branch) return { texto: "", mudou: false };
   const c = await commitarParte(t.pasta, `ktn: ${t.titulo} (tarefa #${t.id}, ${agente})`);
-  return c.mudou
-    ? `\n\n---\nArquivos alterados (branch ${t.branch}):\n${c.resumo}`
-    : `\n\n---\nNenhum arquivo foi alterado na branch ${t.branch}.`;
+  if (t.revisa) return { texto: c.mudou ? `\n\n---\nCorreções do revisor salvas na branch ${branch}:\n${c.resumo}` : "", mudou: c.mudou };
+  return {
+    texto: c.mudou ? `\n\n---\nArquivos alterados (branch ${branch}):\n${c.resumo}` : `\n\n---\nNenhum arquivo foi alterado na branch ${branch}.`,
+    mudou: c.mudou,
+  };
+}
+
+/** Quem revisa: outra IA da equipe, de preferência uma boa em revisão de código. */
+export function escolherRevisor(autor: string, equipe: string[], especialidades: Record<string, string[]>): string | null {
+  const candidatas = equipe.filter((a) => a !== autor);
+  if (!candidatas.length) return null;
+  const nota = (a: string) => ((especialidades[a] ?? []).some((e) => /revis|segunda opini|teste/i.test(e)) ? 0 : 1);
+  return [...candidatas].sort((x, y) => nota(x) - nota(y))[0];
 }
 
 const emAndamento = new Set<number>();
@@ -56,7 +68,7 @@ export async function processarIntegracoes(esc: Escritorio) {
     if (emAndamento.has(p.id)) continue;
     emAndamento.add(p.id);
     try {
-      const partes = esc.partesDoProjeto(p.id).filter((t) => t.branch && t.status === "entregue");
+      const partes = esc.partesDoProjeto(p.id).filter((t) => t.branch && !t.revisa && t.status === "entregue");
       const pasta = pastaDoChat(esc, p.conversa_id);
       if (!partes.length) {
         esc.avisarConsolidacao(p.id, "Nenhuma parte foi entregue com sucesso, então não há código para juntar.");

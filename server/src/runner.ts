@@ -155,6 +155,9 @@ export class Runner {
           ...(tarefa.conversa_id
             ? [`Contexto: este trabalho é do chat #${tarefa.conversa_id}. Se precisar, use ler_memoria e historico_conversa com conversa_id ${tarefa.conversa_id}.`]
             : []),
+          ...(tarefa.revisa
+            ? [`Esta é uma REVISÃO CRUZADA: leia a descrição da tarefa, revise com cuidado e comece a entrega com APROVADO ou PRECISA AJUSTE.`]
+            : []),
           ...(tarefa.branch
             ? [`Você está numa CÓPIA PRÓPRIA do projeto (git worktree, branch ${tarefa.branch}). Edite os arquivos aqui à vontade:`,
                `outras IAs trabalham em cópias separadas. Não precisa fazer commit; o escritório salva quando você entregar.`]

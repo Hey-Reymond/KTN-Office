@@ -16,6 +16,7 @@ export interface Tarefa {
   pasta: string | null; // cópia de trabalho (git worktree) desta tarefa, se houver
   branch: string | null;
   base: string | null; // commit de partida, para revisão/diff
+  revisa: number | null; // se for uma revisão: qual tarefa está sendo revisada
   status: StatusTarefa;
   responsavel: string | null;
   resultado: string | null;
@@ -175,7 +176,7 @@ export function abrirBanco(arquivo = process.env.KTN_DB ?? path.resolve("office.
   }
   const novas: [string, string][] = [
     ["conversas", "pasta TEXT"], ["tarefas", "pasta TEXT"], ["tarefas", "branch TEXT"], ["tarefas", "base TEXT"],
-    ["projetos", "pasta_final TEXT"], ["projetos", "branch_final TEXT"],
+    ["projetos", "pasta_final TEXT"], ["projetos", "branch_final TEXT"], ["tarefas", "revisa INTEGER"],
   ];
   for (const [tabela, def] of novas) if (!temColuna(tabela, def.split(" ")[0])) db.exec(`ALTER TABLE ${tabela} ADD COLUMN ${def}`);
   // Mensagens antigas com o humano (antes dos chats existirem) vão para a "Conversa 1".
@@ -575,6 +576,27 @@ export class Escritorio {
 
   projetosEm(status: StatusProjeto): Projeto[] {
     return this.db.prepare(`SELECT * FROM projetos WHERE status = ?`).all(status) as Projeto[];
+  }
+
+  /**
+   * Revisão cruzada: outra IA revisa a parte entregue, na mesma cópia (worktree) do autor.
+   * Fica no mesmo projeto, então o projeto só fecha depois da revisão.
+   */
+  criarRevisao(t: Tarefa, revisor: string): Tarefa {
+    const descricao = [
+      `Revise o trabalho de ${t.responsavel} na tarefa #${t.id} ("${t.titulo}").`,
+      t.branch ? `Você está na cópia dele (branch ${t.branch}). Veja as mudanças com: git diff ${t.base}...HEAD` : `Os arquivos estão na pasta de trabalho.`,
+      `O que olhar: bugs, casos esquecidos, segurança, código confuso e se a tarefa foi mesmo cumprida.`,
+      `Corrija direto os problemas pequenos (se tiver permissão de editar). Na entrega, comece com APROVADO ou PRECISA AJUSTE`,
+      `e liste o que encontrou e o que corrigiu.`,
+    ].join("\n");
+    const info = this.db
+      .prepare(`INSERT INTO tarefas (titulo, descricao, criada_por, para, projeto_id, conversa_id, pasta, base, revisa) VALUES (?, ?, 'escritorio', ?, ?, ?, ?, ?, ?)`)
+      .run(`Revisar: ${t.titulo}`, descricao, revisor, t.projeto_id, t.conversa_id, t.pasta, t.base, t.id);
+    const r = this.tarefa(Number(info.lastInsertRowid))!;
+    this.enviarMensagem("escritorio", revisor, `Nova tarefa #${r.id} pra você: revisar o trabalho de ${t.responsavel} (#${t.id}).`, r.id);
+    this.registrarEvento(revisor, "projeto", `Revisão cruzada: ${revisor} vai revisar a tarefa #${t.id} de ${t.responsavel}.`);
+    return r;
   }
 
   /** Acrescenta texto ao resultado de uma tarefa já entregue (ex.: arquivos alterados, revisão). */

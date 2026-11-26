@@ -64,6 +64,7 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       modelos: catalogoComEstado(),
       teste,
       runner: runner.estado(),
+      revisaoCruzada: escritorio.lerConfig("revisaoCruzada", true),
       projetos: escritorio.listarProjetos(15),
       foraDaEquipe: escritorio.lerConfig<string[]>("foraDaEquipe", []),
       ferramentas: {
@@ -113,7 +114,8 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
     "/runner",
     protegido,
     tentar((req) => {
-      const { ligado, coordenadora, pastaTrabalho, maxPorHora } = req.body ?? {};
+      const { ligado, coordenadora, pastaTrabalho, maxPorHora, revisaoCruzada } = req.body ?? {};
+      if (typeof revisaoCruzada === "boolean") escritorio.gravarConfig("revisaoCruzada", revisaoCruzada);
       return runner.atualizarConfig({
         ...(typeof ligado === "boolean" ? { ligado } : {}),
         ...(typeof coordenadora === "string" && coordenadora ? { coordenadora } : {}),

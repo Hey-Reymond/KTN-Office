@@ -61,6 +61,11 @@ branch `ktn/projN-ia-tN`). Assim as IAs editam ao mesmo tempo sem atrapalhar uma
 4. você clica em **Aplicar no meu projeto** (git merge na sua branch atual). Seu projeto nunca muda antes disso.
 **Limpar cópias** remove as pastas temporárias (as branches ficam).
 
+### Revisão cruzada
+Cada parte de projeto que muda arquivos é revisada por **outra IA** (de preferência uma boa em revisão)
+na mesma cópia do autor, antes do merge. O revisor corrige o que for pequeno e responde APROVADO ou PRECISA AJUSTE;
+a revisão vai junto no resultado da parte. Liga/desliga em Configurações → Expediente.
+
 ### Ferramentas (navegador)
 Em **Configurações → Ferramentas** você liga, em todas as IAs de uma vez:
 - **Navegador (Playwright)**: abrir sites, clicar, preencher, tirar print. Funciona com Brave, Chrome, Edge ou Firefox

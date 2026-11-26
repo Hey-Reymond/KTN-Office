@@ -35,8 +35,8 @@ async function rodarProjeto(edicoes: Record<string, (pasta: string) => void>) {
     assert.equal(pastaDaTarefa(esc, t), t.pasta, "a IA roda dentro da cópia dela");
     esc.pegarTarefa(t.para!, t.id);
     edicoes[t.para!](t.pasta!);
-    const extra = await salvarEntrega(esc.tarefa(t.id)!, t.para!);
-    esc.entregarTarefa(t.para!, t.id, "feito" + extra);
+    const extra = await salvarEntrega(esc, esc.tarefa(t.id)!, t.para!);
+    esc.entregarTarefa(t.para!, t.id, "feito" + extra.texto);
   }
   assert.equal(esc.projeto(p.id)!.status, "integrando");
   await processarIntegracoes(esc);
@@ -79,6 +79,24 @@ try {
   esc.concluirProjeto("claude", p2.id, "resolvido");
   await aplicarNoProjeto(repo, p2.id);
   assert.match(readFileSync(path.join(repo, "a.txt"), "utf8"), /claude e agy/);
+
+  // 2b. Revisão cruzada
+  const { escolherRevisor } = await import("../src/integracao.js");
+  assert.equal(escolherRevisor("claude", ["claude", "antigravity", "codex"], { codex: ["revisão de código"] }), "codex");
+  assert.equal(escolherRevisor("claude", ["claude"], {}), null);
+  const t2 = esc.partesDoProjeto(p2.id)[0];
+  const rev = esc.criarRevisao({ ...t2, responsavel: "claude" }, "antigravity");
+  assert.equal(rev.revisa, t2.id);
+  assert.equal(rev.pasta, t2.pasta, "revisor trabalha na cópia do autor");
+  assert.match(rev.descricao!, /git diff/);
+  esc.pegarTarefa("antigravity", rev.id);
+  writeFileSync(path.join(t2.pasta!, "c.txt"), "correção do revisor\n");
+  const sr = await salvarEntrega(esc, esc.tarefa(rev.id)!, "antigravity");
+  assert.equal(sr.mudou, true);
+  assert.match(sr.texto, /Correções do revisor salvas na branch ktn\/proj2-claude/);
+  esc.entregarTarefa("antigravity", rev.id, "APROVADO" + sr.texto);
+  esc.anexarAoResultado(t2.id, "\nRevisão de antigravity: APROVADO");
+  assert.match(esc.tarefa(t2.id)!.resultado!, /APROVADO/);
 
   // 3. Aplicar recusa se o humano tem alterações não salvas
   writeFileSync(path.join(repo, "a.txt"), "mexi aqui\n");

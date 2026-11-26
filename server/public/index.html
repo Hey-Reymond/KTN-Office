@@ -385,6 +385,10 @@
           <input type="number" id="maxHora" min="1" max="500" style="max-width:120px">
           <small>Trava de segurança contra loops. Uma IA que falha 3 vezes seguidas também é pausada por 10 minutos.</small>
         </div>
+        <div class="campo">
+          <label><input type="checkbox" id="revisaoCruzada"> Revisão cruzada</label>
+          <small>Quando uma IA entrega uma parte de projeto, outra IA revisa (e corrige o que for pequeno) antes do merge. Gasta um pouco mais de cota, mas pega bugs.</small>
+        </div>
         <button class="btn primario" id="btnSalvarCfg">Salvar expediente</button>
       </section>
       <section data-conteudo="quadro" hidden>
@@ -693,7 +697,7 @@ function renderConfig() {
 
   // Expediente
   $("#coordenadora").innerHTML = e.equipe.filter((d) => d.instalado).map((d) => `<option value="${esc(d.id)}" ${d.id === e.runner.coordenadora ? "selected" : ""}>${esc(nome(d.id))}</option>`).join("");
-  $("#pasta").value = e.runner.pastaTrabalho; $("#maxHora").value = e.runner.maxPorHora;
+  $("#pasta").value = e.runner.pastaTrabalho; $("#maxHora").value = e.runner.maxPorHora; $("#revisaoCruzada").checked = e.revisaoCruzada !== false;
 
   // Quadro
   $("#tarefas").innerHTML = e.tarefas.length ? e.tarefas.map((t) => { const [s, c] = STATUS_TAREFA[t.status]; return `<div class="linhaLista">
@@ -870,12 +874,12 @@ $("#btnTestar").addEventListener("click", async () => {
   if (!confirm("Testar cada modelo com uma pergunta mínima? Gasta poucos tokens dos seus planos.")) return;
   await api("testar-modelos", {}).catch((e) => avisar(e.message)); atualizar();
 });
-for (const id of ["#pasta", "#maxHora", "#coordenadora"]) {
+for (const id of ["#pasta", "#maxHora", "#coordenadora", "#revisaoCruzada"]) {
   $(id).addEventListener("focus", () => (editandoCfg = true));
 }
 $("#btnSalvarCfg").addEventListener("click", async () => {
   try {
-    await api("runner", { pastaTrabalho: $("#pasta").value, maxPorHora: $("#maxHora").value, coordenadora: $("#coordenadora").value });
+    await api("runner", { pastaTrabalho: $("#pasta").value, maxPorHora: $("#maxHora").value, coordenadora: $("#coordenadora").value, revisaoCruzada: $("#revisaoCruzada").checked });
     avisar("Expediente salvo.");
   } catch (e) { avisar(e.message); }
   editandoCfg = false; atualizar();

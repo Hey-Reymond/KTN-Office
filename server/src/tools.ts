@@ -4,7 +4,7 @@ import type { Escritorio } from "./db.js";
 import { carregarRegistro, modeloDisponivel, modelosDisponiveis } from "./equipe/registro.js";
 import { equipeAtiva } from "./equipe/detectar.js";
 import { arquivoMemoria, escreverMemoria, lerMemoria } from "./memoria.js";
-import { fecharIntegracao, prepararPartes, processarIntegracoes, salvarEntrega } from "./integracao.js";
+import { escolherRevisor, fecharIntegracao, prepararPartes, processarIntegracoes, salvarEntrega } from "./integracao.js";
 
 const json = (dados: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(dados, null, 2) }],
@@ -356,8 +356,15 @@ export function criarServidor(escritorio: Escritorio, agente: string) {
       const t = escritorio.tarefa(id);
       if (!t) throw new Error(`Tarefa #${id} não existe.`);
       if (t.status !== "em_andamento" || t.responsavel !== agente) return escritorio.entregarTarefa(agente, id, resultado); // mensagem de erro padrão
-      const arquivos = await salvarEntrega(t, agente);
-      const entregue = escritorio.entregarTarefa(agente, id, resultado + arquivos);
+      const salvo = await salvarEntrega(escritorio, t, agente);
+      // Revisão cruzada: parte de projeto que mudou arquivos é revisada por outra IA antes de fechar o projeto.
+      if (t.projeto_id && !t.revisa && escritorio.lerConfig("revisaoCruzada", true) && (salvo.mudou || !t.branch)) {
+        const reg = carregarRegistro();
+        const revisor = escolherRevisor(agente, equipe(), Object.fromEntries(Object.entries(reg).map(([k, c]) => [k, c.especialidades ?? []])));
+        if (revisor) escritorio.criarRevisao({ ...t, responsavel: agente }, revisor);
+      }
+      const entregue = escritorio.entregarTarefa(agente, id, resultado + salvo.texto);
+      if (t.revisa) escritorio.anexarAoResultado(t.revisa, `\n\n---\nRevisão de ${agente}:\n${resultado}${salvo.texto}`);
       await processarIntegracoes(escritorio);
       return entregue;
     }),
