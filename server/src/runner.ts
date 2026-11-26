@@ -41,6 +41,7 @@ export class Runner {
   private execucoes = new Map<string, number[]>();
   private tentativas = new Map<number, number>();
   private timer?: NodeJS.Timeout;
+  private emCurso = new Set<Promise<void>>();
 
   constructor(
     private escritorio: Escritorio,
@@ -85,22 +86,31 @@ export class Runner {
     this.timer.unref?.();
   }
 
-  /** Uma volta pelo escritório. Público pra testes. */
+  /** Espera todo mundo que está trabalhando terminar (usado em testes e ao desligar). */
+  async aguardarOcioso() {
+    while (this.emCurso.size) await Promise.all([...this.emCurso]);
+  }
+
+  /**
+   * Uma volta pelo escritório: acorda quem tem trabalho e NÃO espera terminar.
+   * Assim cada IA trabalha no seu ritmo, em paralelo; quem termina antes pega a próxima.
+   */
   async ciclo(): Promise<void> {
     const cfg = this.config;
     if (!cfg.ligado) return;
     const registro = carregarRegistro();
     const fora = this.escritorio.lerConfig<string[]>("foraDaEquipe", []);
-    const tarefas: Promise<void>[] = [];
     for (const [id, cli] of Object.entries(registro)) {
       if (cli.ativo === false || fora.includes(id) || this.trabalhando.has(id)) continue;
       if (!localizar(cli)) continue;
       const trabalho = this.proximoTrabalho(id, cli);
       if (!trabalho) continue;
       if (!this.dentroDoLimite(id, cfg.maxPorHora)) continue;
-      tarefas.push(this.executar(id, cli, trabalho, cfg));
+      const p: Promise<void> = this.executar(id, cli, trabalho, cfg)
+        .catch((e) => this.escritorio.registrarEvento(id, "erro", `Erro inesperado: ${e}`))
+        .finally(() => this.emCurso.delete(p));
+      this.emCurso.add(p);
     }
-    await Promise.all(tarefas);
   }
 
   private proximoTrabalho(id: string, cli: ConfigCli): { prompt: string; modelo?: string; tarefa?: Tarefa; oque: string } | null {

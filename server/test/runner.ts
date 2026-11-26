@@ -52,13 +52,13 @@ const fabrica = (id: string): Funcionario => ({
 
 try {
   const runner = new Runner(esc, fabrica);
-  await runner.ciclo();
+  { await runner.ciclo(); await runner.aguardarOcioso(); }
   assert.equal(chamadas.length, 0, "desligado não faz nada");
 
   runner.atualizarConfig({ ligado: true, pastaTrabalho: path.join(tmp, "trabalho") });
   esc.enviarMensagem("humano", "claude", "descubra como o agy mostra tokens");
 
-  for (let i = 0; i < 5; i++) await runner.ciclo();
+  for (let i = 0; i < 5; i++) { await runner.ciclo(); await runner.aguardarOcioso(); }
 
   assert.deepEqual(chamadas.map((c) => c.id), ["claude", "antigravity", "claude"], "ordem do trabalho");
   assert.equal(chamadas[1].modelo, "carbon", "aplica o modelo escolhido pela coordenadora");
@@ -72,7 +72,7 @@ try {
   // Modelo desmarcado pelo usuário não é usado (roda no padrão do CLI)
   definirModelo("antigravity", "carbon", false);
   esc.criarTarefa("claude", "outra", "", "antigravity", "carbon");
-  await runner.ciclo();
+  { await runner.ciclo(); await runner.aguardarOcioso(); }
   assert.equal(chamadas.at(-1)!.modelo, undefined);
 
   // IA que não pega a tarefa: depois de N tentativas a tarefa é cancelada e você é avisado
@@ -80,8 +80,8 @@ try {
   preguicosa.atualizarConfig({ ligado: true, maxTentativas: 2 });
   const t = esc.criarTarefa("claude", "vai falhar", "", "antigravity");
   esc.lerCaixa("antigravity");
-  await preguicosa.ciclo();
-  await preguicosa.ciclo();
+  { await preguicosa.ciclo(); await preguicosa.aguardarOcioso(); }
+  { await preguicosa.ciclo(); await preguicosa.aguardarOcioso(); }
   assert.equal(esc.tarefa(t.id)!.status, "cancelada");
   assert.ok(esc.mensagensRecentes().some((m) => m.para === "humano" && m.texto.includes(`#${t.id}`)));
 
@@ -90,7 +90,7 @@ try {
   loop.atualizarConfig({ ligado: true, maxPorHora: 3, maxTentativas: 99 });
   esc.enviarMensagem("x", "claude", "spam");
   const antes = esc.eventosRecentes(500).filter((e: any) => e.tipo === "inicio" && e.agente === "claude").length;
-  for (let i = 0; i < 6; i++) await loop.ciclo(); // claude nunca lê a caixa => tentaria sempre
+  for (let i = 0; i < 6; i++) { await loop.ciclo(); await loop.aguardarOcioso(); } // claude nunca lê a caixa => tentaria sempre
   const depois = esc.eventosRecentes(500).filter((e: any) => e.tipo === "inicio" && e.agente === "claude").length;
   assert.equal(depois - antes, 3);
   assert.ok(esc.eventosRecentes().some((e: any) => e.tipo === "limite"));
@@ -113,6 +113,33 @@ try {
   // E o usuário pode desmarcar mesmo assim
   definirModelo("claude", "fable", false);
   assert.equal(estadoModelo(carregarRegistro().claude, "fable"), "desligado_usuario");
+
+  // ---------- Paralelismo: uma IA lenta não segura as outras ----------
+  {
+    let liberarLenta!: () => void;
+    const lenta = new Promise<void>((r) => (liberarLenta = r));
+    const ordem: string[] = [];
+    const par = new Runner(esc, (id) => ({ id, tipo: "cli", especialidades: [], async trabalhar(prompt) {
+      const t = prompt.match(/pegar_tarefa com id (\d+)/);
+      if (id === "claude") await lenta;
+      if (t) { const x = esc.pegarTarefa(id, Number(t[1])); esc.entregarTarefa(id, x.id, "ok"); }
+      else esc.lerCaixa(id);
+      ordem.push(id);
+      return { ok: true, texto: "" };
+    } }));
+    par.atualizarConfig({ ligado: true, maxPorHora: 50 });
+    esc.lerCaixa("claude"); esc.lerCaixa("antigravity");
+    esc.criarTarefa("x", "lenta", "", "claude");
+    const rapida = esc.criarTarefa("x", "rápida", "", "antigravity");
+    await par.ciclo(); // acorda os dois; claude fica preso
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(esc.tarefa(rapida.id)!.status, "entregue", "antigravity terminou sem esperar o claude");
+    assert.deepEqual(ordem, ["antigravity"]);
+    liberarLenta();
+    await par.aguardarOcioso();
+    assert.deepEqual(ordem, ["antigravity", "claude"]);
+    par.atualizarConfig({ ligado: false });
+  }
 
   // ---------- Projeto completo: coordenadora divide, todos fazem, coordenadora faz o merge ----------
   const { equipeAtiva } = await import("../src/equipe/detectar.js");
@@ -148,7 +175,7 @@ try {
   esc.lerCaixa("claude"); esc.lerCaixa("antigravity");
   const n0 = chamadas.length;
   esc.enviarMensagem("humano", "claude", "crie um app de tarefas");
-  for (let i = 0; i < 6; i++) await proj.ciclo();
+  for (let i = 0; i < 6; i++) { await proj.ciclo(); await proj.aguardarOcioso(); }
   const projeto = esc.listarProjetos(1)[0];
   assert.equal(projeto.status, "concluido");
   assert.equal(projeto.partes.length, 2);
