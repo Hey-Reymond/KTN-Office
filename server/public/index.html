@@ -431,6 +431,7 @@
         <h3>Ferramentas</h3>
         <p class="sub">Recursos extras que o escritório liga em todas as IAs de uma vez. Com o navegador, elas abrem sites, clicam, preenchem formulários e testam as páginas que criaram.</p>
         <div id="listaFerramentas"></div>
+        <div id="cardGithub" class="membroCfg"></div>
       </section>
       <section data-conteudo="expediente" hidden>
         <h3>Expediente</h3>
@@ -770,6 +771,7 @@ function renderConfig() {
     const st = e.status.find((s) => s.agente === d.id);
     const selos = [
       d.instalado ? `<span class="selo">${esc(d.versao || "instalado")}</span>` : `<span class="selo erro">não instalado</span>`,
+      d.experimental ? `<span class="selo alerta" title="Ainda não testado com uso real: pode precisar de ajuste. Se algo der errado, abra uma issue no GitHub do projeto.">experimental</span>` : "",
       d.instalado ? (d.login === "provavel" ? `<span class="selo ok">${d.api ? "pronta" : "conta conectada"}</span>` : `<span class="selo alerta">${d.api ? "sem chave" : "sem login"}</span>`) : "",
       d.instalado && d.office === "conectado" ? `<span class="selo ok">no escritório</span>` : "",
       st ? seloCota(st.cota) : "",
@@ -810,6 +812,7 @@ function renderConfig() {
   // Ferramentas
   const F = e.ferramentas;
   const NAV = { brave: "Brave", firefox: "Firefox", chrome: "Chrome", edge: "Edge" };
+  desenharGithub(e.github || {});
   $("#listaFerramentas").innerHTML = Object.entries(F.catalogo).map(([id, f]) => {
     const st = F.estado[id];
     const opcoes = Object.keys(f.navegadores || {}).map((n) => {
@@ -982,6 +985,40 @@ $("#chats").addEventListener("click", async (ev) => {
 });
 $("#chats").addEventListener("keydown", (ev) => { const item = ev.target.closest("[data-chat]"); if (item && ev.key === "Enter" && ev.target === item) abrirChat(Number(item.dataset.chat)); });
 $("#expediente").addEventListener("change", async (ev) => { await api("runner", { ligado: ev.target.checked }).catch((e) => avisar(e.message)); atualizar(); });
+
+// ---------- GitHub ----------
+let reposDaConta = null;
+function desenharGithub(g) {
+  const repos = g.repos || [];
+  const lista = reposDaConta
+    ? reposDaConta.map((r) => `<label class="selo chip" title="${esc(r.descricao)}"><input type="checkbox" data-gh-repo="${esc(r.nome)}" ${repos.includes(r.nome) ? "checked" : ""}> ${esc(r.nome)}${r.privado ? " 🔒" : ""}</label>`).join("")
+    : repos.map((r) => `<span class="selo">${esc(r)}</span>`).join("") || `<span style="color:var(--fraco);font-size:12.5px">Nenhum repositório liberado.</span>`;
+  $("#cardGithub").innerHTML = `<div class="cab"><span class="nome">GitHub</span><span class="selos">${g.disponivel ? `<span class="selo ok">logado como ${esc(g.usuario)}</span>` : `<span class="selo alerta">gh não encontrado ou sem login</span>`}</span>
+      <span class="direita"><label class="interruptor"><input type="checkbox" id="ghLigado" ${g.ligado ? "checked" : ""} ${g.disponivel ? "" : "disabled"}><span class="trilho"></span>${g.ligado ? "Ligado" : "Desligado"}</label></span></div>
+    <p style="color:var(--suave);font-size:13px;margin:8px 0 0">Todas as IAs (CLIs e APIs) leem issues, PRs, commits e arquivos, e clonam os repositórios que você liberar. Criar issue, comentar ou abrir PR <b>sempre pede sua permissão</b>. Usa o <code>gh</code> logado neste PC: o token não é passado para as IAs.</p>
+    ${!g.disponivel ? `<p style="color:var(--alerta);font-size:12.5px;margin:8px 0 0">Instale o GitHub CLI (cli.github.com) e rode <code>gh auth login</code> num terminal.</p>` : `
+    <div class="linhaPerm" style="align-items:flex-start"><span>Repositórios</span><div style="display:flex;gap:6px;flex-wrap:wrap;flex:1">${lista}</div></div>
+    <div class="linhaPerm"><span></span>${reposDaConta ? `<button class="btn pequeno primario" id="ghSalvar">Salvar repositórios</button>` : `<button class="btn pequeno" id="ghEscolher">Escolher repositórios</button>`}
+      <label style="font-size:12.5px"><input type="checkbox" id="ghTodos" ${g.todos ? "checked" : ""}> liberar todos da minha conta</label></div>`}`;
+}
+$("#cardGithub").addEventListener("change", async (ev) => {
+  if (ev.target.id === "ghLigado" || ev.target.id === "ghTodos") {
+    if (ev.target.id === "ghTodos" && ev.target.checked && !confirm("Liberar TODOS os seus repositórios (inclusive privados) para as IAs lerem? Ações continuam pedindo permissão.")) { ev.target.checked = false; return; }
+    try { await api("github", ev.target.id === "ghLigado" ? { ligado: ev.target.checked } : { todos: ev.target.checked }); } catch (e) { avisar(e.message); }
+    atualizar();
+  }
+});
+$("#cardGithub").addEventListener("click", async (ev) => {
+  if (ev.target.id === "ghEscolher") {
+    ev.target.textContent = "Carregando…"; editandoCfg = true;
+    try { reposDaConta = (await api("github/repos", {})).repos; desenharGithub(estado.github || {}); } catch (e) { avisar(e.message); editandoCfg = false; }
+  }
+  if (ev.target.id === "ghSalvar") {
+    const repos = [...$("#cardGithub").querySelectorAll("[data-gh-repo]:checked")].map((x) => x.dataset.ghRepo);
+    try { await api("github", { repos }); avisar(`${repos.length} repositório(s) liberado(s).`); } catch (e) { avisar(e.message); }
+    reposDaConta = null; editandoCfg = false; atualizar();
+  }
+});
 
 // ---------- Tema ----------
 function aplicarTema(t) {

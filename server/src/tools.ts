@@ -1,6 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { descrever, type NovoAgendamento } from "./agenda.js";
+import { clonarGithub, conferirRepo, descreverAcao, executarAcao, lerConfigGithub, lerGithub, reposDaConta, type AcaoGithub } from "./github.js";
+import { pastaDoChat } from "./integracao.js";
 import type { Escritorio } from "./db.js";
 import { carregarRegistro, modeloDisponivel, modelosDisponiveis } from "./equipe/registro.js";
 import { equipeAtiva } from "./equipe/detectar.js";
@@ -442,6 +444,94 @@ export function criarServidor(escritorio: Escritorio, agente: string) {
       inputSchema: { chave: z.string().optional() },
     },
     seguro(({ chave }: { chave?: string }) => escritorio.lerNotas(chave)),
+  );
+
+  // ---------- GitHub (pelo gh logado no PC do humano; só repositórios liberados) ----------
+
+  /** Espera o humano responder um pedido de permissão (popup na interface). */
+  const esperarResposta = async (ferramenta: string, detalhe: string): Promise<boolean> => {
+    if (escritorio.sempreDe(agente).includes(ferramenta)) return true;
+    const pedido = escritorio.pedirPermissao(agente, ferramenta, detalhe, "espera");
+    const limite = Date.now() + ESPERA_PERMISSAO_MS;
+    while (Date.now() < limite) {
+      const atual = escritorio.pedido(pedido.id);
+      if (atual && atual.status !== "pendente") return atual.status === "permitido";
+      await new Promise((r) => setTimeout(r, 700));
+    }
+    escritorio.expirarPedido(pedido.id);
+    return false;
+  };
+
+  server.registerTool(
+    "github_repos",
+    { description: "Lista os repositórios do GitHub que o humano liberou para a equipe.", inputSchema: {} },
+    seguro(async () => {
+      const cfg = lerConfigGithub(escritorio);
+      if (!cfg.ligado) throw new Error("O acesso ao GitHub está desligado (Configurações → Ferramentas → GitHub).");
+      return cfg.todos ? { todos_da_conta: true, repos: await reposDaConta() } : { repos: cfg.repos ?? [] };
+    }),
+  );
+
+  server.registerTool(
+    "github_ler",
+    {
+      description:
+        "Lê dados de um repositório liberado pela API do GitHub (só leitura). caminho é o que vem depois de repos/dono/nome/, " +
+        "ex.: 'issues?state=open', 'issues/12/comments', 'pulls', 'pulls/3/files', 'commits?per_page=10', 'contents/src/app.ts', 'actions/runs?per_page=5'. Vazio = dados do repo.",
+      inputSchema: { repo: z.string().describe("dono/nome"), caminho: z.string().optional() },
+    },
+    seguro(({ repo, caminho }: { repo: string; caminho?: string }) => lerGithub(escritorio, repo, caminho ?? "")),
+  );
+
+  server.registerTool(
+    "github_clonar",
+    {
+      description: "Clona (ou atualiza) um repositório liberado na pasta de trabalho do chat, para ler e editar o código. Devolve o caminho.",
+      inputSchema: { repo: z.string(), conversa_id: z.number().int().optional() },
+    },
+    seguro(async ({ repo, conversa_id }: { repo: string; conversa_id?: number }) => {
+      const pasta = await clonarGithub(escritorio, repo, pastaDoChat(escritorio, conversa_id ?? escritorio.conversaAtualCom(agente)));
+      escritorio.registrarEvento(agente, "github", `${agente} clonou ${repo} em ${pasta}.`);
+      return { pasta, dica: "Para as IAs trabalharem nele com cópias próprias, o humano pode definir essa pasta como pasta do chat (botão 📁)." };
+    }),
+  );
+
+  server.registerTool(
+    "github_acao",
+    {
+      description:
+        "Faz algo que MUDA o GitHub num repositório liberado: criar_issue (titulo, corpo), comentar (numero, corpo) ou criar_pr " +
+        "(pasta = clone/cópia do repo numa branch própria, titulo, corpo, base opcional; envia a branch e abre o PR). " +
+        "Sempre pede permissão ao humano antes (espera até 5 min).",
+      inputSchema: {
+        repo: z.string(),
+        tipo: z.enum(["criar_issue", "comentar", "criar_pr"]),
+        titulo: z.string().optional(),
+        corpo: z.string().optional(),
+        numero: z.number().int().optional(),
+        pasta: z.string().optional(),
+        base: z.string().optional(),
+      },
+    },
+    seguro(async (a: { repo: string; tipo: AcaoGithub["tipo"]; titulo?: string; corpo?: string; numero?: number; pasta?: string; base?: string }) => {
+      const repo = await conferirRepo(escritorio, a.repo);
+      let acao: AcaoGithub;
+      if (a.tipo === "criar_issue") {
+        if (!a.titulo) throw new Error("Falta o titulo.");
+        acao = { tipo: "criar_issue", titulo: a.titulo, corpo: a.corpo };
+      } else if (a.tipo === "comentar") {
+        if (!a.numero || !a.corpo) throw new Error("Falta numero ou corpo.");
+        acao = { tipo: "comentar", numero: a.numero, corpo: a.corpo };
+      } else {
+        if (!a.pasta || !a.titulo) throw new Error("Falta pasta ou titulo.");
+        acao = { tipo: "criar_pr", pasta: a.pasta, titulo: a.titulo, corpo: a.corpo, base: a.base };
+      }
+      const ok = await esperarResposta(`github_${a.tipo}`, descreverAcao(repo, acao));
+      if (!ok) throw new Error("O humano não permitiu (ou não respondeu a tempo). Não tente de novo sem ele pedir.");
+      const r = await executarAcao(repo, acao);
+      escritorio.registrarEvento(agente, "github", `${agente}: ${descreverAcao(repo, acao)}. ${r.slice(0, 200)}`);
+      return { feito: true, resultado: r };
+    }),
   );
 
   server.registerTool(

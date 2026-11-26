@@ -304,7 +304,8 @@
       "comandos": [
         "--allow-all-tools"
       ]
-    }
+    },
+    "experimental": true
   },
   "qwen": {
     "nome": "Qwen Code",
@@ -354,7 +355,8 @@
         "--approval-mode",
         "yolo"
       ]
-    }
+    },
+    "experimental": true
   },
   "opencode": {
     "nome": "OpenCode",
@@ -403,7 +405,8 @@
       ],
       "edicao": [],
       "comandos": []
-    }
+    },
+    "experimental": true
   },
   "kimi": {
     "nome": "Kimi Code CLI",
@@ -447,7 +450,8 @@
       "leitura": [],
       "edicao": [],
       "comandos": []
-    }
+    },
+    "experimental": true
   },
   "gemini": {
     "nome": "Gemini CLI (legado)",

@@ -47,6 +47,8 @@ export interface ConfigCli {
   conexaoOffice?: ConexaoOffice;
   /** Para conexaoOffice "json-mcp": em que arquivo e formato o servidor "office" é gravado. {url} vira o endereço. */
   mcpJson?: { arquivo: string; chave: string; entrada: Record<string, unknown> };
+  /** Ainda não testado com uso real (a interface mostra um selo "experimental"). */
+  experimental?: boolean;
   /** Aviso mostrado na interface (ex.: CLI que aprova tudo sozinho no modo sem interação). */
   aviso?: string;
   especialidades?: string[];

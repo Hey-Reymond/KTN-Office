@@ -20,6 +20,7 @@ export interface Deteccao {
   /** true = IA por API (chave ou servidor local), não um programa. */
   api?: boolean;
   aviso?: string;
+  experimental?: boolean;
   dicaLogin?: string;
   problemas: string[];
 }
@@ -127,6 +128,7 @@ export async function detectarUm(id: string, cfg: ConfigCli): Promise<Deteccao> 
     podeInstalar: !!(cfg.instalar?.npm || cfg.instalar?.windows || cfg.instalar?.unix),
     dicaLogin: cfg.login,
     aviso: cfg.aviso,
+    experimental: cfg.experimental || cfg.tipo === "api",
     problemas: [],
   };
 

@@ -9,6 +9,7 @@ import { carregarRegistro, definirModelo } from "./equipe/registro.js";
 import type { Runner } from "./runner.js";
 import { aplicarFerramenta, catalogoFerramentas, estadoFerramentas, navegadoresInstalados, prepararNavegador } from "./ferramentas.js";
 import { exigePerguntar } from "./ferramentas.js";
+import { lerConfigGithub, reposDaConta, statusGithub } from "./github.js";
 import { aplicarNoProjeto, ehRepositorio, limparWorktrees } from "./git.js";
 import { pastaDoChat } from "./integracao.js";
 import { salvarAnexos, textoAnexos } from "./anexos.js";
@@ -27,6 +28,13 @@ const PUBLICO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../p
  * navegador não consegue mandar esse cabeçalho pro 127.0.0.1 (o navegador bloqueia), então
  * só a própria página do KTN Office consegue ligar o expediente, testar modelos etc.
  */
+let cacheGh: { quando: number; valor: Awaited<ReturnType<typeof statusGithub>> } | null = null;
+/** Pergunta ao gh quem está logado, no máximo uma vez por minuto (a interface consulta o estado a cada poucos segundos). */
+async function statusGithubCache() {
+  if (!cacheGh || Date.now() - cacheGh.quando > 60_000) cacheGh = { quando: Date.now(), valor: await statusGithub() };
+  return cacheGh.valor;
+}
+
 export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) {
   let deteccao: { quando: number; dados: Deteccao[] } | null = null;
   let detectando: Promise<Deteccao[]> | null = null;
@@ -74,6 +82,7 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       revisaoCruzada: escritorio.lerConfig("revisaoCruzada", true),
       notificacoes: escritorio.lerConfig<ConfigNotificacoes>("notificacoes", {}),
       provedores: PROVEDORES,
+      github: { ...lerConfigGithub(escritorio), ...(await statusGithubCache()) },
       receitas: listarReceitas(),
       agendamentos: escritorio.listarAgendamentos().map((a) => ({ ...a, quando: descrever(a) })),
       projetos: escritorio.listarProjetos(15),
@@ -158,6 +167,18 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       if (!ok) throw new Error("Não consegui enviar. Confira o tópico e a internet.");
     }),
   );
+  // ---------- GitHub ----------
+  api.post("/github", protegido, tentar(async (req) => {
+    const b = req.body ?? {};
+    const atual = lerConfigGithub(escritorio);
+    const repos = Array.isArray(b.repos) ? b.repos.map(String).filter((r: string) => /^[\w.-]+\/[\w.-]+$/.test(r)) : atual.repos;
+    const novo = { ligado: typeof b.ligado === "boolean" ? b.ligado : atual.ligado, todos: typeof b.todos === "boolean" ? b.todos : atual.todos, repos };
+    escritorio.gravarConfig("github", novo);
+    escritorio.registrarEvento(null, "config", `GitHub ${novo.ligado ? `ligado (${novo.todos ? "todos os repositórios" : (novo.repos ?? []).length + " repositório(s)"})` : "desligado"}.`);
+    cacheGh = null;
+  }));
+  api.post("/github/repos", protegido, tentar(async () => ({ repos: await reposDaConta() })));
+
   // ---------- Receitas ----------
   api.post("/receita", protegido, tentar((req) => salvarReceita(req.body ?? {})));
   api.post("/receita/apagar", protegido, tentar((req) => apagarReceita(String(req.body?.id ?? ""))));

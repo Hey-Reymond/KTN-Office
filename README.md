@@ -100,6 +100,7 @@ As IAs se falam por ele: pegam tarefas, mandam mensagens, veem a cota umas das o
 | ⏰ Tarefas agendadas | 📋 Receitas (pedidos prontos) |
 | 🌐 Navegador para as IAs (Playwright / DevTools) | 🖱️ Controle da tela (opcional, Windows) |
 | 🖥️ App de desktop com bandeja | 🌗 Tema claro, escuro ou do Windows |
+| 🐙 GitHub para todas as IAs | |
 
 O guia completo de cada recurso está abaixo.
 
@@ -158,6 +159,10 @@ Além de Claude Code, Antigravity e Codex, o Office reconhece:
 | Kimi Code CLI | `npm i -g @moonshot-ai/kimi-code` | `kimi` → `/login` | no Windows precisa do Git for Windows |
 
 Depois de instalar: `npm run equipe -- conectar <id>` (ou o botão na interface).
+
+> ⚠️ **Experimental:** Copilot, Qwen Code, OpenCode e Kimi, assim como as IAs por API, foram montados pela documentação oficial
+> e passam nos testes automáticos, mas **ainda não foram testados em uso real**. A interface mostra o selo *experimental*.
+> Se algo não funcionar, [abra uma issue](https://github.com/reireymond/KTN-Office/issues/new/choose).
 OpenCode e Kimi aprovam ferramentas sozinhos no modo sem interação, e a interface avisa isso.
 
 ### IAs por API (chave própria ou local)
@@ -174,6 +179,8 @@ pega tarefas, conversa pelo escritório e lê/escreve arquivos **só dentro da p
 | OpenAI, Anthropic, DeepSeek, Mistral | sim | cobrado por uso |
 | Outro | opcional | qualquer servidor compatível com OpenAI |
 
+> ⚠️ **Experimental:** ainda não testado com provedores reais (só com um servidor de teste).
+
 As chaves ficam em `~/KTN-Office-dados/chaves-api.json`, fora da pasta do projeto (nunca vão pro git).
 
 ### App de desktop
@@ -182,6 +189,13 @@ e "Iniciar com o Windows" no menu da bandeja. A interface segue o tema do Window
 - **Usar sem compilar:** baixe o instalador em [Releases](https://github.com/reireymond/KTN-Office/releases).
 - **Rodar do código:** `cd desktop && npm install && npm start`. Se o servidor já estiver rodando (`npm start` na pasta `server`), o app só abre a janela.
 - **Gerar o instalador:** `npm run dist:win` (ou `dist:linux` / `dist:mac`), e o arquivo sai em `desktop/release/`.
+
+### GitHub para todas as IAs
+Em Configurações → Ferramentas → **GitHub**: ligue, clique em **Escolher repositórios** e marque os que a equipe pode usar
+(ou "liberar todos da minha conta"). Precisa do [GitHub CLI](https://cli.github.com) logado (`gh auth login`).
+- Todas as IAs (CLIs e APIs) ganham: `github_repos`, `github_ler` (issues, PRs, commits, arquivos, Actions), `github_clonar`.
+- `github_acao` (criar issue, comentar, enviar branch e abrir PR) **sempre pede sua permissão** no popup.
+- O token fica no `gh`; as IAs nunca o veem. Repositório não liberado é recusado.
 
 ### Controle da tela (opcional, Windows)
 Em Configurações → Ferramentas → **Controle da tela**: uma IA por vez (tipo Claude Code) vê a tela e usa

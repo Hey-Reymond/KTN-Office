@@ -14,7 +14,7 @@ export interface SaidaProcesso {
 export function rodar(
   comando: string,
   args: string[],
-  opcoes: { timeoutMs?: number; cwd?: string; aoReceber?: (trecho: string) => void } = {},
+  opcoes: { timeoutMs?: number; cwd?: string; aoReceber?: (trecho: string) => void; entrada?: string } = {},
 ): Promise<SaidaProcesso> {
   return new Promise((resolve) => {
     let stdout = "";
@@ -22,11 +22,12 @@ export function rodar(
     let estourouTempo = false;
     let filho;
     try {
-      filho = spawn(comando, args, { cwd: opcoes.cwd, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+      filho = spawn(comando, args, { cwd: opcoes.cwd, stdio: [opcoes.entrada === undefined ? "ignore" : "pipe", "pipe", "pipe"], windowsHide: true });
     } catch (e) {
       resolve({ codigo: null, stdout: "", stderr: String(e), estourouTempo: false });
       return;
     }
+    if (opcoes.entrada !== undefined) filho.stdin?.end(opcoes.entrada);
     const timer = opcoes.timeoutMs
       ? setTimeout(() => {
           estourouTempo = true;
