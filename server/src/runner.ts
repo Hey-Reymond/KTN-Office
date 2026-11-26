@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import type { Escritorio, Tarefa } from "./db.js";
 import { localizar } from "./equipe/detectar.js";
+import { esperaDoErro } from "./cota.js";
 import { PASTA_PADRAO, pastaDaTarefa, pastaDoChat, processarIntegracoes } from "./integracao.js";
 import { CliAgent, type Funcionario, type ResultadoTrabalho } from "./equipe/funcionario.js";
 import { carregarRegistro, modeloDisponivel, resolverModelo, salvarDeteccaoModelo, type ConfigCli } from "./equipe/registro.js";
@@ -123,6 +124,7 @@ export class Runner {
     for (const [id, cli] of Object.entries(registro)) {
       if (cli.ativo === false || fora.includes(id) || this.trabalhando.has(id)) continue;
       if ((this.falhas.get(id)?.pausadaAte ?? 0) > Date.now()) continue;
+      if (this.escritorio.semCotaAte(id)) continue; // esperando a cota renovar
       if (!localizar(cli)) continue;
       const trabalho = this.proximoTrabalho(id, cli);
       if (!trabalho) continue;
@@ -179,6 +181,8 @@ export class Runner {
                 `  Pergunta simples: responda direto ao humano, sem projeto.`,
                 `- Aviso de que todas as partes de um projeto terminaram: status_projeto, junte tudo com a sua parte (merge),`,
                 `  revise a qualidade e finalize com concluir_projeto (o resultado vai para o humano).`,
+                `- Cota: veja "cota" no status_equipe. Quem está "baixa" recebe partes menores/modelos mais baratos;`,
+                `  quem está "sem_cota" fica fora da divisão até renovar.`,
               ]
             : [`- Pedido do humano: resolva ou responda; se precisar de outra IA, crie uma tarefa para ela.`]),
           `- Entrega de outra IA (tarefa avulsa): use o resultado para concluir o trabalho.`,
@@ -264,7 +268,21 @@ export class Runner {
     }
 
     if (r.tokens) this.escritorio.registrarUso(id, r.tokens.entrada + r.tokens.saida);
+    else this.escritorio.registrarUso(id, 0); // conta a execução mesmo sem tokens informados
+    if (r.cota) this.escritorio.atualizarCota(id, r.cota.percentual, r.cota.renovaEm);
     const erroCurto = (r.erro ?? "").split("\n").slice(0, 3).join(" ").slice(0, 300);
+    if (!r.ok && r.semCota) {
+      // Limite do plano: não é falha da IA. Espera renovar e avisa; a coordenadora redistribui.
+      const ate = esperaDoErro(r.erro ?? "");
+      this.escritorio.marcarSemCota(id, ate);
+      const hora = new Date(ate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      this.escritorio.registrarEvento(id, "limite", `${id} atingiu o limite do plano; volta por volta das ${hora}.`);
+      this.escritorio.enviarMensagem("escritorio", "humano", `⏳ ${id} atingiu o limite de uso do plano e volta por volta das ${hora}. As tarefas dela esperam (ou a coordenadora repassa).`);
+      if (id !== this.config.coordenadora) {
+        this.escritorio.enviarMensagem("escritorio", this.config.coordenadora, `${id} está sem cota até ${hora}. Se tiver tarefa urgente dela, repasse para outra IA (criar_tarefa).`);
+      }
+      return;
+    }
     if (r.ok) {
       this.falhas.delete(id);
       this.escritorio.registrarEvento(id, "fim", `Terminou ${trabalho.oque}. ${r.texto.slice(0, 300)}`);

@@ -1,3 +1,4 @@
+import { situacaoCota } from "./cota.js";
 import Database from "better-sqlite3";
 import path from "node:path";
 
@@ -177,8 +178,16 @@ export function abrirBanco(arquivo = process.env.KTN_DB ?? path.resolve("office.
   const novas: [string, string][] = [
     ["conversas", "pasta TEXT"], ["tarefas", "pasta TEXT"], ["tarefas", "branch TEXT"], ["tarefas", "base TEXT"],
     ["projetos", "pasta_final TEXT"], ["projetos", "branch_final TEXT"], ["tarefas", "revisa INTEGER"],
+    ["agentes", "cota_percentual INTEGER"], ["agentes", "cota_renova INTEGER"], ["agentes", "cota_lida_em INTEGER"],
+    ["agentes", "sem_cota_ate INTEGER"], ["agentes", "limite_5h INTEGER"],
   ];
   for (const [tabela, def] of novas) if (!temColuna(tabela, def.split(" ")[0])) db.exec(`ALTER TABLE ${tabela} ADD COLUMN ${def}`);
+  db.exec(`CREATE TABLE IF NOT EXISTS uso (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agente TEXT NOT NULL,
+    tokens INTEGER NOT NULL DEFAULT 0,
+    criado_em INTEGER NOT NULL
+  ); CREATE INDEX IF NOT EXISTS uso_agente ON uso (agente, criado_em);`);
   // Mensagens antigas com o humano (antes dos chats existirem) vão para a "Conversa 1".
   const orfas = db.prepare(`SELECT COUNT(*) AS n FROM mensagens WHERE conversa_id IS NULL AND (de = 'humano' OR para = 'humano')`).get() as { n: number };
   if (orfas.n > 0) {
@@ -389,6 +398,58 @@ export class Escritorio {
          WHERE nome = ?`,
       )
       .run(tokens, limite ?? null, observacao ?? null, agente);
+    this.db.prepare(`INSERT INTO uso (agente, tokens, criado_em) VALUES (?, ?, ?)`).run(agente, Math.max(0, Math.round(tokens)), Date.now());
+  }
+
+  /** Uso nas últimas 5 horas (a janela de limite da maioria dos planos). */
+  uso5h(agente: string, agora = Date.now()) {
+    return this.db
+      .prepare(`SELECT COALESCE(SUM(tokens), 0) AS tokens, COUNT(*) AS execucoes FROM uso WHERE agente = ? AND criado_em > ?`)
+      .get(agente, agora - 5 * 3_600_000) as { tokens: number; execucoes: number };
+  }
+
+  /** Cota informada pelo próprio CLI (percentual usado da janela e quando renova). */
+  atualizarCota(agente: string, percentual: number | undefined, renovaEm: number | undefined) {
+    this.registrarPresenca(agente);
+    this.db
+      .prepare(`UPDATE agentes SET cota_percentual = COALESCE(?, cota_percentual), cota_renova = COALESCE(?, cota_renova), cota_lida_em = ? WHERE nome = ?`)
+      .run(percentual ?? null, renovaEm ?? null, Date.now(), agente);
+  }
+
+  marcarSemCota(agente: string, ate: number | null) {
+    this.registrarPresenca(agente);
+    this.db.prepare(`UPDATE agentes SET sem_cota_ate = ? WHERE nome = ?`).run(ate, agente);
+  }
+
+  semCotaAte(agente: string, agora = Date.now()): number | null {
+    const r = this.db.prepare(`SELECT sem_cota_ate FROM agentes WHERE nome = ?`).get(agente) as { sem_cota_ate: number | null } | undefined;
+    return r?.sem_cota_ate && r.sem_cota_ate > agora ? r.sem_cota_ate : null;
+  }
+
+  /** Limite de tokens por 5h que o humano informou (opcional), para estimar o percentual quando o CLI não informa. */
+  definirLimite5h(agente: string, limite: number | null) {
+    this.registrarPresenca(agente);
+    this.db.prepare(`UPDATE agentes SET limite_5h = ? WHERE nome = ?`).run(limite && limite > 0 ? Math.round(limite) : null, agente);
+  }
+
+  cota(agente: string, agora = Date.now()) {
+    const a = this.db
+      .prepare(`SELECT cota_percentual, cota_renova, cota_lida_em, sem_cota_ate, limite_5h FROM agentes WHERE nome = ?`)
+      .get(agente) as { cota_percentual: number | null; cota_renova: number | null; cota_lida_em: number | null; sem_cota_ate: number | null; limite_5h: number | null } | undefined;
+    const u = this.uso5h(agente, agora);
+    // Leitura do CLI vale até a janela renovar (ou por 5h se ele não disse quando).
+    const real = a?.cota_percentual != null && a.cota_lida_em && (a.cota_renova ? a.cota_renova > agora : agora - a.cota_lida_em < 5 * 3_600_000);
+    const percentual = real ? a!.cota_percentual : a?.limite_5h ? Math.min(100, Math.round((u.tokens / a.limite_5h) * 100)) : null;
+    const semCota = a?.sem_cota_ate && a.sem_cota_ate > agora ? a.sem_cota_ate : null;
+    return {
+      situacao: situacaoCota(percentual, semCota, agora),
+      percentual_usado: percentual,
+      fonte: real ? "informada pelo CLI" : percentual != null ? "estimada pelo limite que o humano definiu" : "desconhecida",
+      renova_em: semCota ? new Date(semCota).toISOString() : real && a!.cota_renova ? new Date(a!.cota_renova).toISOString() : null,
+      tokens_5h: u.tokens,
+      execucoes_5h: u.execucoes,
+      limite_5h: a?.limite_5h ?? null,
+    };
   }
 
   statusEquipe() {
@@ -422,6 +483,7 @@ export class Escritorio {
         uso_estimado_tokens: a.uso_estimado,
         limite_estimado_tokens: a.limite_estimado,
         uso_percentual: a.limite_estimado ? Math.round((a.uso_estimado / a.limite_estimado) * 100) : null,
+        cota: this.cota(a.nome),
         observacao: a.observacao,
         visto_em: a.visto_em,
       };

@@ -1,3 +1,4 @@
+import { ERRO_COTA, lerCotaDaSaida, type LeituraCota } from "../cota.js";
 import { localizar } from "./detectar.js";
 import { rodar } from "./processo.js";
 import { resolverModelo, type ConfigCli } from "./registro.js";
@@ -20,6 +21,10 @@ export interface ResultadoTrabalho {
   texto: string;
   /** Tokens gastos, quando o CLI/API informa. */
   tokens?: { entrada: number; saida: number };
+  /** Cota que o CLI informou na saída (percentual usado, quando renova). */
+  cota?: LeituraCota;
+  /** Bateu no limite de uso do plano. */
+  semCota?: boolean;
   erro?: string;
 }
 
@@ -175,7 +180,11 @@ export class CliAgent implements Funcionario {
         : undefined,
     });
     if (r.estourouTempo) return { ok: false, texto: r.stdout, erro: "Tempo esgotado." };
-    if (r.codigo !== 0) return { ok: false, texto: r.stdout, erro: explicarErro(r.stderr, r.stdout, r.codigo) };
+    const cota = lerCotaDaSaida(r.stdout);
+    if (r.codigo !== 0) {
+      const erro = explicarErro(r.stderr, r.stdout, r.codigo);
+      return { ok: false, texto: r.stdout, erro, cota, semCota: ERRO_COTA.test(erro) || ERRO_COTA.test(r.stderr) };
+    }
 
     const lido =
       this.cfg.leitorSaida === "claude-json"
@@ -183,7 +192,7 @@ export class CliAgent implements Funcionario {
         : this.cfg.leitorSaida === "json"
           ? lerJsonGenerico(r.stdout)
           : { texto: r.stdout };
-    return { ok: true, texto: lido.texto.trim(), tokens: "tokens" in lido ? lido.tokens : undefined };
+    return { ok: true, texto: lido.texto.trim(), tokens: "tokens" in lido ? lido.tokens : undefined, cota };
   }
 }
 

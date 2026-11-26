@@ -96,7 +96,8 @@ export function criarServidor(escritorio: Escritorio, agente: string) {
     }),
   );
 
-  const equipe = () => equipeAtiva(escritorio.lerConfig<string[]>("foraDaEquipe", []));
+  // Quem está sem cota fica fora da divisão até renovar (mas a própria IA que chama sempre conta).
+  const equipe = () => equipeAtiva(escritorio.lerConfig<string[]>("foraDaEquipe", [])).filter((a) => a === agente || !escritorio.semCotaAte(a));
   const perfilEquipe = () => {
     const reg = carregarRegistro();
     return equipe().map((id) => ({
@@ -399,7 +400,7 @@ export function criarServidor(escritorio: Escritorio, agente: string) {
     "status_equipe",
     {
       description:
-        "Mostra cada IA do escritório: livre/ocupada, tarefas pendentes, mensagens não lidas e uso estimado de tokens. Use antes de delegar.",
+        "Mostra cada IA do escritório: livre/ocupada, tarefas pendentes, mensagens não lidas e a cota (situacao ok/baixa/sem_cota, percentual usado, quando renova, tokens nas últimas 5h). Use antes de delegar e poupe quem está com cota baixa.",
     },
     seguro(() => escritorio.statusEquipe()),
   );

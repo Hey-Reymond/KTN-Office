@@ -126,6 +126,8 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
     }),
   );
 
+  api.post("/cota/limite", protegido, tentar((req) => escritorio.definirLimite5h(String(req.body?.cli), Number(req.body?.limite) || null)));
+  api.post("/cota/liberar", protegido, tentar((req) => escritorio.marcarSemCota(String(req.body?.cli), null)));
   api.post(
     "/retomar",
     protegido,

@@ -642,10 +642,19 @@ function desenharAgora() {
       <ol class="passos">${passos}</ol>
       ${silencio > 90_000 ? `<div class="avisoParado">Sem novidades há ${dur(silencio)}. Pode estar pensando, ou travado.</div>` : ""}</div>`;
   }).join("") : `<div class="vazio">${estado.runner.ligado ? "Ninguém trabalhando agora. Quando uma IA começar, você acompanha cada passo aqui." : "Expediente desligado. Ligue no topo para a equipe trabalhar."}</div>`)
+    + (estado.status || []).filter((st) => st.cota?.situacao === "sem_cota").map((st) => `<div class="vivo"><div class="cab">${avatar(st.agente)}<div><span class="nome">${esc(nome(st.agente))}</span><small>sem cota, volta às ${horaCurta(st.cota.renova_em)}</small></div></div></div>`).join("")
     + pausadas.map(([ia]) => `<div class="vivo"><div class="cab">${avatar(ia)}<div><span class="nome">${esc(nome(ia))}</span><small>pausada depois de 3 falhas seguidas</small></div><button class="btn pequeno" data-retomar="${esc(ia)}" style="margin-left:auto">Retomar</button></div></div>`).join("");
 }
 setInterval(desenharAgora, 1000);
 
+const horaCurta = (iso) => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+function seloCota(c) {
+  if (!c) return "";
+  if (c.situacao === "sem_cota") return `<span class="selo erro" title="Atingiu o limite do plano">sem cota até ${horaCurta(c.renova_em)}</span>`;
+  const t = `${c.tokens_5h.toLocaleString("pt-BR")} tokens em 5h, ${c.execucoes_5h} execuções`;
+  if (c.percentual_usado == null) return c.execucoes_5h ? `<span class="selo" title="${t}">${c.execucoes_5h} exec. em 5h</span>` : "";
+  return `<span class="selo ${c.situacao === "baixa" ? "alerta" : ""}" title="${t}. Fonte: ${c.fonte}${c.renova_em ? ". Renova às " + horaCurta(c.renova_em) : ""}">cota ${c.percentual_usado}% usada</span>`;
+}
 function renderConfig() {
   const e = estado; if (!e || editandoCfg) return;
   // Equipe e modelos
@@ -656,7 +665,7 @@ function renderConfig() {
       d.instalado ? `<span class="selo">${esc(d.versao || "instalado")}</span>` : `<span class="selo erro">não instalado</span>`,
       d.instalado ? (d.login === "provavel" ? `<span class="selo ok">conta conectada</span>` : `<span class="selo alerta">sem login</span>`) : "",
       d.instalado && d.office === "conectado" ? `<span class="selo ok">no escritório</span>` : "",
-      st && st.uso_estimado_tokens ? `<span class="selo">${st.uso_estimado_tokens.toLocaleString("pt-BR")} tokens</span>` : "",
+      st ? seloCota(st.cota) : "",
       e.runner.pausadas?.[d.id] ? `<span class="selo erro">pausada</span>` : "",
     ].join("");
     const direita = !d.instalado
@@ -677,7 +686,11 @@ function renderConfig() {
     const perm = !d.instalado ? "" : `<div class="linhaPerm"><span>Permissões</span>
       <select data-nivel="${esc(d.id)}" aria-label="Permissões de ${esc(nome(d.id))}">${Object.entries(NIVEL_NOME).map(([k, v]) => `<option value="${k}" ${k === nivel ? "selected" : ""}>${v}</option>`).join("")}</select>
       ${sempre.map((f) => `<span class="selo chip">sempre: ${esc(f)}<button data-tirar="${esc(f)}" data-cli="${esc(d.id)}" aria-label="Tirar ${esc(f)}">×</button></span>`).join("")}
-      <span style="color:var(--fraco);font-size:12px">O que passar disso, a IA pede pra você num aviso.</span></div>`;
+      <span style="color:var(--fraco);font-size:12px">O que passar disso, a IA pede pra você num aviso.</span></div>
+      <div class="linhaPerm"><span>Cota</span>
+        <input type="number" min="0" step="10000" placeholder="limite por 5h (opcional)" value="${st?.cota?.limite_5h ?? ""}" data-limite="${esc(d.id)}" style="max-width:190px" aria-label="Limite de tokens por 5 horas de ${esc(nome(d.id))}">
+        ${st?.cota?.situacao === "sem_cota" ? `<button class="btn pequeno" data-liberar="${esc(d.id)}">Já renovou</button>` : ""}
+        <span style="color:var(--fraco);font-size:12px">${st?.cota?.fonte === "informada pelo CLI" ? "Este CLI informa a cota sozinho." : "Se o CLI não informar, o Office estima pelo limite que você colocar."}</span></div>`;
     return `<div class="membroCfg"><div class="cab">${avatar(d.id)}<span class="nome">${esc(d.nome)}</span><span class="selos">${selos}</span><span class="direita">${direita}</span></div>${perm}${modelos}</div>`;
   }).join("");
   const t = e.teste;
@@ -916,6 +929,17 @@ $("#btnTestar").addEventListener("click", async () => {
 for (const id of ["#pasta", "#maxHora", "#coordenadora", "#revisaoCruzada"]) {
   $(id).addEventListener("focus", () => (editandoCfg = true));
 }
+$("#equipe").addEventListener("change", async (ev) => {
+  const l = ev.target.closest("[data-limite]"); if (!l) return;
+  try { await api("cota/limite", { cli: l.dataset.limite, limite: Number(l.value) || 0 }); avisar("Limite salvo."); } catch (e) { avisar(e.message); }
+  editandoCfg = false; atualizar();
+});
+$("#equipe").addEventListener("focusin", (ev) => { if (ev.target.closest("[data-limite]")) editandoCfg = true; });
+$("#equipe").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-liberar]"); if (!b) return;
+  try { await api("cota/liberar", { cli: b.dataset.liberar }); } catch (e) { avisar(e.message); }
+  atualizar();
+});
 $("#btnSalvarCfg").addEventListener("click", async () => {
   try {
     await api("runner", { pastaTrabalho: $("#pasta").value, maxPorHora: $("#maxHora").value, coordenadora: $("#coordenadora").value, revisaoCruzada: $("#revisaoCruzada").checked });

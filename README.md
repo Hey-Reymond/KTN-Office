@@ -61,6 +61,12 @@ branch `ktn/projN-ia-tN`). Assim as IAs editam ao mesmo tempo sem atrapalhar uma
 4. você clica em **Aplicar no meu projeto** (git merge na sua branch atual). Seu projeto nunca muda antes disso.
 **Limpar cópias** remove as pastas temporárias (as branches ficam).
 
+### Cota real
+- O Office lê a cota que o CLI informa na saída (Codex e Claude mostram % usado e quando renova).
+- Se a IA bater no limite do plano, ela fica **sem cota** até renovar (lê "try again in 2 hours" e afins). Isso não conta como falha: você é avisado e a coordenadora repassa as tarefas dela.
+- Para CLIs que não informam, coloque um limite de tokens por 5h em Configurações → Equipe, e o Office estima.
+- No `status_equipe`, a coordenadora vê `cota.situacao` (ok / baixa / sem_cota). Quem está baixa recebe partes menores; quem está sem cota fica fora da divisão.
+
 ### Anexos
 Arraste, cole (Ctrl+V) ou use o 📎 no chat: até 10 arquivos de 20 MB. Eles são salvos em
 `<pasta do chat>/.ktn-anexos/` (fora do git) e o caminho vai na mensagem, para as IAs abrirem.
