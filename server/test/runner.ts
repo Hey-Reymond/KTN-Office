@@ -259,7 +259,28 @@ try {
     assert.equal(migrado.historicoConversa(c1[0].id)[0].texto, "msg antiga");
   }
 
-  console.log("OK: expediente, projetos (dividir → fazer → merge), chats e memória, modelos, travas e teste automático de modelos.");
+  // ---------- Permissões no runner: nível por IA e "uma vez" ----------
+  {
+    const niveis: (string | undefined)[] = [];
+    const rp = new Runner(esc, (id) => ({ id, tipo: "cli", especialidades: [], async trabalhar(_p, o = {}) { niveis.push(o.nivel); esc.lerCaixa(id); return { ok: true, texto: "" }; } }));
+    rp.atualizarConfig({ ligado: true, maxPorHora: 99 });
+    esc.gravarConfig("foraDaEquipe", ["claude"]);
+    esc.enviarMensagem("x", "antigravity", "1");
+    await rp.ciclo(); await rp.aguardarOcioso();
+    const ped = esc.pedirPermissao("antigravity", "comandos", "npm install", "recado");
+    esc.responderPermissao(ped.id, true, false); // manda mensagem e libera uma vez
+    await rp.ciclo(); await rp.aguardarOcioso();
+    esc.enviarMensagem("x", "antigravity", "3");
+    await rp.ciclo(); await rp.aguardarOcioso();
+    assert.deepEqual(niveis, ["leitura", "comandos", "leitura"], "uma vez vale só pra próxima execução");
+    const ped2 = esc.pedirPermissao("antigravity", "edicao", "criar arquivo", "recado");
+    esc.responderPermissao(ped2.id, true, true);
+    assert.equal(esc.nivelDe("antigravity"), "edicao", "sempre permitir sobe o nível");
+    rp.atualizarConfig({ ligado: false });
+    esc.gravarConfig("foraDaEquipe", []);
+  }
+
+  console.log("OK: expediente, projetos (dividir → fazer → merge), chats e memória, permissões, modelos, travas e teste automático de modelos.");
 } finally {
   rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }

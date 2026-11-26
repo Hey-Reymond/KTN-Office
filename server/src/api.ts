@@ -62,6 +62,11 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       runner: runner.estado(),
       projetos: escritorio.listarProjetos(15),
       foraDaEquipe: escritorio.lerConfig<string[]>("foraDaEquipe", []),
+      permissoes: {
+        pendentes: escritorio.pedidosPendentes(),
+        niveis: Object.fromEntries(Object.keys(carregarRegistro()).map((id) => [id, escritorio.nivelDe(id)])),
+        sempre: Object.fromEntries(Object.keys(carregarRegistro()).map((id) => [id, escritorio.sempreDe(id)])),
+      },
     })),
   );
 
@@ -128,6 +133,26 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
         conversa = escritorio.criarConversa(texto.split("\n")[0].slice(0, 50)).id;
       }
       return escritorio.enviarMensagem("humano", para, texto, null, conversa);
+    }),
+  );
+
+  // ---------- Permissões ----------
+  api.post(
+    "/permissao/responder",
+    protegido,
+    tentar((req) => escritorio.responderPermissao(Number(req.body?.id), !!req.body?.permitir, !!req.body?.sempre)),
+  );
+  api.post(
+    "/permissao/nivel",
+    protegido,
+    tentar((req) => escritorio.definirNivel(String(req.body?.cli), req.body?.nivel)),
+  );
+  api.post(
+    "/permissao/sempre",
+    protegido,
+    tentar((req) => {
+      const cli = String(req.body?.cli);
+      escritorio.definirSempre(cli, escritorio.sempreDe(cli).filter((f) => f !== String(req.body?.remover)));
     }),
   );
 

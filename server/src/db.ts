@@ -52,6 +52,24 @@ export interface Projeto {
   atualizado_em: string;
 }
 
+export type NivelPermissao = "leitura" | "edicao" | "comandos";
+export const NIVEIS: NivelPermissao[] = ["leitura", "edicao", "comandos"];
+
+export interface PedidoPermissao {
+  id: number;
+  agente: string;
+  /** Ferramenta exata (ex.: "Edit", "Bash") ou categoria (ex.: "edicao"). */
+  ferramenta: string;
+  /** O que a IA quer fazer (arquivo, comando, motivo), pra você decidir. */
+  detalhe: string;
+  /** espera = a IA está parada aguardando a resposta (Claude). */
+  tipo: "espera" | "recado";
+  status: "pendente" | "permitido" | "negado" | "expirado";
+  sempre: number;
+  tarefa_id: number | null;
+  criado_em: string;
+}
+
 export interface ParteProjeto {
   para: string;
   titulo: string;
@@ -112,6 +130,17 @@ export function abrirBanco(arquivo = process.env.KTN_DB ?? path.resolve("office.
       agente TEXT,
       tipo TEXT NOT NULL,
       texto TEXT NOT NULL,
+      criado_em TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS permissoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      agente TEXT NOT NULL,
+      ferramenta TEXT NOT NULL,
+      detalhe TEXT NOT NULL DEFAULT '',
+      tipo TEXT NOT NULL DEFAULT 'recado',
+      status TEXT NOT NULL DEFAULT 'pendente',
+      sempre INTEGER NOT NULL DEFAULT 0,
+      tarefa_id INTEGER,
       criado_em TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE TABLE IF NOT EXISTS config (
@@ -522,6 +551,97 @@ export class Escritorio {
     this.db
       .prepare(`INSERT INTO config (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor`)
       .run(chave, JSON.stringify(valor));
+  }
+
+  // ---------- Permissões ----------
+
+  nivelDe(agente: string): NivelPermissao {
+    return this.lerConfig<Record<string, NivelPermissao>>("niveis", {})[agente] ?? "leitura";
+  }
+
+  definirNivel(agente: string, nivel: NivelPermissao) {
+    if (!NIVEIS.includes(nivel)) throw new Error(`Nível inválido: ${nivel}`);
+    this.gravarConfig("niveis", { ...this.lerConfig<Record<string, NivelPermissao>>("niveis", {}), [agente]: nivel });
+    this.registrarEvento(agente, "config", `Permissão de ${agente}: ${nivel}.`);
+  }
+
+  /** Ferramentas que você mandou "sempre permitir" pra uma IA. */
+  sempreDe(agente: string): string[] {
+    return this.lerConfig<Record<string, string[]>>("sempre", {})[agente] ?? [];
+  }
+
+  definirSempre(agente: string, ferramentas: string[]) {
+    this.gravarConfig("sempre", { ...this.lerConfig<Record<string, string[]>>("sempre", {}), [agente]: [...new Set(ferramentas)] });
+  }
+
+  /** Nível liberado só para a próxima execução daquela IA ("permitir uma vez"). */
+  tomarUmaVez(agente: string): NivelPermissao | null {
+    const mapa = this.lerConfig<Record<string, NivelPermissao>>("umaVez", {});
+    const nivel = mapa[agente] ?? null;
+    if (nivel) {
+      delete mapa[agente];
+      this.gravarConfig("umaVez", mapa);
+    }
+    return nivel;
+  }
+
+  pedirPermissao(
+    agente: string,
+    ferramenta: string,
+    detalhe: string,
+    tipo: "espera" | "recado",
+    tarefaId: number | null = null,
+  ): PedidoPermissao {
+    const info = this.db
+      .prepare(`INSERT INTO permissoes (agente, ferramenta, detalhe, tipo, tarefa_id) VALUES (?, ?, ?, ?, ?)`)
+      .run(agente, ferramenta, detalhe.slice(0, 2000), tipo, tarefaId);
+    this.registrarEvento(agente, "permissao", `${agente} pediu permissão: ${ferramenta}. ${detalhe.slice(0, 200)}`);
+    return this.pedido(Number(info.lastInsertRowid))!;
+  }
+
+  pedido(id: number): PedidoPermissao | undefined {
+    return this.db.prepare(`SELECT * FROM permissoes WHERE id = ?`).get(id) as PedidoPermissao | undefined;
+  }
+
+  pedidosPendentes(): PedidoPermissao[] {
+    return this.db.prepare(`SELECT * FROM permissoes WHERE status = 'pendente' ORDER BY id`).all() as PedidoPermissao[];
+  }
+
+  /**
+   * Sua resposta ao pop-up. "Sempre": ferramenta exata entra na lista da IA, ou o nível dela sobe.
+   * "Uma vez" num recado: o nível vale só para a próxima execução. A IA é avisada para continuar.
+   */
+  responderPermissao(id: number, permitir: boolean, sempre = false) {
+    const p = this.pedido(id);
+    if (!p) throw new Error(`Pedido #${id} não existe.`);
+    if (p.status !== "pendente") throw new Error(`Pedido #${id} já foi respondido.`);
+    this.db.prepare(`UPDATE permissoes SET status = ?, sempre = ? WHERE id = ?`).run(permitir ? "permitido" : "negado", sempre ? 1 : 0, id);
+    const ehNivel = (NIVEIS as string[]).includes(p.ferramenta);
+    if (permitir && sempre) {
+      if (ehNivel) {
+        const atual = NIVEIS.indexOf(this.nivelDe(p.agente));
+        if (NIVEIS.indexOf(p.ferramenta as NivelPermissao) > atual) this.definirNivel(p.agente, p.ferramenta as NivelPermissao);
+      } else this.definirSempre(p.agente, [...this.sempreDe(p.agente), p.ferramenta]);
+    } else if (permitir && ehNivel) {
+      this.gravarConfig("umaVez", { ...this.lerConfig<Record<string, string>>("umaVez", {}), [p.agente]: p.ferramenta });
+    }
+    this.registrarEvento(p.agente, "permissao", `Você ${permitir ? (sempre ? "sempre permitiu" : "permitiu uma vez") : "negou"}: ${p.ferramenta}.`);
+    // Quem deixou recado não está esperando: precisa ser acordado com a resposta.
+    if (p.tipo === "recado") {
+      const tarefa = p.tarefa_id ? ` da tarefa #${p.tarefa_id} (ela continua com você; entregue com entregar_tarefa ao terminar)` : "";
+      this.enviarMensagem(
+        "escritorio",
+        p.agente,
+        permitir
+          ? `O humano PERMITIU "${p.ferramenta}" (${sempre ? "sempre" : "só desta vez"}). Continue o trabalho${tarefa} de onde parou.`
+          : `O humano NEGOU "${p.ferramenta}". Continue o trabalho${tarefa} sem isso, ou explique na entrega o que ficou faltando.`,
+        p.tarefa_id,
+      );
+    }
+  }
+
+  expirarPedido(id: number) {
+    this.db.prepare(`UPDATE permissoes SET status = 'expirado' WHERE id = ? AND status = 'pendente'`).run(id);
   }
 
   lerNotas(chave?: string) {

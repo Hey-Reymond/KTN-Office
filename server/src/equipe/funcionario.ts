@@ -4,6 +4,10 @@ import { resolverModelo, type ConfigCli } from "./registro.js";
 
 export interface OpcoesTrabalho {
   modelo?: string;
+  /** Nível de permissão desta execução (padrão: leitura). */
+  nivel?: "leitura" | "edicao" | "comandos";
+  /** Ferramentas extras liberadas ("sempre permitir"). */
+  ferramentas?: string[];
   /** Recebe frases curtas de progresso enquanto a IA trabalha ("usando ferramenta X", trecho do texto…). */
   aoProgredir?: (frase: string) => void;
   /** Pasta onde a IA trabalha (arquivos do projeto). */
@@ -131,17 +135,21 @@ export class CliAgent implements Funcionario {
    * Se o template do prompt tiver "{modeloArgs}", o modelo vai exatamente ali
    * (ex.: codex precisa de "exec ... -m X <prompt>", com o modelo depois do subcomando).
    */
-  montarArgs(prompt: string, modelo?: string): string[] {
+  montarArgs(prompt: string, modelo?: string, opcoes: Pick<OpcoesTrabalho, "nivel" | "ferramentas"> = {}): string[] {
     const m = resolverModelo(this.cfg, modelo);
     const argsModelo = m && this.cfg.modelo ? substituir(this.cfg.modelo, { modelo: m }) : [];
+    const extras = [...(this.cfg.argsExtras ?? []), ...(this.cfg.niveis?.[opcoes.nivel ?? "leitura"] ?? [])];
+    if (opcoes.ferramentas?.length && this.cfg.permitirFerramentas) {
+      extras.push(...substituir(this.cfg.permitirFerramentas, { ferramentas: opcoes.ferramentas.join(",") }));
+    }
     const template = this.cfg.prompt;
-    const noLugar = template.includes("{modeloArgs}");
     const args: string[] = [];
-    if (!noLugar) args.push(...argsModelo);
-    if (this.cfg.argsExtras) args.push(...this.cfg.argsExtras);
+    if (!template.includes("{modeloArgs}")) args.push(...argsModelo);
+    if (!template.includes("{extras}")) args.push(...extras);
     if (this.cfg.saidaJson) args.push(...this.cfg.saidaJson);
     for (const parte of template) {
       if (parte === "{modeloArgs}") args.push(...argsModelo);
+      else if (parte === "{extras}") args.push(...extras);
       else args.push(...substituir([parte], { prompt }));
     }
     return args;
@@ -152,7 +160,7 @@ export class CliAgent implements Funcionario {
     if (!caminho) return { ok: false, texto: "", erro: `${this.cfg.nome} não está instalado.` };
 
     let resto = "";
-    const r = await rodar(caminho, this.montarArgs(prompt, opcoes.modelo), {
+    const r = await rodar(caminho, this.montarArgs(prompt, opcoes.modelo, opcoes), {
       cwd: opcoes.cwd,
       timeoutMs: opcoes.timeoutMs ?? 30 * 60_000,
       aoReceber: opcoes.aoProgredir

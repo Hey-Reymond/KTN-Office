@@ -51,6 +51,21 @@ Quando você pede algo grande no chat, a coordenadora:
 
 Na interface, a chave **na equipe** em cada IA define quem entra na divisão.
 
+### Permissões
+Cada IA tem um nível (Configurações → Equipe e modelos → Permissões):
+
+| Nível | O que a IA pode fazer sem perguntar |
+|---|---|
+| **Ler e pesquisar** (padrão) | ler arquivos, buscar na web, usar o escritório |
+| **Editar arquivos** | + criar e alterar arquivos na pasta de trabalho |
+| **Rodar comandos** | + rodar comandos no seu PC |
+
+O que passar do nível vira um **aviso na tela**: *"Claude quer criar ou sobrescrever um arquivo"* com o arquivo
+ou comando exato e os botões **Negar / Permitir uma vez / Sempre permitir**.
+- **Claude**: espera a sua resposta e continua de onde parou (via `--permission-prompt-tool`). Sem resposta em 5 min, conta como negado.
+- **Antigravity e Codex**: param, deixam o pedido e são acordados com a sua resposta.
+- "Sempre permitir" guarda a ferramenta (Claude) ou sobe o nível (outras IAs); dá pra desfazer nas Configurações.
+
 ### Como o expediente funciona
 A cada poucos segundos o escritório olha quem tem tarefa aberta ou mensagem não lida e roda o CLI dessa IA
 (`claude -p`, `agy -p`…) com o modelo escolhido na tarefa. Travas: no máximo N execuções por IA por hora,

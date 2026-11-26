@@ -147,6 +147,8 @@ export class Runner {
           `3. entregar_tarefa com um resultado completo (o que fez, arquivos, pendências).`,
           `4. registrar_uso com uma estimativa dos tokens gastos.`,
           `Se precisar de ajuda de outra IA, crie uma tarefa para ela e entregue a sua dizendo o que ficou pendente.`,
+          `Se uma ação for bloqueada por falta de permissão (editar arquivos, rodar comandos), chame solicitar_permissao`,
+          `explicando o que e por quê, NÃO entregue a tarefa e encerre: você será acordado com a resposta do humano.`,
           ...(tarefa.conversa_id
             ? [`Contexto: este trabalho é do chat #${tarefa.conversa_id}. Se precisar, use ler_memoria e historico_conversa com conversa_id ${tarefa.conversa_id}.`]
             : []),
@@ -206,8 +208,11 @@ export class Runner {
     let r: ResultadoTrabalho;
     try {
       mkdirSync(cfg.pastaTrabalho, { recursive: true });
+      const nivel = this.escritorio.tomarUmaVez(id) ?? this.escritorio.nivelDe(id);
       r = await this.fabrica(id, cli).trabalhar(trabalho.prompt, {
         modelo: trabalho.modelo,
+        nivel,
+        ferramentas: this.escritorio.sempreDe(id),
         cwd: cfg.pastaTrabalho,
         timeoutMs: cfg.timeoutMin * 60_000,
         aoProgredir: (frase) => {

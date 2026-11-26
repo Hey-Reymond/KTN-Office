@@ -25,6 +25,20 @@ const seguro =
     }
   };
 
+export const ESPERA_PERMISSAO_MS = Number(process.env.KTN_ESPERA_PERMISSAO_MS ?? 5 * 60_000);
+
+/** Frase curta do que a IA quer fazer, pro pop-up: o comando, o arquivo ou o endereço. */
+function resumirEntrada(ferramenta: string, input: unknown): string {
+  const i = (input ?? {}) as Record<string, unknown>;
+  const alvo = i.command ?? i.file_path ?? i.path ?? i.url ?? i.pattern ?? i.query;
+  if (typeof alvo === "string") return alvo.slice(0, 500);
+  try {
+    return JSON.stringify(input).slice(0, 500);
+  } catch {
+    return ferramenta;
+  }
+}
+
 const INSTRUCOES = `Você é um funcionário do KTN Office, um escritório onde várias IAs trabalham juntas.
 - Comece lendo sua caixa (ler_caixa) e o status da equipe (status_equipe).
 - Para pedir algo a outra IA, use criar_tarefa com "para" = nome dela; depois acompanhe pela caixa.
@@ -170,6 +184,61 @@ export function criarServidor(escritorio: Escritorio, agente: string) {
     seguro(({ projeto_id, resultado }: { projeto_id: number; resultado: string }) =>
       escritorio.concluirProjeto(agente, projeto_id, resultado),
     ),
+  );
+
+  // Usada pelo Claude Code via --permission-prompt-tool: a IA fica esperando você responder no pop-up.
+  server.registerTool(
+    "pedir_permissao",
+    {
+      description:
+        "Uso interno do escritório: pede ao humano permissão para usar uma ferramenta e espera a resposta (até 5 min).",
+      inputSchema: {
+        tool_name: z.string(),
+        input: z.any().optional(),
+        tool_use_id: z.string().optional(),
+      },
+    },
+    async ({ tool_name, input }: { tool_name: string; input?: unknown; tool_use_id?: string }) => {
+      const detalhe = resumirEntrada(tool_name, input);
+      const pedido = escritorio.pedirPermissao(agente, tool_name, detalhe, "espera");
+      const limite = Date.now() + ESPERA_PERMISSAO_MS;
+      while (Date.now() < limite) {
+        const atual = escritorio.pedido(pedido.id);
+        if (atual && atual.status !== "pendente") {
+          const resposta =
+            atual.status === "permitido"
+              ? { behavior: "allow", updatedInput: input ?? {} }
+              : { behavior: "deny", message: "O humano negou essa permissão. Continue sem ela ou explique o que ficou faltando." };
+          return { content: [{ type: "text" as const, text: JSON.stringify(resposta) }] };
+        }
+        await new Promise((r) => setTimeout(r, 700));
+      }
+      escritorio.expirarPedido(pedido.id);
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({ behavior: "deny", message: "O humano não respondeu a tempo. Use solicitar_permissao, explique o que precisa e encerre." }),
+        }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "solicitar_permissao",
+    {
+      description:
+        "Pede ao humano um nível maior de permissão quando algo foi bloqueado: 'edicao' (criar/alterar arquivos na pasta de trabalho) " +
+        "ou 'comandos' (rodar comandos). Depois de pedir, NÃO entregue a tarefa: encerre. Você será acordado com a resposta.",
+      inputSchema: {
+        nivel: z.enum(["edicao", "comandos"]),
+        motivo: z.string().min(1).describe("O que você quer fazer e por quê (arquivo, comando)"),
+        tarefa_id: z.number().int().optional(),
+      },
+    },
+    seguro(({ nivel, motivo, tarefa_id }: { nivel: "edicao" | "comandos"; motivo: string; tarefa_id?: number }) => {
+      const p = escritorio.pedirPermissao(agente, nivel, motivo, "recado", tarefa_id ?? null);
+      return { pedido: p.id, aviso: "Pedido enviado ao humano. Encerre agora; o escritório te acorda com a resposta." };
+    }),
   );
 
   server.registerTool(

@@ -237,6 +237,20 @@
   .duasColunas { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
   .duasColunas h4 { margin: 0 0 4px; font: 600 14px var(--fonte-titulo); }
 
+  .pedido { width: min(500px, 100%); background: var(--fundo); border: 1px solid var(--linha-forte); border-radius: 18px; padding: 22px 22px 18px; box-shadow: 0 30px 80px rgba(0,0,0,.5); animation: surge .18s ease-out; }
+  .pedido .cab { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+  .pedido .cab .av { width: 38px; height: 38px; font-size: 15px; }
+  .pedido h3 { margin: 0; font: 600 17px/1.35 var(--fonte-titulo); }
+  .pedido .cab small { color: var(--suave); display: block; font-size: 12.5px; }
+  .pedido pre { margin: 0 0 12px; background: var(--lateral); border: 1px solid var(--linha); border-radius: 10px; padding: 10px 12px; font: 12.5px/1.5 var(--mono); white-space: pre-wrap; word-break: break-all; max-height: 160px; overflow-y: auto; }
+  .pedido .nota { color: var(--suave); font-size: 12.5px; margin: 0 0 16px; }
+  .pedido .nota.risco { color: var(--alerta); }
+  .pedido .botoes { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  .pedido .fila { color: var(--fraco); font-size: 12px; margin-right: auto; align-self: center; }
+  .linhaPerm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--linha); font-size: 13px; }
+  .linhaPerm select { border: 1px solid var(--linha-forte); background: var(--fundo); border-radius: 8px; padding: 5px 8px; }
+  .linhaPerm .chip { display: inline-flex; align-items: center; gap: 4px; }
+  .linhaPerm .chip button { border: 0; background: none; color: var(--fraco); padding: 0 2px; }
   #aviso { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--elevado); border: 1px solid var(--linha-forte); padding: 10px 16px; border-radius: 10px; z-index: 30; box-shadow: 0 10px 30px rgba(0,0,0,.35); font-size: 13.5px; max-width: 560px; }
   #aviso[hidden] { display: none; }
 
@@ -380,6 +394,19 @@
     </div>
   </div>
 </div>
+<div class="veu" id="veuPedido" hidden>
+  <div class="pedido" role="alertdialog" aria-modal="true" aria-labelledby="pedidoTitulo">
+    <div class="cab" id="pedidoCab"></div>
+    <pre id="pedidoDetalhe"></pre>
+    <p class="nota" id="pedidoNota"></p>
+    <div class="botoes">
+      <span class="fila" id="pedidoFila"></span>
+      <button class="btn" data-resposta="negar">Negar</button>
+      <button class="btn" data-resposta="uma">Permitir uma vez</button>
+      <button class="btn primario" data-resposta="sempre">Sempre permitir</button>
+    </div>
+  </div>
+</div>
 <div id="aviso" role="status" hidden></div>
 
 <script>
@@ -455,6 +482,33 @@ async function carregarMemoria() {
   } catch (e) { avisar(e.message); }
 }
 
+const ACOES = {
+  Edit: "editar um arquivo", Write: "criar ou sobrescrever um arquivo", MultiEdit: "editar um arquivo", NotebookEdit: "editar um notebook",
+  Bash: "rodar um comando", WebFetch: "abrir uma página da web", WebSearch: "pesquisar na web",
+  edicao: "criar e alterar arquivos na pasta de trabalho", comandos: "rodar comandos no seu PC",
+};
+const acao = (f) => ACOES[f] || (f.startsWith("mcp__") ? `usar a ferramenta ${f.replace(/^mcp__/, "").replace("__", "/")}` : `usar ${f}`);
+const RISCO = (f) => ["Bash", "comandos"].includes(f);
+const NIVEL_NOME = { leitura: "Ler e pesquisar", edicao: "Editar arquivos", comandos: "Rodar comandos" };
+let pedidoAberto = null;
+
+function renderPedido() {
+  const pend = estado?.permissoes?.pendentes || [];
+  const p = pend[0];
+  if (!p) { if (!$("#veuPedido").hidden) $("#veuPedido").hidden = true; pedidoAberto = null; return; }
+  if (pedidoAberto === p.id) { $("#pedidoFila").textContent = pend.length > 1 ? `mais ${pend.length - 1} na fila` : ""; return; }
+  pedidoAberto = p.id;
+  $("#pedidoCab").innerHTML = `${avatar(p.agente)}<div><h3 id="pedidoTitulo">${esc(nome(p.agente))} quer ${esc(acao(p.ferramenta))}</h3><small>${p.tipo === "espera" ? "Está esperando sua resposta para continuar." : "Parou o trabalho e vai continuar quando você responder."}</small></div>`;
+  $("#pedidoDetalhe").textContent = p.detalhe || p.ferramenta;
+  $("#pedidoNota").className = "nota" + (RISCO(p.ferramenta) ? " risco" : "");
+  $("#pedidoNota").textContent = RISCO(p.ferramenta)
+    ? "Atenção: comandos rodam no seu PC. Confira o comando antes de permitir."
+    : (["edicao", "comandos"].includes(p.ferramenta) ? `"Sempre permitir" muda a permissão de ${nome(p.agente)} para ${NIVEL_NOME[p.ferramenta]}.` : `"Sempre permitir" libera ${p.ferramenta} para ${nome(p.agente)} nas próximas vezes.`);
+  $("#pedidoFila").textContent = pend.length > 1 ? `mais ${pend.length - 1} na fila` : "";
+  $("#veuPedido").hidden = false;
+  $("#veuPedido [data-resposta='uma']").focus();
+}
+
 const STATUS_TAREFA = { aberta: ["na fila", "alerta"], em_andamento: ["trabalhando", "acento"], entregue: ["entregue", "ok"], cancelada: ["cancelada", "erro"] };
 const STATUS_PROJ = { dividindo: ["dividindo", "alerta"], em_andamento: ["em andamento", "acento"], consolidando: ["juntando as partes", "alerta"], concluido: ["concluído", "ok"], cancelado: ["cancelado", "erro"] };
 const ESTADO_MODELO = { ligado: null, desligado_usuario: ["desmarcado", ""], indisponivel: ["fora do seu plano", "erro"], nao_testado: ["não testado", "alerta"] };
@@ -524,6 +578,9 @@ function render() {
   }).join("") : `<div class="vazio">Pedidos grandes viram projetos: a coordenadora divide entre a equipe e junta tudo no final.</div>`;
 
   if (!$("#veuConfig").hidden) renderConfig();
+  renderPedido();
+  const n = e.permissoes?.pendentes?.length || 0;
+  if (n) document.title = `(${n}) Permissão pendente · KTN Office`;
 }
 
 function boasVindas(equipe) {
@@ -583,7 +640,13 @@ function renderConfig() {
         ${info ? `<span class="selo ${info[1]}">${info[0]}</span>` : "<span></span>"}
       </label>`;
     }).join("")}</div>`;
-    return `<div class="membroCfg"><div class="cab">${avatar(d.id)}<span class="nome">${esc(d.nome)}</span><span class="selos">${selos}</span><span class="direita">${direita}</span></div>${modelos}</div>`;
+    const nivel = e.permissoes?.niveis?.[d.id] || "leitura";
+    const sempre = e.permissoes?.sempre?.[d.id] || [];
+    const perm = !d.instalado ? "" : `<div class="linhaPerm"><span>Permissões</span>
+      <select data-nivel="${esc(d.id)}" aria-label="Permissões de ${esc(nome(d.id))}">${Object.entries(NIVEL_NOME).map(([k, v]) => `<option value="${k}" ${k === nivel ? "selected" : ""}>${v}</option>`).join("")}</select>
+      ${sempre.map((f) => `<span class="selo chip">sempre: ${esc(f)}<button data-tirar="${esc(f)}" data-cli="${esc(d.id)}" aria-label="Tirar ${esc(f)}">×</button></span>`).join("")}
+      <span style="color:var(--fraco);font-size:12px">O que passar disso, a IA pede pra você num aviso.</span></div>`;
+    return `<div class="membroCfg"><div class="cab">${avatar(d.id)}<span class="nome">${esc(d.nome)}</span><span class="selos">${selos}</span><span class="direita">${direita}</span></div>${perm}${modelos}</div>`;
   }).join("");
   const t = e.teste;
   $("#progressoTeste").textContent = t
@@ -605,7 +668,7 @@ function renderConfig() {
   const equipeMsgs = e.mensagens.filter((m) => m.de !== "humano" && m.para !== "humano").slice(-50).reverse();
   $("#conversa").innerHTML = equipeMsgs.length ? equipeMsgs.map((m) => `<div class="linhaLista"><div class="meta">${avatar(m.de, "mini")}${esc(nome(m.de))} para ${esc(nome(m.para))}, ${hora(m.criada_em)}</div>
       <div class="txt">${esc(m.texto.length > 500 ? m.texto.slice(0, 500) + "…" : m.texto)}</div></div>`).join("") : `<div class="vazio">Quando as IAs conversarem entre si, aparece aqui.</div>`;
-  const TIPO = { inicio: ["começou", "acento"], fim: ["terminou", "ok"], erro: ["erro", "erro"], limite: ["pausa", "alerta"], config: ["ajuste", ""], projeto: ["projeto", "acento"] };
+  const TIPO = { inicio: ["começou", "acento"], fim: ["terminou", "ok"], erro: ["erro", "erro"], limite: ["pausa", "alerta"], config: ["ajuste", ""], projeto: ["projeto", "acento"], permissao: ["permissão", "alerta"] };
   $("#eventos").innerHTML = e.eventos.length ? e.eventos.map((v) => { const [s, c] = TIPO[v.tipo] || [v.tipo, ""]; return `<div class="linhaLista">
       <div class="meta">${hora(v.criado_em)} ${esc(nome(v.agente) || "Escritório")} <span class="selo ${c}">${s}</span></div><div class="txt">${esc(v.texto)}</div></div>`; }).join("") : `<div class="vazio">Sem atividade ainda.</div>`;
 }
@@ -679,6 +742,14 @@ $("#abaAgora").addEventListener("click", async (ev) => {
   const rt = ev.target.closest("[data-retomar]"); if (!rt) return;
   await api("retomar", { cli: rt.dataset.retomar }).catch((e) => avisar(e.message)); atualizar();
 });
+$("#veuPedido").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-resposta]"); if (!b || !pedidoAberto) return;
+  const r = b.dataset.resposta;
+  try { await api("permissao/responder", { id: pedidoAberto, permitir: r !== "negar", sempre: r === "sempre" }); }
+  catch (e) { avisar(e.message); }
+  pedidoAberto = null; atualizar();
+});
+
 $("#btnSalvarMemoria").addEventListener("click", async () => {
   if (!conversaAtual) return avisar("Mande a primeira mensagem para criar o chat. Depois você edita a memória dele aqui.");
   try { await api("memoria", { id: conversaAtual, texto: $("#textoMemoria").value }); avisar("Memória salva."); } catch (e) { avisar(e.message); }
@@ -700,12 +771,19 @@ $("#btnFecharConfig").addEventListener("click", fecharConfig);
 $("#veuConfig").addEventListener("click", (ev) => { if (ev.target === $("#veuConfig")) fecharConfig(); });
 document.querySelector(".janela nav").addEventListener("click", (ev) => { const b = ev.target.closest("[data-painel]"); if (b) mostrarPainel(b.dataset.painel); });
 $("#equipe").addEventListener("change", async (ev) => {
+  const nv = ev.target.closest("[data-nivel]");
+  if (nv) {
+    if (nv.value === "comandos" && !confirm(`Deixar ${nome(nv.dataset.nivel)} rodar comandos no seu PC sem perguntar?`)) return atualizar();
+    await api("permissao/nivel", { cli: nv.dataset.nivel, nivel: nv.value }).catch((e) => avisar(e.message)); return atualizar();
+  }
   const q = ev.target.closest("[data-equipe]");
   if (q) { await api("equipe", { cli: q.dataset.equipe, naEquipe: q.checked }).catch((e) => avisar(e.message)); return atualizar(); }
   const c = ev.target.closest("[data-modelo]");
   if (c) { await api("modelo", { cli: c.dataset.cli, modelo: c.dataset.modelo, ligado: c.checked }).catch((e) => avisar(e.message)); atualizar(); }
 });
 $("#equipe").addEventListener("click", async (ev) => {
+  const tirar = ev.target.closest("[data-tirar]");
+  if (tirar) { await api("permissao/sempre", { cli: tirar.dataset.cli, remover: tirar.dataset.tirar }).catch((e) => avisar(e.message)); return atualizar(); }
   const b = ev.target.closest("[data-conectar]"); if (!b) return;
   b.disabled = true;
   try { const r = await api("conectar", { cli: b.dataset.conectar }); avisar(r.mensagens.join(" ") + " Reinicie o CLI para ele carregar."); }

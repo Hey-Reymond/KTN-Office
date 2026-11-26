@@ -66,9 +66,29 @@
         "quando": "só perguntas muito básicas"
       }
     },
-    "argsExtras": [
+    "niveis": {
+      "leitura": [
+        "--allowedTools",
+        "Read,Glob,Grep,WebSearch,WebFetch,TodoWrite,mcp__office",
+        "--permission-prompt-tool",
+        "mcp__office__pedir_permissao"
+      ],
+      "edicao": [
+        "--allowedTools",
+        "Read,Glob,Grep,WebSearch,WebFetch,TodoWrite,mcp__office,Edit,Write,MultiEdit,NotebookEdit",
+        "--permission-prompt-tool",
+        "mcp__office__pedir_permissao"
+      ],
+      "comandos": [
+        "--allowedTools",
+        "Read,Glob,Grep,WebSearch,WebFetch,TodoWrite,mcp__office,Edit,Write,MultiEdit,NotebookEdit,Bash",
+        "--permission-prompt-tool",
+        "mcp__office__pedir_permissao"
+      ]
+    },
+    "permitirFerramentas": [
       "--allowedTools",
-      "Read,Glob,Grep,WebSearch,WebFetch,mcp__office"
+      "{ferramentas}"
     ]
   },
   "antigravity": {
@@ -138,7 +158,18 @@
       "--output-format",
       "json"
     ],
-    "leitorSaida": "json"
+    "leitorSaida": "json",
+    "niveis": {
+      "leitura": [],
+      "edicao": [
+        "--mode",
+        "accept-edits"
+      ],
+      "comandos": [
+        "--mode",
+        "auto"
+      ]
+    }
   },
   "codex": {
     "nome": "Codex CLI (ChatGPT)",
@@ -150,6 +181,7 @@
       "exec",
       "--skip-git-repo-check",
       "--json",
+      "{extras}",
       "{modeloArgs}",
       "{prompt}"
     ],
@@ -198,7 +230,23 @@
         "quando": "só o muito básico"
       }
     },
-    "leitorSaida": "json"
+    "leitorSaida": "json",
+    "niveis": {
+      "leitura": [
+        "--sandbox",
+        "read-only"
+      ],
+      "edicao": [
+        "--sandbox",
+        "workspace-write"
+      ],
+      "comandos": [
+        "--sandbox",
+        "workspace-write",
+        "-c",
+        "sandbox_workspace_write.network_access=true"
+      ]
+    }
   },
   "gemini": {
     "nome": "Gemini CLI (legado)",
@@ -230,5 +278,6 @@
     "ativo": false,
     "_nota": "Desde 18/06/2026 não aceita mais login Google (AI Pro/Ultra). Use o Antigravity CLI."
   },
-  "_politicaModelos": "Padrão: neon (Antigravity), opus (Claude), sol (Codex). Topo (carbon/astra/fable) só no difícil. hydrogen/haiku/luna só no muito básico. Modelos 'opcional' ficam desligados até você ligar: npm run equipe -- modelo <cli> <modelo> on"
+  "_politicaModelos": "Padrão: neon (Antigravity), opus (Claude), sol (Codex). Topo (carbon/astra/fable) só no difícil. hydrogen/haiku/luna só no muito básico. Modelos 'opcional' ficam desligados até você ligar: npm run equipe -- modelo <cli> <modelo> on",
+  "_niveis": "Permissões por nível: leitura (ler e pesquisar), edicao (+ criar/alterar arquivos na pasta de trabalho), comandos (+ rodar comandos). Ajuste os argumentos de cada CLI aqui."
 }

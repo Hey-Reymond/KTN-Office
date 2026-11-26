@@ -21,7 +21,7 @@ real.antigravity.executavel = process.execPath;
 real.codex.executavel = path.join(dir, "codex-nao-existe");
 writeFileSync(path.join(dir, "clis.json"), JSON.stringify(real));
 const servidor = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
-  env: { ...process.env, KTN_PORT: String(PORTA), KTN_DB: path.join(dir, "teste.db"), KTN_CLIS_CUSTOM: path.join(dir, "nao-existe.json"), KTN_CLIS: path.join(dir, "clis.json"), KTN_DADOS: path.join(dir, "dados") },
+  env: { ...process.env, KTN_PORT: String(PORTA), KTN_DB: path.join(dir, "teste.db"), KTN_CLIS_CUSTOM: path.join(dir, "nao-existe.json"), KTN_CLIS: path.join(dir, "clis.json"), KTN_DADOS: path.join(dir, "dados"), KTN_ESPERA_PERMISSAO_MS: "2500" },
   stdio: ["ignore", "pipe", "pipe"],
 });
 
@@ -115,6 +115,23 @@ try {
   const resp = (await claude.chamar("mandar_mensagem", { para: "humano", texto: "ok, azul" })).dados;
   assert.equal(resp.conversa_id, chatA.id, "resposta cai no chat certo mesmo sem informar");
   assert.ok((await claude.chamar("ler_memoria", { conversa_id: 999 })).erro);
+
+  // Permissões: o Claude espera a resposta do pop-up (via --permission-prompt-tool)
+  const esperando = claude.chamar("pedir_permissao", { tool_name: "Bash", input: { command: "npm test" } });
+  let pendente;
+  for (let i = 0; i < 20 && !(pendente = direto.pedidosPendentes()[0]); i++) await new Promise((r) => setTimeout(r, 100));
+  assert.equal(pendente!.detalhe, "npm test", "pop-up mostra o comando exato");
+  direto.responderPermissao(pendente!.id, true, true);
+  assert.deepEqual((await esperando).dados, { behavior: "allow", updatedInput: { command: "npm test" } }, "Claude recebe 'allow' e continua");
+  assert.deepEqual(direto.sempreDe("claude"), ["Bash"], "'sempre permitir' fica salvo");
+  const semResposta = (await claude.chamar("pedir_permissao", { tool_name: "Write", input: { file_path: "a.txt" } })).dados;
+  assert.equal(semResposta.behavior, "deny", "sem resposta a tempo = negado");
+  // Outras IAs deixam um recado e são acordadas com a resposta
+  const rec = (await gemini.chamar("solicitar_permissao", { nivel: "edicao", motivo: "criar index.html" })).dados;
+  direto.responderPermissao(rec.pedido, true, false);
+  assert.equal(direto.tomarUmaVez("gemini"), "edicao", "'uma vez' vale só pra próxima execução");
+  assert.equal(direto.tomarUmaVez("gemini"), null);
+  assert.ok(direto.mensagensRecentes().some((m) => m.para === "gemini" && m.texto.includes("PERMITIU")));
 
   await claude.chamar("escrever_nota", { chave: "decisoes", conteudo: "Usar SQLite como estado." });
   assert.equal((await gemini.chamar("ler_notas", { chave: "decisoes" })).dados[0].autor, "claude");

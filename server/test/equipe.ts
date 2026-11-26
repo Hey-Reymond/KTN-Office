@@ -170,11 +170,19 @@ try {
   // 2e. Ordem dos argumentos igual à que os CLIs reais aceitam (bugs vistos no Windows)
   const real = JSON.parse(readFileSync(new URL("../../agents/clis.json", import.meta.url), "utf8"));
   assert.deepEqual(new CliAgent("codex", real.codex).montarArgs("oi", "sol"),
-    ["exec", "--skip-git-repo-check", "--json", "-m", "gpt-6.2-sol", "oi"], "codex: tudo depois do exec");
+    ["exec", "--skip-git-repo-check", "--json", "--sandbox", "read-only", "-m", "gpt-6.2-sol", "oi"], "codex: tudo depois do exec, leitura por padrão");
+  assert.deepEqual(new CliAgent("codex", real.codex).montarArgs("oi", "sol", { nivel: "edicao" }).slice(3, 5), ["--sandbox", "workspace-write"]);
   assert.deepEqual(new CliAgent("antigravity", real.antigravity).montarArgs("oi", "neon"),
-    ["--model", "gemini-4-neon", "--output-format", "json", "-p", "oi"], "agy usa --model");
-  assert.deepEqual(new CliAgent("claude", real.claude).montarArgs("oi"),
-    ["--model", "opus", "--allowedTools", "Read,Glob,Grep,WebSearch,WebFetch,mcp__office", "--output-format", "stream-json", "--verbose", "-p", "oi"]);
+    ["--model", "gemini-4-neon", "--output-format", "json", "-p", "oi"], "agy usa --model; leitura = modo padrão");
+  assert.deepEqual(new CliAgent("antigravity", real.antigravity).montarArgs("oi", "neon", { nivel: "edicao" }).slice(2, 4), ["--mode", "accept-edits"]);
+  const argsClaude = new CliAgent("claude", real.claude).montarArgs("oi");
+  assert.deepEqual(argsClaude.slice(0, 2), ["--model", "opus"]);
+  assert.equal(argsClaude[argsClaude.indexOf("--allowedTools") + 1], "Read,Glob,Grep,WebSearch,WebFetch,TodoWrite,mcp__office");
+  assert.equal(argsClaude[argsClaude.indexOf("--permission-prompt-tool") + 1], "mcp__office__pedir_permissao", "o que não está liberado vira pop-up");
+  assert.deepEqual(argsClaude.slice(-2), ["-p", "oi"]);
+  const cmd = new CliAgent("claude", real.claude).montarArgs("oi", undefined, { nivel: "comandos", ferramentas: ["mcp__github"] });
+  assert.ok(cmd[cmd.indexOf("--allowedTools") + 1].endsWith(",Bash"));
+  assert.equal(cmd[cmd.lastIndexOf("--allowedTools") + 1], "mcp__github", "ferramentas 'sempre permitir' entram");
   // Erro real do codex vem no stdout (JSON); o aviso do stdin é ruído
   assert.equal(
     explicarErro("Reading additional input from stdin...\n", '{"type":"thread.started"}\n{"type":"error","message":"The model gpt-6.2-sol is not available on your plan"}', 1),
