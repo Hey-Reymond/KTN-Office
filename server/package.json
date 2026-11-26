@@ -1,24 +1,27 @@
 {
   "name": "ktn-office-server",
-  "version": "0.1.0",
-  "description": "Servidor MCP do KTN Office: escritório onde IAs trocam tarefas e mensagens",
+  "version": "0.3.0",
+  "description": "Servidor MCP do KTN Office: escrit\u00f3rio onde IAs trocam tarefas e mensagens",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "tsx test/smoke.ts"
+    "test": "tsx test/smoke.ts && tsx test/equipe.ts && tsx test/runner.ts && tsx test/git.ts && tsx test/anexos.ts && tsx test/cota.ts && tsx test/notificar.ts && tsx test/apis.ts && tsx test/clis-novos.ts && tsx test/agenda.ts && tsx test/receitas.ts && tsx test/github.ts",
+    "equipe": "tsx src/equipe/cli.ts"
   },
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
     "better-sqlite3": "^13.2.0",
+    "cross-spawn": "^7.0.6",
     "express": "^5.3.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
+    "@types/cross-spawn": "^6.0.6",
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.10",
     "tsx": "^4.23.15",

@@ -1,0 +1,33 @@
+{
+  "_sobre": "Receitas: pedidos prontos com a divisão de papéis. Texto entre «» é para você completar. Suas receitas ficam em ~/KTN-Office-dados/receitas.json.",
+  "revisar-codigo": {
+    "nome": "Revisar código",
+    "descricao": "Bugs, segurança e testes, em paralelo",
+    "texto": "Revise o código de «pasta ou arquivos», com foco em «o que mais importa: bugs, segurança, desempenho…».\n\nDivisão sugerida:\n- uma IA procura bugs e casos esquecidos;\n- outra olha segurança e qualidade do código;\n- outra escreve ou roda testes para o que for mais arriscado.\nNo final, junte tudo em uma lista priorizada (do mais grave ao menos grave), com a correção sugerida para cada item."
+  },
+  "nova-funcionalidade": {
+    "nome": "Nova funcionalidade",
+    "descricao": "Planejar, fazer, testar e revisar",
+    "texto": "Quero adicionar: «descreva a funcionalidade».\n\nDivisão sugerida:\n- a coordenadora planeja (arquivos que mudam, passos) e implementa a parte principal;\n- outra IA implementa a parte de interface ou integração;\n- outra escreve os testes.\nCada uma na sua cópia do projeto; no final, junte as partes, rode os testes e me diga como usar."
+  },
+  "corrigir-bug": {
+    "nome": "Corrigir bug",
+    "descricao": "Reproduzir, achar a causa e corrigir",
+    "texto": "Tem um bug: «o que acontece».\nComo reproduzir: «passos ou comando».\nO esperado era: «o que deveria acontecer».\n\nDivisão sugerida:\n- uma IA reproduz e acha a causa;\n- outra propõe e aplica a correção;\n- outra cria um teste que falha antes e passa depois.\nMe explique a causa em poucas linhas."
+  },
+  "pesquisa": {
+    "nome": "Pesquisar e comparar",
+    "descricao": "Fontes diferentes, uma recomendação",
+    "texto": "Pesquise «tema ou opções a comparar» para «o meu objetivo».\n\nDivisão sugerida: cada IA pesquisa por um ângulo diferente (documentação oficial, opinião de quem usa, preço e limites).\nNo final: tabela comparando, prós e contras e uma recomendação clara, com os links das fontes."
+  },
+  "documentar": {
+    "nome": "Documentar projeto",
+    "descricao": "README, instalação e exemplos",
+    "texto": "Documente o projeto em «pasta do projeto»: README com o que é, como instalar, como usar (com exemplos) e como contribuir.\n\nDivisão sugerida:\n- uma IA lê o código e levanta o que o projeto faz;\n- outra testa os comandos de instalação e uso de verdade;\n- outra escreve o texto, claro e curto.\nSalve como README.md."
+  },
+  "estudar": {
+    "nome": "Estudar para prova",
+    "descricao": "Resumo, exercícios e perguntas",
+    "texto": "Me ajude a estudar «matéria e assuntos» para «prova, trabalho ou apresentação».\n\nDivisão sugerida:\n- uma IA faz um resumo em tópicos fáceis de decorar;\n- outra cria exercícios com resolução passo a passo;\n- outra prepara perguntas que o professor poderia fazer, com respostas curtas.\nJunte tudo num material só, do básico ao avançado."
+  }
+}

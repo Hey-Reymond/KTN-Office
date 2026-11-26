@@ -1,0 +1,26 @@
+name: Problema
+description: Algo não funcionou como deveria
+labels: [bug]
+body:
+  - type: textarea
+    id: oque
+    attributes:
+      label: O que aconteceu?
+      description: E o que você esperava que acontecesse.
+    validations:
+      required: true
+  - type: textarea
+    id: passos
+    attributes:
+      label: Como reproduzir
+      placeholder: "1. Abri um chat\n2. Pedi…\n3. Apareceu o erro…"
+  - type: input
+    id: versao
+    attributes:
+      label: Versão do KTN Office e sistema
+      placeholder: "v0.3.0, Windows 11"
+  - type: textarea
+    id: equipe
+    attributes:
+      label: IAs na equipe
+      description: Quais CLIs/APIs estavam ligados (Configurações → Equipe). Não cole chaves de API!

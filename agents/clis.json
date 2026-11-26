@@ -1,0 +1,488 @@
+{
+  "_sobre": "CLIs conhecidos pelo KTN Office. Pra adicionar um novo sem mexer no código, use 'npm run equipe -- adicionar' (vai pra clis.custom.json) ou edite aqui. {prompt} e {modelo} são substituídos na hora de rodar.",
+  "claude": {
+    "nome": "Claude Code",
+    "executavel": "claude",
+    "versao": [
+      "--version"
+    ],
+    "prompt": [
+      "-p",
+      "{prompt}"
+    ],
+    "modelo": [
+      "--model",
+      "{modelo}"
+    ],
+    "modeloPadrao": "opus",
+    "saidaJson": [
+      "--output-format",
+      "stream-json",
+      "--verbose"
+    ],
+    "leitorSaida": "claude-json",
+    "pastaConfig": "~/.claude",
+    "instalar": {
+      "npm": "@anthropic-ai/claude-code"
+    },
+    "login": "Abra um terminal, rode 'claude' e faça o login pelo navegador.",
+    "conexaoOffice": "claude-mcp",
+    "especialidades": [
+      "escrever código",
+      "refatorar",
+      "debugar",
+      "arquitetura",
+      "revisão de código"
+    ],
+    "modelos": {
+      "fable": {
+        "id": "claude-fable-5-2",
+        "nivel": "máximo",
+        "custo": "muito alto (2x opus)",
+        "velocidade": "lento",
+        "quando": "o mais difícil, quando nem o opus resolveu",
+        "requer": "plano com acesso ao Fable (em alguns planos usa créditos extras)",
+        "opcional": true
+      },
+      "opus": {
+        "id": "opus",
+        "nivel": "topo",
+        "custo": "alto",
+        "velocidade": "lento",
+        "quando": "código, arquitetura, revisão"
+      },
+      "sonnet": {
+        "id": "sonnet",
+        "nivel": "médio",
+        "custo": "médio",
+        "velocidade": "médio",
+        "quando": "tarefas médias e repetitivas, quando quiser economizar"
+      },
+      "haiku": {
+        "id": "haiku",
+        "nivel": "básico",
+        "custo": "baixo",
+        "velocidade": "rápido",
+        "quando": "só perguntas muito básicas"
+      }
+    },
+    "niveis": {
+      "leitura": [
+        "--allowedTools",
+        "Read,Glob,Grep,WebSearch,WebFetch,TodoWrite,mcp__office",
+        "--permission-prompt-tool",
+        "mcp__office__pedir_permissao"
+      ],
+      "edicao": [
+        "--allowedTools",
+        "Read,Glob,Grep,WebSearch,WebFetch,TodoWrite,mcp__office,Edit,Write,MultiEdit,NotebookEdit",
+        "--permission-prompt-tool",
+        "mcp__office__pedir_permissao"
+      ],
+      "comandos": [
+        "--allowedTools",
+        "Read,Glob,Grep,WebSearch,WebFetch,TodoWrite,mcp__office,Edit,Write,MultiEdit,NotebookEdit,Bash",
+        "--permission-prompt-tool",
+        "mcp__office__pedir_permissao"
+      ]
+    },
+    "permitirFerramentas": [
+      "--allowedTools",
+      "{ferramentas}"
+    ]
+  },
+  "antigravity": {
+    "nome": "Antigravity CLI",
+    "executavel": "agy",
+    "versao": [
+      "--version"
+    ],
+    "prompt": [
+      "-p",
+      "{prompt}"
+    ],
+    "modelo": [
+      "--model",
+      "{modelo}"
+    ],
+    "pastaConfig": "~/.gemini/antigravity-cli",
+    "instalar": {
+      "windows": "irm https://antigravity.google/cli/install.ps1 | iex",
+      "unix": "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+      "caminhosExtras": [
+        "~/AppData/Local/agy/bin",
+        "~/.local/bin"
+      ]
+    },
+    "login": "Abra um terminal novo, rode 'agy' e faça login com sua conta Google (AI Pro funciona).",
+    "conexaoOffice": "antigravity-mcp",
+    "especialidades": [
+      "contexto gigante (1M tokens)",
+      "pesquisa na web",
+      "analisar disassembly e logs longos",
+      "vídeos e transcrição"
+    ],
+    "modelos": {
+      "carbon": {
+        "id": "gemini-4-carbon",
+        "nivel": "topo",
+        "custo": "alto",
+        "velocidade": "lento",
+        "quando": "tarefas difíceis: engenharia reversa, arquitetura, bugs que o neon não resolveu"
+      },
+      "neon": {
+        "id": "gemini-4-neon",
+        "nivel": "médio-alto",
+        "custo": "médio",
+        "velocidade": "rápido",
+        "quando": "a maioria das tarefas (código, análise, pesquisa); perto do carbon e ~3x mais rápido"
+      },
+      "hydrogen": {
+        "id": "gemini-4-hydrogen",
+        "nivel": "básico",
+        "custo": "baixo",
+        "velocidade": "muito rápido",
+        "quando": "só perguntas muito básicas (consultas rápidas, formatação)"
+      },
+      "argon": {
+        "id": "gemini-4-argon",
+        "nivel": "antigo",
+        "custo": "médio",
+        "velocidade": "médio",
+        "quando": "evitar: geração anterior, substituído pelo neon"
+      }
+    },
+    "modeloPadrao": "neon",
+    "_notaModelos": "Confira os ids exatos com /model dentro do agy e ajuste 'id' se precisar.",
+    "saidaJson": [
+      "--output-format",
+      "json"
+    ],
+    "leitorSaida": "json",
+    "niveis": {
+      "leitura": [],
+      "edicao": [
+        "--mode",
+        "accept-edits"
+      ],
+      "comandos": [
+        "--mode",
+        "auto"
+      ]
+    }
+  },
+  "codex": {
+    "nome": "Codex CLI (ChatGPT)",
+    "executavel": "codex",
+    "versao": [
+      "--version"
+    ],
+    "prompt": [
+      "exec",
+      "--skip-git-repo-check",
+      "--json",
+      "{extras}",
+      "{modeloArgs}",
+      "{prompt}"
+    ],
+    "modelo": [
+      "-m",
+      "{modelo}"
+    ],
+    "pastaConfig": "~/.codex",
+    "instalar": {
+      "npm": "@openai/codex"
+    },
+    "login": "Abra um terminal e rode 'codex login' (entre com sua conta do ChatGPT).",
+    "conexaoOffice": "codex-mcp",
+    "especialidades": [
+      "segunda opinião em código",
+      "testes"
+    ],
+    "modeloPadrao": "sol",
+    "modelos": {
+      "astra": {
+        "id": "gpt-6.2-astra",
+        "nivel": "topo",
+        "custo": "alto",
+        "velocidade": "lento",
+        "quando": "projetos mais difíceis"
+      },
+      "sol": {
+        "id": "gpt-6.2-sol",
+        "nivel": "médio-alto",
+        "custo": "médio",
+        "velocidade": "rápido",
+        "quando": "código e escrita do dia a dia"
+      },
+      "terra": {
+        "id": "gpt-6.1-terra",
+        "nivel": "médio",
+        "custo": "baixo",
+        "velocidade": "rápido",
+        "quando": "trabalho rápido e eficiente"
+      },
+      "luna": {
+        "id": "gpt-6-luna",
+        "nivel": "básico",
+        "custo": "muito baixo",
+        "velocidade": "muito rápido",
+        "quando": "só o muito básico"
+      }
+    },
+    "leitorSaida": "json",
+    "niveis": {
+      "leitura": [
+        "--sandbox",
+        "read-only"
+      ],
+      "edicao": [
+        "--sandbox",
+        "workspace-write"
+      ],
+      "comandos": [
+        "--sandbox",
+        "workspace-write",
+        "-c",
+        "sandbox_workspace_write.network_access=true"
+      ]
+    }
+  },
+  "copilot": {
+    "nome": "GitHub Copilot CLI",
+    "executavel": "copilot",
+    "versao": [
+      "--version"
+    ],
+    "prompt": [
+      "-p",
+      "{prompt}",
+      "-s",
+      "--no-ask-user"
+    ],
+    "modelo": [
+      "--model",
+      "{modelo}"
+    ],
+    "pastaConfig": "~/.copilot",
+    "instalar": {
+      "npm": "@github/copilot"
+    },
+    "login": "Abra um terminal, rode 'copilot' e digite /login (conta do GitHub; Copilot Pro é grátis no GitHub Student).",
+    "conexaoOffice": "json-mcp",
+    "mcpJson": {
+      "arquivo": "~/.copilot/mcp-config.json",
+      "chave": "mcpServers",
+      "entrada": {
+        "type": "http",
+        "url": "{url}",
+        "tools": [
+          "*"
+        ]
+      }
+    },
+    "especialidades": [
+      "vários modelos numa assinatura",
+      "GitHub (issues, PRs, Actions)",
+      "código"
+    ],
+    "leitorSaida": "texto",
+    "_notaModelos": "O Copilot muda os modelos com frequência. Sem modelo, ele usa o padrão da sua conta; para fixar, adicione em 'modelos' o id que aparece em /model.",
+    "niveis": {
+      "leitura": [
+        "--allow-all-tools",
+        "--deny-tool",
+        "write",
+        "--deny-tool",
+        "shell"
+      ],
+      "edicao": [
+        "--allow-all-tools",
+        "--deny-tool",
+        "shell"
+      ],
+      "comandos": [
+        "--allow-all-tools"
+      ]
+    },
+    "experimental": true
+  },
+  "qwen": {
+    "nome": "Qwen Code",
+    "executavel": "qwen",
+    "versao": [
+      "--version"
+    ],
+    "prompt": [
+      "-p",
+      "{prompt}"
+    ],
+    "modelo": [
+      "-m",
+      "{modelo}"
+    ],
+    "saidaJson": [
+      "--output-format",
+      "json"
+    ],
+    "leitorSaida": "json",
+    "pastaConfig": "~/.qwen",
+    "instalar": {
+      "npm": "@qwen-code/qwen-code"
+    },
+    "login": "Abra um terminal, rode 'qwen' e entre com Qwen OAuth (tem cota grátis diária).",
+    "conexaoOffice": "json-mcp",
+    "mcpJson": {
+      "arquivo": "~/.qwen/settings.json",
+      "chave": "mcpServers",
+      "entrada": {
+        "httpUrl": "{url}",
+        "trust": true
+      }
+    },
+    "especialidades": [
+      "código",
+      "cota grátis diária",
+      "tarefas longas de refatoração"
+    ],
+    "niveis": {
+      "leitura": [],
+      "edicao": [
+        "--approval-mode",
+        "auto-edit"
+      ],
+      "comandos": [
+        "--approval-mode",
+        "yolo"
+      ]
+    },
+    "experimental": true
+  },
+  "opencode": {
+    "nome": "OpenCode",
+    "executavel": "opencode",
+    "versao": [
+      "--version"
+    ],
+    "prompt": [
+      "run",
+      "--format",
+      "json",
+      "{extras}",
+      "{modeloArgs}",
+      "{prompt}"
+    ],
+    "modelo": [
+      "--model",
+      "{modelo}"
+    ],
+    "leitorSaida": "json",
+    "pastaConfig": "~/.local/share/opencode",
+    "instalar": {
+      "npm": "opencode-ai"
+    },
+    "login": "Abra um terminal e rode 'opencode auth login' para escolher o provedor (ex.: GitHub Copilot, OpenRouter, Ollama).",
+    "conexaoOffice": "json-mcp",
+    "mcpJson": {
+      "arquivo": "~/.config/opencode/opencode.json",
+      "chave": "mcp",
+      "entrada": {
+        "type": "remote",
+        "url": "{url}",
+        "enabled": true
+      }
+    },
+    "especialidades": [
+      "usa qualquer provedor (inclusive modelos locais)",
+      "código"
+    ],
+    "aviso": "No modo sem interação o OpenCode aprova as ferramentas sozinho; em 'Só ler' o Office usa o agente 'plan' (sem editar).",
+    "_notaModelos": "Modelos no formato provedor/modelo (veja com 'opencode models').",
+    "niveis": {
+      "leitura": [
+        "--agent",
+        "plan"
+      ],
+      "edicao": [],
+      "comandos": []
+    },
+    "experimental": true
+  },
+  "kimi": {
+    "nome": "Kimi Code CLI",
+    "executavel": "kimi",
+    "versao": [
+      "--version"
+    ],
+    "prompt": [
+      "-p",
+      "{prompt}"
+    ],
+    "modelo": [
+      "-m",
+      "{modelo}"
+    ],
+    "leitorSaida": "texto",
+    "pastaConfig": "~/.kimi",
+    "instalar": {
+      "npm": "@moonshot-ai/kimi-code",
+      "windows": "irm https://code.kimi.com/kimi-code/install.ps1 | iex",
+      "unix": "curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash",
+      "caminhosExtras": [
+        "~/.local/bin"
+      ]
+    },
+    "login": "Abra um terminal, rode 'kimi' e use /login (no Windows precisa do Git for Windows instalado).",
+    "conexaoOffice": "json-mcp",
+    "mcpJson": {
+      "arquivo": "~/.kimi/mcp.json",
+      "chave": "mcpServers",
+      "entrada": {
+        "url": "{url}"
+      }
+    },
+    "especialidades": [
+      "código",
+      "contexto longo"
+    ],
+    "aviso": "No modo sem interação o Kimi aprova as ferramentas sozinho; o nível de permissão do Office não consegue limitá-lo.",
+    "niveis": {
+      "leitura": [],
+      "edicao": [],
+      "comandos": []
+    },
+    "experimental": true
+  },
+  "gemini": {
+    "nome": "Gemini CLI (legado)",
+    "executavel": "gemini",
+    "versao": [
+      "--version"
+    ],
+    "prompt": [
+      "-p",
+      "{prompt}"
+    ],
+    "modelo": [
+      "-m",
+      "{modelo}"
+    ],
+    "modeloPadrao": "gemini-4-neon",
+    "pastaConfig": "~/.gemini",
+    "instalar": {
+      "npm": "@google/gemini-cli"
+    },
+    "login": "Abra um terminal, rode 'gemini' e escolha 'Login with Google'.",
+    "conexaoOffice": "gemini-settings",
+    "especialidades": [
+      "contexto gigante (1M tokens)",
+      "pesquisa na web",
+      "analisar disassembly e logs longos",
+      "vídeos e transcrição"
+    ],
+    "ativo": false,
+    "_nota": "Desde 18/06/2026 não aceita mais login Google (AI Pro/Ultra). Use o Antigravity CLI."
+  },
+  "_politicaModelos": "Padrão: neon (Antigravity), opus (Claude), sol (Codex). Topo (carbon/astra/fable) só no difícil. hydrogen/haiku/luna só no muito básico. Modelos 'opcional' ficam desligados até você ligar: npm run equipe -- modelo <cli> <modelo> on",
+  "_niveis": "Permissões por nível: leitura (ler e pesquisar), edicao (+ criar/alterar arquivos na pasta de trabalho), comandos (+ rodar comandos). Ajuste os argumentos de cada CLI aqui."
+}
