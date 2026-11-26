@@ -35,5 +35,5 @@ try {
   console.log("OK: notificações (ntfy para respostas e pedidos de permissão).");
 } finally {
   srv.close();
-  rmSync(tmp, { recursive: true, force: true, maxRetries: 10 });
+  try { rmSync(tmp, { recursive: true, force: true, maxRetries: 10 }); } catch { /* Windows: o banco aberto neste processo fica travado; a pasta temporária pode ficar */ }
 }

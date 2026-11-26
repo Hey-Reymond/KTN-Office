@@ -20,5 +20,5 @@ try {
   assert.throws(() => salvarReceita({ nome: "", texto: "x" }), /nome/);
   console.log("OK: receitas (prontas, suas, substituir, apagar).");
 } finally {
-  rmSync(tmp, { recursive: true, force: true, maxRetries: 10 });
+  try { rmSync(tmp, { recursive: true, force: true, maxRetries: 10 }); } catch { /* Windows: o banco aberto neste processo fica travado; a pasta temporária pode ficar */ }
 }

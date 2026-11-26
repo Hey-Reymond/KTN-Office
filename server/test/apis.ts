@@ -113,5 +113,5 @@ try {
   console.log("OK: IAs por API (OpenAI-compatível e Anthropic, ferramentas do escritório e de arquivos, chave local, cota).");
 } finally {
   srv.close();
-  rmSync(tmp, { recursive: true, force: true, maxRetries: 10 });
+  try { rmSync(tmp, { recursive: true, force: true, maxRetries: 10 }); } catch { /* Windows: o banco aberto neste processo fica travado; a pasta temporária pode ficar */ }
 }

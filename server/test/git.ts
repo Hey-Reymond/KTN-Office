@@ -111,5 +111,5 @@ try {
 
   console.log("OK: git (cópia por IA, commit na entrega, junção, conflito, aplicar e limpar).");
 } finally {
-  rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  try { rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch { /* Windows: o banco aberto neste processo fica travado; a pasta temporária pode ficar */ }
 }

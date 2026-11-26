@@ -32,5 +32,5 @@ try {
   assert.equal(JSON.parse(readFileSync(path.join(tmp, ".qwen/settings.json"), "utf8")).mcpServers.office.trust, true);
   console.log("OK: novos CLIs (Copilot, Qwen Code, OpenCode, Kimi): argumentos e conexão ao escritório.");
 } finally {
-  rmSync(tmp, { recursive: true, force: true, maxRetries: 10 });
+  try { rmSync(tmp, { recursive: true, force: true, maxRetries: 10 }); } catch { /* Windows: o banco aberto neste processo fica travado; a pasta temporária pode ficar */ }
 }

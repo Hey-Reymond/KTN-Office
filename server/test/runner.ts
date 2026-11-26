@@ -343,5 +343,5 @@ try {
 
   console.log("OK: expediente, projetos (dividir → fazer → merge), chats e memória, permissões, modelos, travas e teste automático de modelos.");
 } finally {
-  rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  try { rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch { /* Windows: o banco aberto neste processo fica travado; a pasta temporária pode ficar */ }
 }

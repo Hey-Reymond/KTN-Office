@@ -282,5 +282,5 @@ try {
   equipe = await detectarEquipe();
   console.log("OK: detecção, conexão, instalação (plano), adição manual e CliAgent.");
 } finally {
-  rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  try { rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch { /* Windows: o banco aberto neste processo fica travado; a pasta temporária pode ficar */ }
 }

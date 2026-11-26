@@ -21,5 +21,5 @@ try {
   assert.ok(existsSync(path.join(tmp, ".ktn-anexos")));
   console.log("OK: anexos (nome seguro, pasta do chat, fora do git, limites).");
 } finally {
-  rmSync(tmp, { recursive: true, force: true, maxRetries: 10 });
+  try { rmSync(tmp, { recursive: true, force: true, maxRetries: 10 }); } catch { /* Windows: o banco aberto neste processo fica travado; a pasta temporária pode ficar */ }
 }

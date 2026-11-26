@@ -144,5 +144,5 @@ try {
   const saiu = new Promise((ok) => servidor.once("exit", ok));
   servidor.kill();
   await saiu;
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  try { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch { /* Windows: o banco aberto neste processo fica travado; a pasta temporária pode ficar */ }
 }

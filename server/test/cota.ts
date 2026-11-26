@@ -49,5 +49,5 @@ try {
   assert.equal(esc.semCotaAte("claude"), null);
   console.log("OK: cota (leitura do Codex/Claude, erro de limite, espera, janela de 5h, situação).");
 } finally {
-  rmSync(tmp, { recursive: true, force: true, maxRetries: 10 });
+  try { rmSync(tmp, { recursive: true, force: true, maxRetries: 10 }); } catch { /* Windows: o banco aberto neste processo fica travado; a pasta temporária pode ficar */ }
 }
