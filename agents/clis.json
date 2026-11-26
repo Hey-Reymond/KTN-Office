@@ -49,7 +49,7 @@
         "nivel": "topo",
         "custo": "alto",
         "velocidade": "lento",
-        "quando": "PADRÃO: código, arquitetura, revisão"
+        "quando": "código, arquitetura, revisão"
       },
       "sonnet": {
         "id": "sonnet",
@@ -111,7 +111,7 @@
         "nivel": "médio-alto",
         "custo": "médio",
         "velocidade": "rápido",
-        "quando": "PADRÃO: a maioria das tarefas (código, análise, pesquisa); perto do carbon e ~3x mais rápido"
+        "quando": "a maioria das tarefas (código, análise, pesquisa); perto do carbon e ~3x mais rápido"
       },
       "hydrogen": {
         "id": "gemini-4-hydrogen",
@@ -177,7 +177,7 @@
         "nivel": "médio-alto",
         "custo": "médio",
         "velocidade": "rápido",
-        "quando": "PADRÃO: código e escrita do dia a dia"
+        "quando": "código e escrita do dia a dia"
       },
       "terra": {
         "id": "gpt-6.1-terra",

@@ -6,195 +6,424 @@
 <title>KTN Office</title>
 <style>
   :root {
-    --bg: #0f1115; --painel: #171a21; --borda: #262b36; --texto: #e6e8ee; --suave: #8a93a6;
-    --acento: #7c9cff; --ok: #3ecf8e; --alerta: #f5b84b; --erro: #ff6b6b; --raio: 10px;
+    color-scheme: dark;
+    --fundo: #15171d;
+    --lateral: #111318;
+    --superficie: #1c1f27;
+    --elevado: #232733;
+    --linha: #2a2f3b;
+    --linha-forte: #363c4b;
+    --texto: #e7e9ef;
+    --suave: #9098ab;
+    --fraco: #646c80;
+    --acento: #8fa0ff;
+    --acento-forte: #aab7ff;
+    --ok: #57d49b;
+    --alerta: #f0b45a;
+    --erro: #ff7a7a;
+    /* cor de cada IA: identidade usada em avatar, mensagens e progresso */
+    --claude: #f0b860;
+    --antigravity: #5fd3bf;
+    --codex: #9ba8ff;
+    --outra: #c79bff;
+    --fonte: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+    --fonte-titulo: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: "Cascadia Code", "Cascadia Mono", Consolas, ui-monospace, monospace;
   }
   @media (prefers-color-scheme: light) {
-    :root { --bg: #f5f6f8; --painel: #fff; --borda: #e2e5eb; --texto: #1b1f27; --suave: #677084; --acento: #3f5fe0; }
+    :root {
+      color-scheme: light;
+      --fundo: #f6f7f9; --lateral: #eceef2; --superficie: #ffffff; --elevado: #ffffff;
+      --linha: #e1e4ea; --linha-forte: #cfd4dd; --texto: #191c23; --suave: #5b6375; --fraco: #8a91a2;
+      --acento: #4f5fd9; --acento-forte: #3a49c4;
+      --claude: #b7791f; --antigravity: #17907c; --codex: #5562d6; --outra: #8a4fd6;
+    }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--texto); }
-  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--borda); background: var(--painel); position: sticky; top: 0; z-index: 2; flex-wrap: wrap; }
-  header h1 { font-size: 17px; margin: 0; letter-spacing: .2px; }
-  header h1 span { color: var(--acento); }
-  .grade { display: grid; grid-template-columns: 230px minmax(320px, 1.1fr) minmax(320px, 1fr); gap: 16px; padding: 16px 20px; }
-  @media (max-width: 1150px) { .grade { grid-template-columns: 210px 1fr; } .grade > .coluna:last-child { grid-column: 1 / -1; } }
-  @media (max-width: 750px) { .grade { grid-template-columns: 1fr; } }
-  .lateral { position: sticky; top: 70px; align-self: start; }
-  .chats { display: flex; flex-direction: column; gap: 2px; max-height: calc(100vh - 160px); overflow-y: auto; }
-  .chatItem { display: flex; align-items: center; gap: 4px; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
-  .chatItem:hover { background: var(--bg); }
-  .chatItem.ativo { background: color-mix(in srgb, var(--acento) 18%, transparent); }
-  .chatItem .tit { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .chatItem .acoes { display: none; gap: 2px; }
-  .chatItem:hover .acoes, .chatItem.ativo .acoes { display: flex; }
-  .chatItem .acoes button { padding: 1px 5px; border: 0; font-size: 13px; }
-  #tituloChat { font-size: 15px; font-weight: 600; margin: 0 0 8px; text-transform: none; letter-spacing: 0; color: var(--texto); }
-  section { background: var(--painel); border: 1px solid var(--borda); border-radius: var(--raio); padding: 14px 16px; }
-  section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: var(--suave); margin: 0 0 10px; font-weight: 600; }
-  .coluna { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  button { font: inherit; border: 1px solid var(--borda); background: transparent; color: var(--texto); padding: 6px 12px; border-radius: 8px; cursor: pointer; }
-  button:hover { border-color: var(--acento); }
-  button.primario { background: var(--acento); border-color: var(--acento); color: #fff; }
-  button:disabled { opacity: .5; cursor: default; }
-  select, input[type=text], textarea { font: inherit; background: var(--bg); color: var(--texto); border: 1px solid var(--borda); border-radius: 8px; padding: 6px 8px; }
-  .chave { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
-  .chave input { display: none; }
-  .chave .trilho { width: 38px; height: 22px; border-radius: 11px; background: var(--borda); position: relative; transition: .15s; }
-  .chave .trilho::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: .15s; }
-  .chave input:checked + .trilho { background: var(--ok); }
-  .chave input:checked + .trilho::after { left: 19px; }
-  .espaco { flex: 1; }
-  .pilula { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--borda); color: var(--suave); }
-  .pilula.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
-  .pilula.alerta { color: var(--alerta); border-color: color-mix(in srgb, var(--alerta) 40%, transparent); }
-  .pilula.erro { color: var(--erro); border-color: color-mix(in srgb, var(--erro) 40%, transparent); }
-  #chat { height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px 2px 8px; }
-  .bolha { max-width: 85%; padding: 8px 12px; border-radius: 12px; white-space: pre-wrap; word-break: break-word; }
-  .bolha.eu { align-self: flex-end; background: var(--acento); color: #fff; border-bottom-right-radius: 4px; }
-  .bolha.ia { align-self: flex-start; background: var(--bg); border: 1px solid var(--borda); border-bottom-left-radius: 4px; }
-  .bolha small { display: block; opacity: .7; font-size: 11px; margin-bottom: 2px; }
-  .vazio { color: var(--suave); font-style: italic; }
-  form.envio { display: flex; gap: 8px; margin-top: 8px; }
-  form.envio textarea { flex: 1; resize: vertical; min-height: 42px; }
-  .cli { border: 1px solid var(--borda); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
-  .cli-topo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
-  .cli-topo b { font-size: 14px; }
-  .barra { height: 6px; background: var(--borda); border-radius: 3px; overflow: hidden; margin: 6px 0 4px; }
-  .barra div { height: 100%; background: var(--ok); transition: width .3s; }
-  .partes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-  .modelo { display: grid; grid-template-columns: 22px 130px 1fr; gap: 8px; align-items: start; padding: 4px 0; }
-  .modelo input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--acento); }
-  .modelo .nome { font-weight: 600; }
+  html, body { height: 100%; }
+  body { margin: 0; font: 14.5px/1.55 var(--fonte); background: var(--fundo); color: var(--texto); -webkit-font-smoothing: antialiased; overflow: hidden; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; border-radius: 6px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+  .app { display: grid; grid-template-columns: 264px 1fr auto; height: 100vh; }
+
+  /* ---------- Barra lateral ---------- */
+  .lateral { background: var(--lateral); border-right: 1px solid var(--linha); display: flex; flex-direction: column; min-width: 0; }
+  .marca { display: flex; align-items: center; gap: 10px; padding: 18px 18px 14px; }
+  .marca .logo { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: linear-gradient(140deg, var(--claude), var(--antigravity) 55%, var(--codex)); }
+  .marca .logo svg { width: 18px; height: 18px; }
+  .marca b { font: 600 16px/1 var(--fonte-titulo); letter-spacing: .1px; }
+  .marca span { color: var(--suave); font-weight: 400; }
+  .novo { margin: 4px 12px 10px; display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--linha-forte); background: var(--superficie); text-align: left; transition: border-color .15s; }
+  .novo:hover { border-color: var(--acento); }
+  .novo kbd { margin-left: auto; font: 11px var(--fonte); color: var(--fraco); }
+  .grupoTitulo { padding: 10px 20px 4px; font-size: 12px; color: var(--fraco); }
+  .chats { flex: 1; overflow-y: auto; padding: 0 8px 8px; }
+  .chat { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 8px; cursor: pointer; color: var(--suave); }
+  .chat:hover { background: var(--superficie); color: var(--texto); }
+  .chat.ativo { background: var(--elevado); color: var(--texto); }
+  .chat .tit { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat .acoes { display: none; }
+  .chat:hover .acoes, .chat.ativo .acoes { display: flex; }
+  .icone { border: 0; background: transparent; color: var(--fraco); width: 26px; height: 26px; display: grid; place-items: center; border-radius: 6px; padding: 0; }
+  .icone:hover { background: var(--linha); color: var(--texto); }
+  .icone svg { width: 15px; height: 15px; }
+  .rodape { border-top: 1px solid var(--linha); padding: 10px; }
+  .botaoConfig { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; border: 0; background: transparent; text-align: left; }
+  .botaoConfig:hover { background: var(--superficie); }
+  .botaoConfig .roda { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--elevado); border: 1px solid var(--linha-forte); }
+  .botaoConfig .roda svg { width: 17px; height: 17px; color: var(--suave); }
+  .botaoConfig .info { flex: 1; min-width: 0; line-height: 1.3; }
+  .botaoConfig .info small { display: block; color: var(--fraco); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .equipeMini { display: flex; }
+  .equipeMini .av { width: 20px; height: 20px; font-size: 10px; margin-left: -5px; border: 2px solid var(--lateral); }
+
+  /* ---------- Avatares das IAs ---------- */
+  .av { width: 28px; height: 28px; flex: none; border-radius: 50%; display: grid; place-items: center; font: 700 12px/1 var(--fonte-titulo); color: #14161c; background: var(--cor, var(--outra)); position: relative; }
+  .av.trabalhando::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--cor, var(--outra)); opacity: .6; animation: respira 1.6s ease-in-out infinite; }
+  .av.mini { width: 20px; height: 20px; font-size: 10px; vertical-align: middle; display: inline-grid; }
+  @keyframes respira { 50% { transform: scale(1.12); opacity: .1; } }
+
+  /* ---------- Conversa ---------- */
+  .principal { display: flex; flex-direction: column; min-width: 0; height: 100vh; }
+  .topo { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--linha); min-height: 58px; }
+  .topo h1 { margin: 0; font: 600 15.5px/1.3 var(--fonte-titulo); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .interruptor { display: inline-flex; align-items: center; gap: 9px; padding: 5px 12px 5px 6px; border-radius: 999px; border: 1px solid var(--linha-forte); background: var(--superficie); cursor: pointer; user-select: none; font-size: 13px; color: var(--suave); position: relative; }
+  .interruptor input { position: absolute; opacity: 0; pointer-events: none; }
+  .interruptor .trilho { width: 30px; height: 18px; border-radius: 9px; background: var(--linha-forte); position: relative; transition: background .2s; }
+  .interruptor .trilho::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .2s; }
+  .interruptor input:checked + .trilho { background: var(--ok); }
+  .interruptor input:checked + .trilho::after { transform: translateX(12px); }
+  .interruptor:has(input:checked) { color: var(--texto); }
+  .interruptor:has(input:focus-visible) { outline: 2px solid var(--acento); outline-offset: 2px; }
+  .botaoTopo { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--suave); font-size: 13px; }
+  .botaoTopo:hover, .botaoTopo.ligado { background: var(--superficie); border-color: var(--linha); color: var(--texto); }
+  .botaoTopo svg { width: 16px; height: 16px; }
+
+  .rolagem { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+  .fio { max-width: 780px; width: 100%; margin: 0 auto; padding: 28px 24px 12px; display: flex; flex-direction: column; gap: 22px; flex: 1; }
+  .msg { display: flex; gap: 12px; }
+  .msg .corpo { min-width: 0; flex: 1; }
+  .msg .quem { font-size: 13px; color: var(--suave); margin-bottom: 3px; }
+  .msg .quem b { color: var(--texto); font-weight: 600; margin-right: 6px; }
+  .msg.eu { justify-content: flex-end; }
+  .msg.eu .bolha { background: var(--elevado); border: 1px solid var(--linha); padding: 10px 15px; border-radius: 16px 16px 4px 16px; max-width: 80%; white-space: pre-wrap; word-break: break-word; }
+  .msg.sistema { color: var(--suave); font-size: 13px; padding: 8px 12px; border: 1px dashed var(--linha-forte); border-radius: 10px; }
+  .md { word-break: break-word; }
+  .md > :first-child { margin-top: 0; } .md > :last-child { margin-bottom: 0; }
+  .md p { margin: 0 0 .7em; }
+  .md h3 { font: 600 15px/1.4 var(--fonte-titulo); margin: 1.1em 0 .4em; }
+  .md ul, .md ol { margin: .2em 0 .8em; padding-left: 1.4em; }
+  .md li { margin: .2em 0; }
+  .md code { font: 12.5px var(--mono); background: var(--elevado); border: 1px solid var(--linha); padding: 1px 5px; border-radius: 5px; }
+  .md pre { background: var(--lateral); border: 1px solid var(--linha); border-radius: 10px; padding: 12px 14px; overflow-x: auto; }
+  .md pre code { background: none; border: 0; padding: 0; }
+  .md a { color: var(--acento-forte); }
+
+  .boasVindas { margin: auto; max-width: 580px; text-align: center; padding: 20px 0 40px; }
+  .boasVindas h2 { font: 600 27px/1.25 var(--fonte-titulo); margin: 0 0 10px; letter-spacing: -.3px; }
+  .boasVindas p { color: var(--suave); margin: 0 auto 24px; max-width: 46ch; }
+  .equipeGrande { display: flex; justify-content: center; gap: 18px; margin-bottom: 26px; }
+  .equipeGrande .membro { display: flex; flex-direction: column; align-items: center; gap: 7px; font-size: 12.5px; color: var(--suave); }
+  .equipeGrande .av { width: 46px; height: 46px; font-size: 17px; }
+  .sugestoes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; }
+  .sugestoes button { border: 1px solid var(--linha); background: var(--superficie); border-radius: 12px; padding: 12px 14px; color: var(--texto); text-align: left; transition: border-color .15s; }
+  .sugestoes button:hover { border-color: var(--acento); }
+  .sugestoes button small { display: block; color: var(--fraco); margin-top: 2px; }
+
+  .faixaProjeto { max-width: 780px; margin: 0 auto 8px; padding: 0 24px; width: 100%; }
+  .faixaProjeto:empty { display: none; }
+  .faixaProjeto .cartao { display: flex; align-items: center; gap: 10px; border: 1px solid var(--linha); background: var(--superficie); border-radius: 12px; padding: 9px 14px; font-size: 13px; cursor: pointer; width: 100%; color: var(--texto); text-align: left; }
+  .faixaProjeto .cartao:hover { border-color: var(--linha-forte); }
+  .faixaProjeto .av { width: 22px; height: 22px; font-size: 10px; margin-right: -6px; border: 2px solid var(--superficie); }
+  .faixaProjeto .rotulo { margin-left: 10px; white-space: nowrap; }
+  .barra { flex: 1; height: 5px; border-radius: 3px; background: var(--linha); overflow: hidden; min-width: 60px; }
+  .barra div { height: 100%; background: var(--acento); border-radius: 3px; transition: width .5s; }
+
+  .compositor { max-width: 780px; width: 100%; margin: 0 auto; padding: 4px 24px 18px; }
+  .caixaTexto { border: 1px solid var(--linha-forte); background: var(--superficie); border-radius: 16px; padding: 12px 12px 10px 16px; transition: border-color .15s; }
+  .caixaTexto:focus-within { border-color: var(--acento); }
+  .caixaTexto textarea { width: 100%; border: 0; background: transparent; resize: none; outline: none; min-height: 26px; max-height: 220px; line-height: 1.5; padding: 0; }
+  .caixaTexto .linhaAcoes { display: flex; align-items: center; gap: 8px; margin-top: 6px; color: var(--fraco); font-size: 12.5px; }
+  .caixaTexto .espaco { flex: 1; }
+  .enviar { width: 34px; height: 34px; border-radius: 10px; border: 0; background: var(--acento); color: #10131a; display: grid; place-items: center; transition: opacity .15s; }
+  .enviar:disabled { opacity: .35; cursor: default; }
+  .enviar svg { width: 17px; height: 17px; }
+  .dica { text-align: center; font-size: 12px; color: var(--alerta); margin-top: 8px; }
+  .dica:empty { display: none; }
+
+  /* ---------- Painel de atividade ---------- */
+  .atividade { width: 340px; border-left: 1px solid var(--linha); background: var(--lateral); display: flex; flex-direction: column; height: 100vh; }
+  .atividade[hidden] { display: none; }
+  .abas { display: flex; gap: 4px; padding: 12px 12px 0; border-bottom: 1px solid var(--linha); min-height: 58px; align-items: flex-end; }
+  .aba { border: 0; background: transparent; padding: 8px 12px; color: var(--suave); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .aba[aria-selected="true"] { color: var(--texto); border-bottom-color: var(--acento); }
+  .conteudoAba { flex: 1; overflow-y: auto; padding: 14px; }
+  .conteudoAba[hidden] { display: none; }
+  .vivo { border: 1px solid var(--linha); background: var(--superficie); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+  .vivo .cab { display: flex; align-items: center; gap: 10px; }
+  .vivo .cab .nome { font-weight: 600; }
+  .vivo .cab small { color: var(--fraco); display: block; font-size: 12px; }
+  .vivo .tempo { margin-left: auto; color: var(--fraco); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .passos { list-style: none; margin: 10px 0 0 13px; padding: 0; border-left: 2px solid var(--linha); font-size: 12.5px; color: var(--suave); max-height: 180px; overflow-y: auto; }
+  .passos li { padding: 2px 0 2px 10px; }
+  .passos li:last-child { color: var(--texto); }
+  .avisoParado { color: var(--alerta); font-size: 12px; margin-top: 8px; }
+  .vazio { color: var(--fraco); font-size: 13px; text-align: center; padding: 26px 10px; }
+  .projeto { border: 1px solid var(--linha); background: var(--superficie); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+  .projeto .tit { font-weight: 600; margin-bottom: 6px; }
+  .projeto .estado { font-size: 12px; color: var(--suave); display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .parte { display: flex; align-items: center; gap: 9px; padding: 5px 0; font-size: 13px; }
+  .parte .av { width: 22px; height: 22px; font-size: 10px; }
+  .parte .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .selo { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: var(--elevado); color: var(--suave); border: 1px solid var(--linha); white-space: nowrap; }
+  .selo.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+  .selo.alerta { color: var(--alerta); border-color: color-mix(in srgb, var(--alerta) 35%, transparent); }
+  .selo.erro { color: var(--erro); border-color: color-mix(in srgb, var(--erro) 35%, transparent); }
+  .selo.acento { color: var(--acento-forte); border-color: color-mix(in srgb, var(--acento) 40%, transparent); }
+  details.resultado summary { cursor: pointer; color: var(--acento-forte); font-size: 13px; margin-top: 8px; }
+  details.resultado .md { margin-top: 8px; font-size: 13.5px; }
+  .memoria textarea { width: 100%; min-height: 280px; border: 1px solid var(--linha); background: var(--superficie); border-radius: 10px; padding: 12px; font: 12.5px/1.6 var(--mono); resize: vertical; }
+  .memoria p { color: var(--suave); font-size: 12.5px; margin: 0 0 10px; }
+  .memoria .caminho { color: var(--fraco); font-size: 11.5px; word-break: break-all; margin-top: 10px; }
+
+  /* ---------- Botões ---------- */
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 9px; border: 1px solid var(--linha-forte); background: var(--superficie); color: var(--texto); font-size: 13.5px; transition: border-color .15s, background .15s; }
+  .btn:hover { border-color: var(--acento); }
+  .btn.primario { background: var(--acento); border-color: var(--acento); color: #10131a; font-weight: 600; }
+  .btn.primario:hover { background: var(--acento-forte); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.pequeno { padding: 4px 10px; font-size: 12.5px; }
+
+  /* ---------- Configurações ---------- */
+  .veu { position: fixed; inset: 0; background: rgba(5, 7, 12, .62); backdrop-filter: blur(3px); display: grid; place-items: center; z-index: 20; padding: 24px; }
+  .veu[hidden] { display: none; }
+  .janela { width: min(1040px, 100%); height: min(740px, 100%); background: var(--fundo); border: 1px solid var(--linha-forte); border-radius: 18px; display: grid; grid-template-columns: 224px 1fr; overflow: hidden; box-shadow: 0 30px 80px rgba(0, 0, 0, .45); animation: surge .18s ease-out; }
+  @keyframes surge { from { transform: translateY(8px) scale(.985); opacity: 0; } }
+  .janela nav { background: var(--lateral); border-right: 1px solid var(--linha); padding: 18px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .janela nav h2 { font: 600 16px var(--fonte-titulo); margin: 0 10px 14px; }
+  .janela nav button { border: 0; background: transparent; text-align: left; padding: 8px 10px; border-radius: 8px; color: var(--suave); display: flex; align-items: center; gap: 10px; }
+  .janela nav button svg { width: 16px; height: 16px; flex: none; }
+  .janela nav button:hover { background: var(--superficie); color: var(--texto); }
+  .janela nav button[aria-selected="true"] { background: var(--elevado); color: var(--texto); }
+  .janela .painel { overflow-y: auto; padding: 26px 30px 32px; position: relative; }
+  .janela .fechar { position: absolute; top: 14px; right: 14px; }
+  .painel section[hidden] { display: none; }
+  .painel h3 { font: 600 19px/1.3 var(--fonte-titulo); margin: 0 0 4px; }
+  .painel .sub { color: var(--suave); margin: 0 0 20px; max-width: 64ch; }
+  .barraAcoes { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .barraAcoes .info { color: var(--suave); font-size: 12.5px; }
+  .membroCfg { border: 1px solid var(--linha); background: var(--superficie); border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; }
+  .membroCfg .cab { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .membroCfg .cab .nome { font-weight: 600; }
+  .membroCfg .cab .selos { display: flex; gap: 6px; flex-wrap: wrap; }
+  .membroCfg .cab .direita { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .modelos { margin-top: 12px; border-top: 1px solid var(--linha); padding-top: 6px; }
+  .modelo { display: grid; grid-template-columns: 22px 150px 1fr auto; gap: 10px; align-items: center; padding: 7px 0; cursor: pointer; }
+  .modelo input { width: 16px; height: 16px; accent-color: var(--acento); margin: 0; }
+  .modelo .nome { font-weight: 600; font-size: 13.5px; }
   .modelo .desc { color: var(--suave); font-size: 12.5px; }
-  .lista { max-height: 300px; overflow-y: auto; }
-  .item { padding: 7px 0; border-bottom: 1px solid var(--borda); }
-  .item:last-child { border-bottom: 0; }
-  .item .meta { color: var(--suave); font-size: 12px; }
-  .item .corpo { white-space: pre-wrap; word-break: break-word; }
-  details summary { cursor: pointer; }
-  .linha { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .vivo { border: 1px solid var(--borda); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
-  .vivo .topo { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .vivo .pulso { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); animation: pulso 1.2s infinite; }
-  .vivo.parado .pulso { background: var(--alerta); animation: none; }
-  @keyframes pulso { 50% { opacity: .25; } }
-  .vivo ol { margin: 8px 0 0; padding-left: 18px; color: var(--suave); font-size: 12.5px; max-height: 170px; overflow-y: auto; }
-  .vivo ol li:last-child { color: var(--texto); }
-  #aviso { position: fixed; bottom: 16px; right: 16px; background: var(--painel); border: 1px solid var(--borda); padding: 10px 14px; border-radius: 8px; display: none; max-width: 380px; }
+  .modelo.off .nome, .modelo.off .desc { opacity: .55; }
+  .campo { display: grid; gap: 6px; margin-bottom: 20px; max-width: 560px; }
+  .campo label { font-weight: 600; font-size: 13.5px; }
+  .campo small { color: var(--suave); }
+  .campo input, .campo select { border: 1px solid var(--linha-forte); background: var(--superficie); border-radius: 9px; padding: 8px 10px; }
+  .linhaLista { padding: 11px 0; border-bottom: 1px solid var(--linha); }
+  .linhaLista:last-child { border-bottom: 0; }
+  .linhaLista .meta { color: var(--fraco); font-size: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .linhaLista .txt { margin-top: 4px; font-size: 13.5px; white-space: pre-wrap; word-break: break-word; }
+  .duasColunas { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .duasColunas h4 { margin: 0 0 4px; font: 600 14px var(--fonte-titulo); }
+
+  #aviso { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--elevado); border: 1px solid var(--linha-forte); padding: 10px 16px; border-radius: 10px; z-index: 30; box-shadow: 0 10px 30px rgba(0,0,0,.35); font-size: 13.5px; max-width: 560px; }
+  #aviso[hidden] { display: none; }
+
+  @media (max-width: 1100px) { .atividade { position: fixed; right: 0; top: 0; z-index: 10; box-shadow: -20px 0 40px rgba(0,0,0,.35); } }
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; }
+    .lateral { display: none; }
+    .janela { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } .janela nav { flex-direction: row; overflow-x: auto; padding: 10px; } .janela nav h2 { display: none; }
+    .sugestoes, .duasColunas { grid-template-columns: 1fr; }
+    .modelo { grid-template-columns: 22px 1fr; } .modelo .desc, .modelo .selo { grid-column: 2; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>KTN <span>Office</span></h1>
-  <label class="chave" title="Quando ligado, as IAs acordam sozinhas quando têm tarefa ou mensagem">
-    <input type="checkbox" id="expediente"><span class="trilho"></span><span id="expedienteTxt">Expediente desligado</span>
-  </label>
-  <span class="espaco"></span>
-  <label class="linha">Coordenadora <select id="coordenadora"></select></label>
-  <span id="trabalhando" class="pilula">ninguém trabalhando</span>
-</header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-mais" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-lapis" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></symbol>
+  <symbol id="i-lixo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+  <symbol id="i-engrenagem" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-painel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M15 4v16"/></symbol>
+  <symbol id="i-enviar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-equipe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.5 3-5.5 6-5.5s5.4 2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14.5c2.4.2 4 1.9 4.5 4.5"/></symbol>
+  <symbol id="i-relogio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-quadro" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/></symbol>
+  <symbol id="i-bastidores" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v10H9l-5 4z"/><path d="M8 9h8M8 12h5"/></symbol>
+</svg>
 
-<div class="grade">
-  <div class="lateral">
-    <section>
-      <button class="primario" id="btnNovoChat" style="width:100%;margin-bottom:10px">+ Novo chat</button>
-      <div id="chats" class="chats"></div>
-    </section>
-  </div>
+<div class="app">
+  <aside class="lateral" aria-label="Chats">
+    <div class="marca">
+      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="#14161c"><circle cx="7" cy="12" r="3"/><circle cx="17" cy="7.5" r="2.6"/><circle cx="17" cy="16.5" r="2.6"/></svg></div>
+      <b>KTN <span>Office</span></b>
+    </div>
+    <button class="novo" id="btnNovoChat"><svg width="16" height="16"><use href="#i-mais"/></svg>Novo chat<kbd>Ctrl+K</kbd></button>
+    <div class="grupoTitulo">Chats</div>
+    <nav class="chats" id="chats"></nav>
+    <div class="rodape">
+      <button class="botaoConfig" id="btnConfig" aria-label="Abrir configurações">
+        <span class="roda"><svg><use href="#i-engrenagem"/></svg></span>
+        <span class="info">Configurações<small id="resumoEquipe">carregando equipe…</small></span>
+        <span class="equipeMini" id="equipeMini"></span>
+      </button>
+    </div>
+  </aside>
 
-  <div class="coluna">
-    <section>
-      <h2 id="tituloChat">Novo chat</h2>
-      <div id="chat"></div>
-      <form class="envio" id="formChat">
-        <textarea id="texto" placeholder="Peça algo pra equipe… (Enter envia, Shift+Enter quebra linha)"></textarea>
-        <button class="primario" type="submit">Enviar</button>
-      </form>
-      <div class="meta" id="dicaExpediente" style="margin-top:6px;color:var(--suave);font-size:12px"></div>
-      <details id="painelMemoria" style="margin-top:10px">
-        <summary class="meta">🧠 Memória deste chat</summary>
-        <div class="meta" id="arquivoMemoria" style="color:var(--suave);font-size:12px;margin:6px 0;word-break:break-all"></div>
-        <textarea id="textoMemoria" style="width:100%;min-height:120px" placeholder="As IAs anotam aqui o que vale lembrar neste chat. Você também pode escrever."></textarea>
-        <div style="margin-top:6px"><button id="btnSalvarMemoria">Salvar memória</button></div>
-      </details>
-    </section>
-
-    <section>
-      <h2>Projetos</h2>
-      <div id="projetos" class="lista"></div>
-    </section>
-
-    <section>
-      <h2>Quadro de tarefas</h2>
-      <div id="tarefas" class="lista"></div>
-    </section>
-
-    <section>
-      <h2>Conversa da equipe</h2>
-      <div id="conversa" class="lista"></div>
-    </section>
-  </div>
-
-  <div class="coluna">
-    <section>
-      <h2>Trabalhando agora</h2>
-      <div id="aoVivo"></div>
-    </section>
-
-    <section>
-      <div class="linha" style="margin-bottom:8px">
-        <h2 style="margin:0">Equipe e modelos</h2>
-        <span class="espaco"></span>
-        <button id="btnDetectar" title="Procura de novo os CLIs instalados">Atualizar</button>
-        <button id="btnTestar" title="Manda 'responda ok' pra cada modelo e vê quais o seu plano libera">Testar modelos</button>
-      </div>
-      <div class="meta" id="progressoTeste" style="color:var(--suave);font-size:12px;margin-bottom:8px"></div>
-      <div id="equipe"></div>
-    </section>
-
-    <section>
-      <h2>Linha do tempo</h2>
-      <div id="eventos" class="lista"></div>
-    </section>
-
-    <section>
-      <details>
-        <summary><b>Configurações do expediente</b></summary>
-        <div style="display:grid;gap:8px;margin-top:10px">
-          <label>Pasta de trabalho das IAs<br><input type="text" id="pasta" style="width:100%"></label>
-          <label>Máximo de execuções por IA por hora <input type="text" id="maxHora" size="4"></label>
-          <div><button id="btnSalvarCfg">Salvar</button></div>
+  <main class="principal">
+    <header class="topo">
+      <h1 id="tituloChat">Novo chat</h1>
+      <label class="interruptor" title="Ligado: as IAs acordam sozinhas quando têm tarefa ou mensagem">
+        <input type="checkbox" id="expediente"><span class="trilho"></span><span id="expedienteTxt">Expediente</span>
+      </label>
+      <button class="botaoTopo" id="btnAtividade" aria-pressed="true" title="Mostrar ou esconder o painel de atividade"><svg><use href="#i-painel"/></svg>Atividade</button>
+    </header>
+    <div class="rolagem" id="rolagem"><div class="fio" id="fio"></div></div>
+    <div class="faixaProjeto" id="faixaProjeto"></div>
+    <form class="compositor" id="formChat">
+      <div class="caixaTexto">
+        <textarea id="texto" rows="1" placeholder="Peça algo pra equipe…" aria-label="Mensagem"></textarea>
+        <div class="linhaAcoes">
+          <span id="paraQuem"></span>
+          <span class="espaco"></span>
+          <button class="enviar" type="submit" id="btnEnviar" disabled aria-label="Enviar"><svg><use href="#i-enviar"/></svg></button>
         </div>
-      </details>
-    </section>
+      </div>
+      <div class="dica" id="dicaExpediente"></div>
+    </form>
+  </main>
+
+  <aside class="atividade" id="atividade" aria-label="Atividade">
+    <div class="abas" role="tablist">
+      <button class="aba" role="tab" data-aba="agora" aria-selected="true">Agora</button>
+      <button class="aba" role="tab" data-aba="projetos" aria-selected="false">Projetos</button>
+      <button class="aba" role="tab" data-aba="memoria" aria-selected="false">Memória</button>
+    </div>
+    <div class="conteudoAba" id="abaAgora"></div>
+    <div class="conteudoAba" id="abaProjetos" hidden></div>
+    <div class="conteudoAba memoria" id="abaMemoria" hidden>
+      <p>O que a equipe precisa lembrar neste chat. As IAs leem antes de trabalhar e anotam decisões aqui. Você também pode editar.</p>
+      <textarea id="textoMemoria" placeholder="Ex.: o projeto fica em C:\Users\…\KTN-Office. Prefiro respostas curtas."></textarea>
+      <div style="margin-top:8px;display:flex;gap:8px"><button class="btn primario pequeno" id="btnSalvarMemoria">Salvar memória</button></div>
+      <div class="caminho" id="arquivoMemoria"></div>
+    </div>
+  </aside>
+</div>
+
+<div class="veu" id="veuConfig" hidden>
+  <div class="janela" role="dialog" aria-modal="true" aria-label="Configurações">
+    <nav role="tablist">
+      <h2>Configurações</h2>
+      <button role="tab" data-painel="equipe" aria-selected="true"><svg><use href="#i-equipe"/></svg>Equipe e modelos</button>
+      <button role="tab" data-painel="expediente" aria-selected="false"><svg><use href="#i-relogio"/></svg>Expediente</button>
+      <button role="tab" data-painel="quadro" aria-selected="false"><svg><use href="#i-quadro"/></svg>Quadro de tarefas</button>
+      <button role="tab" data-painel="bastidores" aria-selected="false"><svg><use href="#i-bastidores"/></svg>Bastidores</button>
+    </nav>
+    <div class="painel">
+      <button class="icone fechar" id="btnFecharConfig" aria-label="Fechar"><svg><use href="#i-x"/></svg></button>
+      <section data-conteudo="equipe">
+        <h3>Equipe e modelos</h3>
+        <p class="sub">Quem trabalha no escritório e com quais modelos. A coordenadora só usa os modelos marcados; desmarque o que você não quer usar.</p>
+        <div class="barraAcoes">
+          <button class="btn" id="btnDetectar">Procurar CLIs de novo</button>
+          <button class="btn" id="btnTestar">Testar modelos</button>
+          <span class="info" id="progressoTeste"></span>
+        </div>
+        <div id="equipe"></div>
+      </section>
+      <section data-conteudo="expediente" hidden>
+        <h3>Expediente</h3>
+        <p class="sub">Com o expediente ligado, o escritório acorda cada IA quando ela tem tarefa ou mensagem, e elas trabalham em paralelo.</p>
+        <div class="campo">
+          <label for="coordenadora">Coordenadora</label>
+          <select id="coordenadora"></select>
+          <small>Quem conversa com você, divide os pedidos em projetos e junta o resultado no final.</small>
+        </div>
+        <div class="campo">
+          <label for="pasta">Pasta de trabalho das IAs</label>
+          <input type="text" id="pasta">
+          <small>Onde as IAs leem e criam arquivos. Use a pasta do projeto em que elas vão trabalhar.</small>
+        </div>
+        <div class="campo">
+          <label for="maxHora">Limite de execuções por IA por hora</label>
+          <input type="number" id="maxHora" min="1" max="500" style="max-width:120px">
+          <small>Trava de segurança contra loops. Uma IA que falha 3 vezes seguidas também é pausada por 10 minutos.</small>
+        </div>
+        <button class="btn primario" id="btnSalvarCfg">Salvar expediente</button>
+      </section>
+      <section data-conteudo="quadro" hidden>
+        <h3>Quadro de tarefas</h3>
+        <p class="sub">Todas as tarefas, de todos os chats, da mais recente para a mais antiga.</p>
+        <div id="tarefas"></div>
+      </section>
+      <section data-conteudo="bastidores" hidden>
+        <h3>Bastidores</h3>
+        <p class="sub">O que as IAs conversam entre si e o registro de tudo que o escritório fez. Útil quando algo não sai como esperado.</p>
+        <div class="duasColunas">
+          <div><h4>Conversa da equipe</h4><div id="conversa"></div></div>
+          <div><h4>Linha do tempo</h4><div id="eventos"></div></div>
+        </div>
+      </section>
+    </div>
   </div>
 </div>
-<div id="aviso"></div>
+<div id="aviso" role="status" hidden></div>
 
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hora = (t) => (t ? new Date(t.replace(" ", "T") + "Z").toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "");
+const dur = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}min ${String(s % 60).padStart(2, "0")}s`; };
+const NOMES = { claude: "Claude", antigravity: "Antigravity", codex: "Codex", gemini: "Gemini", escritorio: "Escritório", humano: "Você" };
+const nome = (id) => NOMES[id] || (id ? id[0].toUpperCase() + id.slice(1) : "");
+const cor = (id) => (["claude", "antigravity", "codex"].includes(id) ? `var(--${id})` : "var(--outra)");
+const INICIAL = { claude: "C", antigravity: "A", codex: "X", gemini: "G", escritorio: "E" };
+const avatar = (id, extra = "") => `<span class="av ${extra}" style="--cor:${cor(id)}" aria-hidden="true">${esc(INICIAL[id] || (nome(id)[0] || "?").toUpperCase())}</span>`;
+
+/** Markdown mínimo e seguro: escapa tudo antes de formatar. */
+function md(txt) {
+  const blocos = [];
+  const s = esc(txt).replace(/```[\w-]*\n?([\s\S]*?)```/g, (_, c) => `\u0000${blocos.push(c) - 1}\u0000`);
+  const inline = (l) => l
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const out = []; let lista = null;
+  const fecha = () => { if (lista) { out.push(`</${lista}>`); lista = null; } };
+  for (const linha of s.split("\n")) {
+    let m;
+    if ((m = linha.match(/^\u0000(\d+)\u0000$/))) { fecha(); out.push(`<pre><code>${blocos[+m[1]]}</code></pre>`); }
+    else if ((m = linha.match(/^#{1,4}\s+(.*)/))) { fecha(); out.push(`<h3>${inline(m[1])}</h3>`); }
+    else if ((m = linha.match(/^\s*[-*•]\s+(.*)/))) { if (lista !== "ul") { fecha(); out.push("<ul>"); lista = "ul"; } out.push(`<li>${inline(m[1])}</li>`); }
+    else if ((m = linha.match(/^\s*\d+[.)]\s+(.*)/))) { if (lista !== "ol") { fecha(); out.push("<ol>"); lista = "ol"; } out.push(`<li>${inline(m[1])}</li>`); }
+    else if (!linha.trim() || /^\s*---+\s*$/.test(linha)) { fecha(); }
+    else { fecha(); out.push(`<p>${inline(linha)}</p>`); }
+  }
+  fecha();
+  return out.join("").replace(/\u0000(\d+)\u0000/g, (_, i) => `<pre><code>${blocos[+i]}</code></pre>`);
+}
+
 let estado = null;
 let conversaAtual;
-try { const v = localStorage.getItem("ktn-chat"); if (v) conversaAtual = Number(v); } catch {}
-function abrirChat(id) {
-  conversaAtual = id;
-  try { id === null ? localStorage.removeItem("ktn-chat") : localStorage.setItem("ktn-chat", String(id)); } catch {}
-  memoriaCarregada = null;
-  render(); carregarMemoria();
-}
 let memoriaCarregada = null;
-async function carregarMemoria() {
-  if (!conversaAtual || memoriaCarregada === conversaAtual) return;
-  try {
-    const m = await api("memoria?id=" + conversaAtual);
-    $("#textoMemoria").value = m.memoria; $("#arquivoMemoria").textContent = "Arquivo: " + m.arquivo;
-    memoriaCarregada = conversaAtual;
-  } catch (e) { avisar(e.message); }
-}
 let editandoCfg = false;
+let ultimoFio = "";
+try { const v = localStorage.getItem("ktn-chat"); if (v) conversaAtual = Number(v); } catch {}
+try { if (localStorage.getItem("ktn-atividade") === "0") $("#atividade").hidden = true; } catch {}
 
 async function api(rota, corpo) {
   const r = await fetch("/api/" + rota, corpo === undefined ? {} : {
@@ -205,196 +434,214 @@ async function api(rota, corpo) {
   return j;
 }
 function avisar(t) {
-  const a = $("#aviso"); a.textContent = t; a.style.display = "block";
-  clearTimeout(avisar.t); avisar.t = setTimeout(() => (a.style.display = "none"), 4000);
+  const a = $("#aviso"); a.textContent = t; a.hidden = false;
+  clearTimeout(avisar.t); avisar.t = setTimeout(() => (a.hidden = true), 4500);
 }
 
-const ROTULO = {
-  ligado: ["", ""],
-  desligado_usuario: ["desmarcado por você", ""],
-  indisponivel: ["indisponível no seu plano", "erro"],
-  nao_testado: ["não testado", "alerta"],
-};
+function abrirChat(id) {
+  conversaAtual = id;
+  try { id == null ? localStorage.removeItem("ktn-chat") : localStorage.setItem("ktn-chat", String(id)); } catch {}
+  memoriaCarregada = null; ultimoFio = "";
+  render(); carregarMemoria();
+  $("#texto").focus();
+}
+async function carregarMemoria() {
+  if (!conversaAtual) { $("#textoMemoria").value = ""; $("#arquivoMemoria").textContent = ""; return; }
+  if (memoriaCarregada === conversaAtual) return;
+  try {
+    const m = await api("memoria?id=" + conversaAtual);
+    $("#textoMemoria").value = m.memoria; $("#arquivoMemoria").textContent = m.arquivo;
+    memoriaCarregada = conversaAtual;
+  } catch (e) { avisar(e.message); }
+}
+
+const STATUS_TAREFA = { aberta: ["na fila", "alerta"], em_andamento: ["trabalhando", "acento"], entregue: ["entregue", "ok"], cancelada: ["cancelada", "erro"] };
+const STATUS_PROJ = { dividindo: ["dividindo", "alerta"], em_andamento: ["em andamento", "acento"], consolidando: ["juntando as partes", "alerta"], concluido: ["concluído", "ok"], cancelado: ["cancelado", "erro"] };
+const ESTADO_MODELO = { ligado: null, desligado_usuario: ["desmarcado", ""], indisponivel: ["fora do seu plano", "erro"], nao_testado: ["não testado", "alerta"] };
 
 function render() {
-  const e = estado;
-  // Cabeçalho
-  $("#expediente").checked = e.runner.ligado;
-  $("#expedienteTxt").textContent = e.runner.ligado ? "Expediente ligado" : "Expediente desligado";
-  const nomes = e.equipe.filter((d) => d.instalado).map((d) => d.id);
-  const sel = $("#coordenadora");
-  if (sel.dataset.v !== nomes.join() + e.runner.coordenadora) {
-    sel.innerHTML = nomes.map((n) => `<option ${n === e.runner.coordenadora ? "selected" : ""}>${esc(n)}</option>`).join("");
-    sel.dataset.v = nomes.join() + e.runner.coordenadora;
-  }
-  const trab = Object.entries(e.runner.trabalhando);
-  $("#trabalhando").textContent = trab.length ? trab.map(([a, t]) => `${a}: ${t.oque}`).join(" · ") : "ninguém trabalhando";
-  $("#trabalhando").className = "pilula" + (trab.length ? " ok" : "");
-  $("#dicaExpediente").textContent = e.runner.ligado
-    ? `A ${e.runner.coordenadora} vai ler sua mensagem em alguns segundos.`
-    : "Ligue o expediente (lá em cima) pra equipe responder sozinha.";
-  if (!editandoCfg) { $("#pasta").value = e.runner.pastaTrabalho; $("#maxHora").value = e.runner.maxPorHora; }
+  const e = estado; if (!e) return;
+  const instalados = e.equipe.filter((d) => d.instalado);
+  const naEquipe = instalados.filter((d) => !e.foraDaEquipe.includes(d.id));
 
-  // Trabalhando agora: progresso ao vivo de cada IA
-  desenharAoVivo();
+  // Rodapé da lateral: resumo da equipe
+  $("#equipeMini").innerHTML = naEquipe.map((d) => avatar(d.id, e.runner.trabalhando[d.id] ? "trabalhando" : "")).join("");
+  const trab = Object.keys(e.runner.trabalhando).length;
+  $("#resumoEquipe").textContent = trab ? `${trab} trabalhando agora` : `${naEquipe.length} na equipe, expediente ${e.runner.ligado ? "ligado" : "desligado"}`;
 
-  // Chat com a coordenadora: mensagens de/para "humano"
-  // Chats (barra lateral)
+  // Chats
   if (conversaAtual && !e.conversas.some((c) => c.id === conversaAtual)) conversaAtual = null;
   if (conversaAtual === undefined) conversaAtual = e.conversas[0]?.id ?? null;
-  $("#chats").innerHTML = e.conversas.length ? e.conversas.map((c) => `<div class="chatItem ${c.id === conversaAtual ? "ativo" : ""}" data-chat="${c.id}">
+  $("#chats").innerHTML = e.conversas.map((c) => `<div class="chat ${c.id === conversaAtual ? "ativo" : ""}" data-chat="${c.id}" tabindex="0">
       <span class="tit" title="${esc(c.titulo)}">${esc(c.titulo)}</span>
-      <span class="acoes"><button data-renomear="${c.id}" title="Renomear">✏️</button><button data-apagar="${c.id}" title="Apagar">🗑️</button></span>
-    </div>`).join("") : `<div class="vazio">Nenhum chat ainda.</div>`;
+      <span class="acoes">
+        <button class="icone" data-renomear="${c.id}" aria-label="Renomear chat"><svg><use href="#i-lapis"/></svg></button>
+        <button class="icone" data-apagar="${c.id}" aria-label="Apagar chat"><svg><use href="#i-lixo"/></svg></button>
+      </span></div>`).join("") || `<div class="vazio">Seus chats aparecem aqui.</div>`;
   const atual = e.conversas.find((c) => c.id === conversaAtual);
   $("#tituloChat").textContent = atual ? atual.titulo : "Novo chat";
-  $("#painelMemoria").style.display = atual ? "" : "none";
+  document.title = atual ? `${atual.titulo} · KTN Office` : "KTN Office";
 
-  const chat = e.mensagens.filter((m) => m.conversa_id === conversaAtual && conversaAtual !== null && (m.de === "humano" || m.para === "humano"));
-  const box = $("#chat");
-  const noFim = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
-  box.innerHTML = chat.length
-    ? chat.map((m) => `<div class="bolha ${m.de === "humano" ? "eu" : "ia"}"><small>${m.de === "humano" ? "você → " + esc(m.para) : esc(m.de)} · ${hora(m.criada_em)}</small>${esc(m.texto)}</div>`).join("")
-    : `<div class="vazio">${conversaAtual ? "Chat vazio." : "Novo chat: escreva o que você quer. A coordenadora divide o trabalho com a equipe."}</div>`;
-  if (noFim) box.scrollTop = box.scrollHeight;
+  // Topo e compositor
+  $("#expediente").checked = e.runner.ligado;
+  $("#expedienteTxt").textContent = e.runner.ligado ? "Expediente ligado" : "Expediente desligado";
+  $("#paraQuem").innerHTML = `${avatar(e.runner.coordenadora, "mini")} <span style="vertical-align:middle">Para ${esc(nome(e.runner.coordenadora))}, a coordenadora</span>`;
+  $("#dicaExpediente").textContent = e.runner.ligado ? "" : "O expediente está desligado. Ligue no topo para a equipe responder.";
 
-  // Equipe + modelos
+  // Conversa (só redesenha quando muda, pra não pular a rolagem)
+  const msgs = conversaAtual == null ? [] : e.mensagens.filter((m) => m.conversa_id === conversaAtual && (m.de === "humano" || m.para === "humano"));
+  const assinatura = conversaAtual + ":" + msgs.map((m) => m.id).join(",") + ":" + naEquipe.length;
+  if (assinatura !== ultimoFio) {
+    const caixa = $("#rolagem");
+    const noFim = caixa.scrollHeight - caixa.scrollTop - caixa.clientHeight < 80;
+    $("#fio").innerHTML = msgs.length ? msgs.map((m) => {
+      if (m.de === "humano") return `<div class="msg eu"><div class="bolha">${esc(m.texto)}</div></div>`;
+      if (m.de === "escritorio") return `<div class="msg sistema">${esc(m.texto)}</div>`;
+      return `<div class="msg">${avatar(m.de)}<div class="corpo"><div class="quem"><b>${esc(nome(m.de))}</b>${hora(m.criada_em)}</div><div class="md">${md(m.texto)}</div></div></div>`;
+    }).join("") : boasVindas(naEquipe);
+    if (noFim || ultimoFio.split(":")[0] !== String(conversaAtual)) caixa.scrollTop = caixa.scrollHeight;
+    ultimoFio = assinatura;
+  }
+
+  // Projeto em andamento neste chat (faixa acima do compositor)
+  const projetos = e.projetos.filter((p) => p.conversa_id === conversaAtual);
+  const ativo = projetos.find((p) => p.status !== "concluido" && p.status !== "cancelado");
+  if (ativo) {
+    const feitas = ativo.partes.filter((t) => t.status === "entregue" || t.status === "cancelada").length;
+    const pct = ativo.partes.length ? Math.max(4, Math.round((feitas / ativo.partes.length) * 100)) : 4;
+    $("#faixaProjeto").innerHTML = `<button class="cartao" type="button">${ativo.partes.map((t) => avatar(t.para, t.status === "em_andamento" ? "trabalhando" : "")).join("")}
+      <span class="rotulo">Projeto #${ativo.id}: ${STATUS_PROJ[ativo.status][0]}</span><span class="barra"><div style="width:${pct}%"></div></span><span>${feitas} de ${ativo.partes.length} partes</span></button>`;
+  } else $("#faixaProjeto").innerHTML = "";
+
+  // Painel de atividade
+  desenharAgora();
+  $("#abaProjetos").innerHTML = projetos.length ? projetos.map((p) => {
+    const [txt, cls] = STATUS_PROJ[p.status];
+    return `<div class="projeto"><div class="tit">#${p.id} ${esc(p.titulo)}</div>
+      <div class="estado"><span class="selo ${cls}">${txt}</span>coordenado por ${esc(nome(p.coordenadora))}</div>
+      ${p.partes.map((t) => { const [s, c] = STATUS_TAREFA[t.status]; return `<div class="parte">${avatar(t.para)}<span class="t" title="${esc(t.titulo)}">${esc(t.titulo)}</span>${t.modelo ? `<span class="selo">${esc(t.modelo)}</span>` : ""}<span class="selo ${c}">${s}</span></div>`; }).join("")}
+      ${p.resultado ? `<details class="resultado"><summary>Ver resultado final</summary><div class="md">${md(p.resultado)}</div></details>` : ""}</div>`;
+  }).join("") : `<div class="vazio">Pedidos grandes viram projetos: a coordenadora divide entre a equipe e junta tudo no final.</div>`;
+
+  if (!$("#veuConfig").hidden) renderConfig();
+}
+
+function boasVindas(equipe) {
+  const membros = equipe.map((d) => `<div class="membro">${avatar(d.id)}${esc(nome(d.id))}</div>`).join("");
+  return `<div class="boasVindas">
+    <div class="equipeGrande">${membros}</div>
+    <h2>O que a equipe vai fazer hoje?</h2>
+    <p>Você fala com a coordenadora. Ela divide o trabalho entre ${equipe.length > 1 ? `as ${equipe.length} IAs da equipe` : "a equipe"} e junta tudo no final.</p>
+    <div class="sugestoes">
+      <button data-sugestao="Leia o README do projeto na pasta de trabalho e me diga, em 5 tópicos, o que ele faz e o que falta.">Entender um projeto<small>Resumo e o que falta fazer</small></button>
+      <button data-sugestao="Revise o código da pasta de trabalho e liste os 5 problemas mais importantes, com a correção sugerida.">Revisar código<small>Problemas e correções</small></button>
+      <button data-sugestao="Pesquise as opções e me traga uma comparação com prós, contras e uma recomendação.">Pesquisar e comparar<small>Com recomendação no final</small></button>
+      <button data-sugestao="Crie uma página HTML simples e bonita para apresentar o projeto, salvando como index.html na pasta de trabalho.">Criar algo do zero<small>Do plano ao arquivo pronto</small></button>
+    </div></div>`;
+}
+
+function desenharAgora() {
+  if (!estado) return;
+  const agora = Date.now();
+  const trab = Object.entries(estado.runner.trabalhando);
+  const pausadas = Object.entries(estado.runner.pausadas || {});
+  $("#abaAgora").innerHTML = (trab.length ? trab.map(([ia, t]) => {
+    const silencio = agora - t.ultimoSinal;
+    const passos = t.progresso.length ? t.progresso.map((p) => `<li>${esc(p.frase)}</li>`).join("") : `<li>começando…</li>`;
+    return `<div class="vivo">
+      <div class="cab">${avatar(ia, "trabalhando")}<div><span class="nome">${esc(nome(ia))}</span><small>${esc(t.oque)}${t.modelo ? ", " + esc(t.modelo) : ""}</small></div><span class="tempo">${dur(agora - t.desde)}</span></div>
+      <ol class="passos">${passos}</ol>
+      ${silencio > 90_000 ? `<div class="avisoParado">Sem novidades há ${dur(silencio)}. Pode estar pensando, ou travado.</div>` : ""}</div>`;
+  }).join("") : `<div class="vazio">${estado.runner.ligado ? "Ninguém trabalhando agora. Quando uma IA começar, você acompanha cada passo aqui." : "Expediente desligado. Ligue no topo para a equipe trabalhar."}</div>`)
+    + pausadas.map(([ia]) => `<div class="vivo"><div class="cab">${avatar(ia)}<div><span class="nome">${esc(nome(ia))}</span><small>pausada depois de 3 falhas seguidas</small></div><button class="btn pequeno" data-retomar="${esc(ia)}" style="margin-left:auto">Retomar</button></div></div>`).join("");
+}
+setInterval(desenharAgora, 1000);
+
+function renderConfig() {
+  const e = estado; if (!e || editandoCfg) return;
+  // Equipe e modelos
   $("#equipe").innerHTML = e.equipe.map((d) => {
     const cat = e.modelos.find((c) => c.cli === d.id);
     const st = e.status.find((s) => s.agente === d.id);
-    const pills = [
-      d.instalado ? `<span class="pilula ok">${esc(d.versao || "instalado")}</span>` : `<span class="pilula erro">não instalado</span>`,
-      d.instalado ? (d.login === "provavel" ? `<span class="pilula ok">logado</span>` : `<span class="pilula alerta">sem login</span>`) : "",
-      d.instalado ? (d.office === "conectado" ? `<span class="pilula ok">no escritório</span>` : `<button data-conectar="${esc(d.id)}">Conectar</button>`) : "",
-      st && st.uso_estimado_tokens ? `<span class="pilula">${st.uso_estimado_tokens.toLocaleString("pt-BR")} tokens</span>` : "",
-      e.runner.trabalhando[d.id] ? `<span class="pilula ok">trabalhando</span>` : "",
-      e.runner.pausadas[d.id] ? `<span class="pilula erro">pausada por erros</span> <button data-retomar="${esc(d.id)}">Retomar</button>` : "",
-    ].join(" ");
-    const naEquipe = d.instalado ? `<label class="chave" style="margin-left:auto" title="Fora da equipe = não recebe partes de projetos nem é acordada">
-        <input type="checkbox" data-equipe="${esc(d.id)}" ${e.foraDaEquipe.includes(d.id) ? "" : "checked"}><span class="trilho"></span><span>na equipe</span></label>` : "";
-    const modelos = !cat ? "" : cat.modelos.map((m) => {
-      const [txt, cls] = ROTULO[m.estado];
-      const padrao = cat.padrao === m.apelido ? ` <span class="pilula">padrão</span>` : "";
-      return `<label class="modelo" title="${esc(typeof m.teste === "string" ? "Teste: " + m.teste : "")}">
+    const selos = [
+      d.instalado ? `<span class="selo">${esc(d.versao || "instalado")}</span>` : `<span class="selo erro">não instalado</span>`,
+      d.instalado ? (d.login === "provavel" ? `<span class="selo ok">conta conectada</span>` : `<span class="selo alerta">sem login</span>`) : "",
+      d.instalado && d.office === "conectado" ? `<span class="selo ok">no escritório</span>` : "",
+      st && st.uso_estimado_tokens ? `<span class="selo">${st.uso_estimado_tokens.toLocaleString("pt-BR")} tokens</span>` : "",
+      e.runner.pausadas?.[d.id] ? `<span class="selo erro">pausada</span>` : "",
+    ].join("");
+    const direita = !d.instalado
+      ? (d.podeInstalar ? `<span class="selo">instale com: npm run equipe -- instalar ${esc(d.id)}</span>` : "")
+      : `${d.office !== "conectado" ? `<button class="btn pequeno" data-conectar="${esc(d.id)}">Conectar ao escritório</button>` : ""}
+         <label class="interruptor"><input type="checkbox" data-equipe="${esc(d.id)}" ${e.foraDaEquipe.includes(d.id) ? "" : "checked"}><span class="trilho"></span>Na equipe</label>`;
+    const modelos = !cat ? "" : `<div class="modelos">${cat.modelos.map((m) => {
+      const info = ESTADO_MODELO[m.estado];
+      return `<label class="modelo ${m.estado === "ligado" ? "" : "off"}" title="${esc(typeof m.teste === "string" ? "Teste: " + m.teste : "")}">
         <input type="checkbox" data-cli="${esc(cat.cli)}" data-modelo="${esc(m.apelido)}" ${m.estado === "ligado" ? "checked" : ""} ${d.instalado ? "" : "disabled"}>
-        <span class="nome">${esc(m.apelido)}${padrao}</span>
-        <span class="desc">${esc(m.nivel || "")} · ${esc(m.quando || "")} ${txt ? `<span class="pilula ${cls}">${txt}</span>` : ""}</span>
+        <span class="nome">${esc(m.apelido)}${cat.padrao === m.apelido ? ' <span class="selo acento">padrão</span>' : ""}</span>
+        <span class="desc">${esc(m.quando || "")}</span>
+        ${info ? `<span class="selo ${info[1]}">${info[0]}</span>` : "<span></span>"}
       </label>`;
-    }).join("");
-    return `<div class="cli"><div class="cli-topo"><b>${esc(d.nome)}</b> ${pills} ${naEquipe}</div>${modelos}
-      ${!d.instalado && d.podeInstalar ? `<div class="desc" style="color:var(--suave);font-size:12px">Instale com: npm run equipe -- instalar ${esc(d.id)}</div>` : ""}</div>`;
+    }).join("")}</div>`;
+    return `<div class="membroCfg"><div class="cab">${avatar(d.id)}<span class="nome">${esc(d.nome)}</span><span class="selos">${selos}</span><span class="direita">${direita}</span></div>${modelos}</div>`;
   }).join("");
-
   const t = e.teste;
   $("#progressoTeste").textContent = t
-    ? t.rodando ? `Testando ${t.atual || ""} (${t.feitos}/${t.total})…` : `Último teste: ${t.resultados.filter((r) => r.ok).length} de ${t.total} modelos responderam.`
-    : "Dica: “Testar modelos” descobre o que o seu plano libera (gasta pouquíssimos tokens).";
+    ? t.rodando ? `Testando ${t.atual || ""} (${t.feitos} de ${t.total})…` : `Último teste: ${t.resultados.filter((r) => r.ok).length} de ${t.total} modelos responderam.`
+    : "Manda uma pergunta mínima para cada modelo e marca o que o seu plano libera.";
   $("#btnTestar").disabled = !!(t && t.rodando);
 
-  const corStatus = { aberta: "alerta", em_andamento: "ok", entregue: "", cancelada: "erro" };
-  // Projetos
-  const corProj = { dividindo: "alerta", em_andamento: "ok", consolidando: "alerta", concluido: "", cancelado: "erro" };
-  const nomeProj = { dividindo: "dividindo", em_andamento: "em andamento", consolidando: "fazendo o merge", concluido: "concluído", cancelado: "cancelado" };
-  const projetosChat = e.projetos.filter((p) => p.conversa_id === conversaAtual);
-  $("#projetos").innerHTML = projetosChat.length ? projetosChat.map((p) => {
-    const feitas = p.partes.filter((t) => t.status === "entregue" || t.status === "cancelada").length;
-    const pct = p.status === "concluido" ? 100 : p.partes.length ? Math.round((feitas / p.partes.length) * 90) : 5;
-    return `<div class="item">
-      <div class="linha"><b>#${p.id}</b> ${esc(p.titulo)} <span class="pilula ${corProj[p.status]}">${nomeProj[p.status]}</span></div>
-      <div class="barra"><div style="width:${pct}%"></div></div>
-      <div class="meta">coordenadora: ${esc(p.coordenadora)} · ${feitas}/${p.partes.length} partes · ${hora(p.atualizado_em)}</div>
-      <div class="partes">${p.partes.map((t) => `<span class="pilula ${corStatus[t.status]}" title="${esc(t.titulo)}">${esc(t.para)}${t.modelo ? "/" + esc(t.modelo) : ""}: ${esc(t.status.replace("_", " "))}</span>`).join("")}</div>
-      ${p.resultado ? `<details><summary class="meta">resultado final (merge)</summary><div class="corpo">${esc(p.resultado)}</div></details>` : ""}
-    </div>`;
-  }).join("") : `<div class="vazio">Peça algo grande no chat: a coordenadora divide entre todas as IAs da equipe e junta no final.</div>`;
+  // Expediente
+  $("#coordenadora").innerHTML = e.equipe.filter((d) => d.instalado).map((d) => `<option value="${esc(d.id)}" ${d.id === e.runner.coordenadora ? "selected" : ""}>${esc(nome(d.id))}</option>`).join("");
+  $("#pasta").value = e.runner.pastaTrabalho; $("#maxHora").value = e.runner.maxPorHora;
 
   // Quadro
-  $("#tarefas").innerHTML = e.tarefas.length ? e.tarefas.map((t) => `<div class="item">
-      <div class="linha"><b>#${t.id}</b> ${esc(t.titulo)} <span class="pilula ${corStatus[t.status]}">${esc(t.status.replace("_", " "))}</span></div>
-      <div class="meta">${esc(t.criada_por)} → ${esc(t.para || "qualquer um")}${t.modelo ? " · modelo " + esc(t.modelo) : ""}${t.responsavel ? " · com " + esc(t.responsavel) : ""} · ${hora(t.atualizada_em)}</div>
-      ${t.resultado ? `<details><summary class="meta">resultado</summary><div class="corpo">${esc(t.resultado)}</div></details>` : ""}
-    </div>`).join("") : `<div class="vazio">Nenhuma tarefa ainda.</div>`;
+  $("#tarefas").innerHTML = e.tarefas.length ? e.tarefas.map((t) => { const [s, c] = STATUS_TAREFA[t.status]; return `<div class="linhaLista">
+      <div class="meta">${avatar(t.para || "?", "mini")}<b style="color:var(--texto)">#${t.id} ${esc(t.titulo)}</b><span class="selo ${c}">${s}</span>${t.modelo ? `<span class="selo">${esc(t.modelo)}</span>` : ""}</div>
+      <div class="meta" style="margin-top:4px">${esc(nome(t.criada_por))} pediu para ${esc(nome(t.para) || "qualquer um")}, ${hora(t.atualizada_em)}${t.projeto_id ? `, projeto #${t.projeto_id}` : ""}</div>
+      ${t.resultado ? `<details class="resultado"><summary>Ver entrega</summary><div class="md">${md(t.resultado)}</div></details>` : ""}</div>`; }).join("") : `<div class="vazio">Nenhuma tarefa ainda.</div>`;
 
-  // Conversa entre IAs
-  const equipeMsgs = e.mensagens.filter((m) => m.de !== "humano" && m.para !== "humano").slice(-40).reverse();
-  $("#conversa").innerHTML = equipeMsgs.length ? equipeMsgs.map((m) => `<div class="item">
-      <div class="meta">${esc(m.de)} → ${esc(m.para)} · ${hora(m.criada_em)}</div><div class="corpo">${esc(m.texto.length > 400 ? m.texto.slice(0, 400) + "…" : m.texto)}</div></div>`).join("")
-    : `<div class="vazio">Quando as IAs se falarem, aparece aqui.</div>`;
-
-  // Eventos
-  const corEv = { inicio: "ok", fim: "", erro: "erro", limite: "alerta", config: "", projeto: "ok" };
-  $("#eventos").innerHTML = e.eventos.length ? e.eventos.map((v) => `<div class="item">
-      <div class="meta">${hora(v.criado_em)} · ${esc(v.agente || "escritório")} <span class="pilula ${corEv[v.tipo] || ""}">${esc(v.tipo)}</span></div>
-      <div class="corpo">${esc(v.texto)}</div></div>`).join("") : `<div class="vazio">Sem atividade ainda.</div>`;
+  // Bastidores
+  const equipeMsgs = e.mensagens.filter((m) => m.de !== "humano" && m.para !== "humano").slice(-50).reverse();
+  $("#conversa").innerHTML = equipeMsgs.length ? equipeMsgs.map((m) => `<div class="linhaLista"><div class="meta">${avatar(m.de, "mini")}${esc(nome(m.de))} para ${esc(nome(m.para))}, ${hora(m.criada_em)}</div>
+      <div class="txt">${esc(m.texto.length > 500 ? m.texto.slice(0, 500) + "…" : m.texto)}</div></div>`).join("") : `<div class="vazio">Quando as IAs conversarem entre si, aparece aqui.</div>`;
+  const TIPO = { inicio: ["começou", "acento"], fim: ["terminou", "ok"], erro: ["erro", "erro"], limite: ["pausa", "alerta"], config: ["ajuste", ""], projeto: ["projeto", "acento"] };
+  $("#eventos").innerHTML = e.eventos.length ? e.eventos.map((v) => { const [s, c] = TIPO[v.tipo] || [v.tipo, ""]; return `<div class="linhaLista">
+      <div class="meta">${hora(v.criado_em)} ${esc(nome(v.agente) || "Escritório")} <span class="selo ${c}">${s}</span></div><div class="txt">${esc(v.texto)}</div></div>`; }).join("") : `<div class="vazio">Sem atividade ainda.</div>`;
 }
-
-const dur = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}min ${s % 60}s`; };
-function desenharAoVivo() {
-  if (!estado) return;
-  const trab = Object.entries(estado.runner.trabalhando);
-  const agora = Date.now();
-  $("#aoVivo").innerHTML = trab.length ? trab.map(([ia, t]) => {
-    const silencio = agora - t.ultimoSinal;
-    const parado = silencio > 90_000;
-    const passos = t.progresso.length ? t.progresso.map((p) => `<li>${esc(p.frase)}</li>`).join("")
-      : `<li>aguardando a primeira resposta da IA…</li>`;
-    return `<div class="vivo ${parado ? "parado" : ""}">
-      <div class="topo"><span class="pulso"></span><b>${esc(ia)}</b> <span class="pilula">${esc(t.oque)}</span>
-        ${t.modelo ? `<span class="pilula">${esc(t.modelo)}</span>` : ""}
-        <span class="espaco"></span><span class="meta">há ${dur(agora - t.desde)}</span></div>
-      <div class="meta" style="margin-top:4px">${parado ? `⚠️ sem sinal há ${dur(silencio)} (pode estar pensando ou travado)` : `último sinal há ${dur(silencio)}`}</div>
-      <ol>${passos}</ol></div>`;
-  }).join("") : `<div class="vazio">${estado.runner.ligado ? "Ninguém trabalhando agora. Quando uma IA acordar, o progresso dela aparece aqui ao vivo." : "Expediente desligado."}</div>`;
-}
-setInterval(desenharAoVivo, 1000);
 
 async function atualizar(forcar) {
   try { estado = await api("estado" + (forcar ? "?atualizar=1" : "")); render(); }
-  catch (e) { avisar("Servidor fora do ar? " + e.message); }
+  catch { avisar("Não consegui falar com o servidor do KTN Office. Ele está rodando (npm start)?"); }
 }
 
-// Ações
-$("#expediente").addEventListener("change", async (ev) => {
-  await api("runner", { ligado: ev.target.checked }).catch((e) => avisar(e.message)); atualizar();
-});
-$("#coordenadora").addEventListener("change", async (ev) => {
-  await api("runner", { coordenadora: ev.target.value }).catch((e) => avisar(e.message)); atualizar();
-});
+// ---------- Ações: chat ----------
+const texto = $("#texto");
+const ajustarAltura = () => { texto.style.height = "auto"; texto.style.height = Math.min(texto.scrollHeight, 220) + "px"; $("#btnEnviar").disabled = !texto.value.trim(); };
+texto.addEventListener("input", ajustarAltura);
+texto.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); $("#formChat").requestSubmit(); } });
 $("#formChat").addEventListener("submit", async (ev) => {
   ev.preventDefault();
-  const texto = $("#texto").value.trim(); if (!texto) return;
+  const t = texto.value.trim(); if (!t) return;
+  $("#btnEnviar").disabled = true;
   try {
-    const m = await api("mensagem", { texto, conversa_id: conversaAtual });
-    $("#texto").value = "";
-    if (m.conversa_id !== conversaAtual) abrirChat(m.conversa_id);
-    await atualizar(); $("#chat").scrollTop = 1e9;
-  }
-  catch (e) { avisar(e.message); }
+    const m = await api("mensagem", { texto: t, conversa_id: conversaAtual });
+    texto.value = ""; ajustarAltura();
+    if (m.conversa_id !== conversaAtual) { conversaAtual = m.conversa_id; try { localStorage.setItem("ktn-chat", String(m.conversa_id)); } catch {} memoriaCarregada = null; }
+    await atualizar(); $("#rolagem").scrollTop = 1e9;
+  } catch (e) { avisar(e.message); ajustarAltura(); }
 });
-$("#texto").addEventListener("keydown", (ev) => {
-  if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); $("#formChat").requestSubmit(); }
+$("#fio").addEventListener("click", (ev) => {
+  const s = ev.target.closest("[data-sugestao]"); if (!s) return;
+  texto.value = s.dataset.sugestao; ajustarAltura(); texto.focus();
 });
-$("#equipe").addEventListener("change", async (ev) => {
-  const q = ev.target.closest("input[data-equipe]");
-  if (q) { await api("equipe", { cli: q.dataset.equipe, naEquipe: q.checked }).catch((e) => avisar(e.message)); return atualizar(); }
-  const c = ev.target.closest("input[data-modelo]"); if (!c) return;
-  try { await api("modelo", { cli: c.dataset.cli, modelo: c.dataset.modelo, ligado: c.checked }); }
-  catch (e) { avisar(e.message); }
-  atualizar();
+$("#btnNovoChat").addEventListener("click", () => abrirChat(null));
+document.addEventListener("keydown", (ev) => {
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "k") { ev.preventDefault(); abrirChat(null); }
+  if (ev.key === "Escape" && !$("#veuConfig").hidden) fecharConfig();
 });
-$("#equipe").addEventListener("click", async (ev) => {
-  const rt = ev.target.closest("button[data-retomar]");
-  if (rt) { await api("retomar", { cli: rt.dataset.retomar }).catch((e) => avisar(e.message)); return atualizar(); }
-  const b = ev.target.closest("button[data-conectar]"); if (!b) return;
-  b.disabled = true;
-  try { const r = await api("conectar", { cli: b.dataset.conectar }); avisar(r.mensagens.join("\n") + "\nReinicie o CLI pra ele carregar."); }
-  catch (e) { avisar(e.message); }
-  atualizar(true);
-});
-$("#btnNovoChat").addEventListener("click", () => { abrirChat(null); $("#texto").focus(); });
 $("#chats").addEventListener("click", async (ev) => {
-  const ren = ev.target.closest("button[data-renomear]");
-  const apg = ev.target.closest("button[data-apagar]");
+  const ren = ev.target.closest("[data-renomear]"); const apg = ev.target.closest("[data-apagar]");
   if (ren) {
     const c = estado.conversas.find((x) => x.id === Number(ren.dataset.renomear));
     const titulo = prompt("Novo nome do chat:", c?.titulo || "");
@@ -405,31 +652,79 @@ $("#chats").addEventListener("click", async (ev) => {
     const id = Number(apg.dataset.apagar);
     if (!confirm("Apagar este chat? As mensagens e a memória dele serão apagadas de vez.")) return;
     await api("conversa/apagar", { id }).catch((e) => avisar(e.message));
-    if (id === conversaAtual) {
-      conversaAtual = undefined; // abre o chat mais recente que sobrou
-      try { localStorage.removeItem("ktn-chat"); } catch {}
-    }
-    return atualizar();
+    if (id === conversaAtual) { conversaAtual = undefined; try { localStorage.removeItem("ktn-chat"); } catch {} ultimoFio = ""; memoriaCarregada = null; }
+    await atualizar(); return carregarMemoria();
   }
-  const item = ev.target.closest("[data-chat]");
-  if (item) abrirChat(Number(item.dataset.chat));
+  const item = ev.target.closest("[data-chat]"); if (item) abrirChat(Number(item.dataset.chat));
 });
-$("#painelMemoria").addEventListener("toggle", () => { memoriaCarregada = null; carregarMemoria(); });
+$("#chats").addEventListener("keydown", (ev) => { const item = ev.target.closest("[data-chat]"); if (item && ev.key === "Enter" && ev.target === item) abrirChat(Number(item.dataset.chat)); });
+$("#expediente").addEventListener("change", async (ev) => { await api("runner", { ligado: ev.target.checked }).catch((e) => avisar(e.message)); atualizar(); });
+
+// ---------- Painel de atividade ----------
+function mostrarAba(nomeAba) {
+  for (const b of document.querySelectorAll(".aba")) b.setAttribute("aria-selected", String(b.dataset.aba === nomeAba));
+  $("#abaAgora").hidden = nomeAba !== "agora"; $("#abaProjetos").hidden = nomeAba !== "projetos"; $("#abaMemoria").hidden = nomeAba !== "memoria";
+  if (nomeAba === "memoria") { memoriaCarregada = null; carregarMemoria(); }
+}
+document.querySelector(".abas").addEventListener("click", (ev) => { const b = ev.target.closest("[data-aba]"); if (b) mostrarAba(b.dataset.aba); });
+function definirAtividade(visivel) {
+  $("#atividade").hidden = !visivel;
+  $("#btnAtividade").setAttribute("aria-pressed", String(visivel)); $("#btnAtividade").classList.toggle("ligado", visivel);
+  try { localStorage.setItem("ktn-atividade", visivel ? "1" : "0"); } catch {}
+}
+$("#btnAtividade").addEventListener("click", () => definirAtividade($("#atividade").hidden));
+definirAtividade(!$("#atividade").hidden);
+$("#faixaProjeto").addEventListener("click", () => { definirAtividade(true); mostrarAba("projetos"); });
+$("#abaAgora").addEventListener("click", async (ev) => {
+  const rt = ev.target.closest("[data-retomar]"); if (!rt) return;
+  await api("retomar", { cli: rt.dataset.retomar }).catch((e) => avisar(e.message)); atualizar();
+});
 $("#btnSalvarMemoria").addEventListener("click", async () => {
-  try { await api("memoria", { id: conversaAtual, texto: $("#textoMemoria").value }); avisar("Memória salva."); }
+  if (!conversaAtual) return avisar("Mande a primeira mensagem para criar o chat. Depois você edita a memória dele aqui.");
+  try { await api("memoria", { id: conversaAtual, texto: $("#textoMemoria").value }); avisar("Memória salva."); } catch (e) { avisar(e.message); }
+});
+
+// ---------- Configurações ----------
+function abrirConfig(painel = "equipe") {
+  $("#veuConfig").hidden = false; mostrarPainel(painel); renderConfig();
+  $(".janela nav [aria-selected='true']").focus();
+  if (Date.now() - (abrirConfig.ultima || 0) > 30_000) { abrirConfig.ultima = Date.now(); atualizar(true); }
+}
+function fecharConfig() { $("#veuConfig").hidden = true; editandoCfg = false; $("#btnConfig").focus(); }
+function mostrarPainel(p) {
+  for (const b of document.querySelectorAll(".janela nav [data-painel]")) b.setAttribute("aria-selected", String(b.dataset.painel === p));
+  for (const s of document.querySelectorAll(".painel [data-conteudo]")) s.hidden = s.dataset.conteudo !== p;
+}
+$("#btnConfig").addEventListener("click", () => abrirConfig());
+$("#btnFecharConfig").addEventListener("click", fecharConfig);
+$("#veuConfig").addEventListener("click", (ev) => { if (ev.target === $("#veuConfig")) fecharConfig(); });
+document.querySelector(".janela nav").addEventListener("click", (ev) => { const b = ev.target.closest("[data-painel]"); if (b) mostrarPainel(b.dataset.painel); });
+$("#equipe").addEventListener("change", async (ev) => {
+  const q = ev.target.closest("[data-equipe]");
+  if (q) { await api("equipe", { cli: q.dataset.equipe, naEquipe: q.checked }).catch((e) => avisar(e.message)); return atualizar(); }
+  const c = ev.target.closest("[data-modelo]");
+  if (c) { await api("modelo", { cli: c.dataset.cli, modelo: c.dataset.modelo, ligado: c.checked }).catch((e) => avisar(e.message)); atualizar(); }
+});
+$("#equipe").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-conectar]"); if (!b) return;
+  b.disabled = true;
+  try { const r = await api("conectar", { cli: b.dataset.conectar }); avisar(r.mensagens.join(" ") + " Reinicie o CLI para ele carregar."); }
   catch (e) { avisar(e.message); }
+  atualizar(true);
 });
 $("#btnDetectar").addEventListener("click", () => atualizar(true));
 $("#btnTestar").addEventListener("click", async () => {
   if (!confirm("Testar cada modelo com uma pergunta mínima? Gasta poucos tokens dos seus planos.")) return;
   await api("testar-modelos", {}).catch((e) => avisar(e.message)); atualizar();
 });
-for (const id of ["#pasta", "#maxHora"]) {
+for (const id of ["#pasta", "#maxHora", "#coordenadora"]) {
   $(id).addEventListener("focus", () => (editandoCfg = true));
 }
 $("#btnSalvarCfg").addEventListener("click", async () => {
-  try { await api("runner", { pastaTrabalho: $("#pasta").value, maxPorHora: $("#maxHora").value }); avisar("Salvo."); }
-  catch (e) { avisar(e.message); }
+  try {
+    await api("runner", { pastaTrabalho: $("#pasta").value, maxPorHora: $("#maxHora").value, coordenadora: $("#coordenadora").value });
+    avisar("Expediente salvo.");
+  } catch (e) { avisar(e.message); }
   editandoCfg = false; atualizar();
 });
 

@@ -23,7 +23,13 @@ Nesta fase você ainda "cutuca" cada IA manualmente; o runner automático vem na
 
 ## Interface (recomendado)
 
-Com o servidor ligado (`npm start`), abra **http://127.0.0.1:7777/**:
+Com o servidor ligado (`npm start`), abra **http://127.0.0.1:7777/**. A tela segue o jeito do Claude Desktop:
+
+- **Esquerda:** seus chats e, no canto de baixo, **⚙️ Configurações** (equipe e modelos, expediente, quadro de tarefas e bastidores).
+- **Centro:** a conversa com a coordenadora, com respostas formatadas e a barra do projeto em andamento.
+- **Direita:** painel **Atividade** (dá pra esconder): o que cada IA está fazendo agora, os projetos do chat e a memória dele.
+
+Detalhes:
 
 - **Chats** (barra lateral, como no Claude Desktop): crie, renomeie (✏️) e apague (🗑️) conversas por assunto.
 - **Chat com a coordenadora**: você pede, ela divide o trabalho com a equipe e te responde ali.
