@@ -274,6 +274,7 @@
   <symbol id="i-enviar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
   <symbol id="i-equipe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.5 3-5.5 6-5.5s5.4 2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14.5c2.4.2 4 1.9 4.5 4.5"/></symbol>
+  <symbol id="i-globo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.4 3.6 5.2 3.6 8.5s-1.1 6.1-3.6 8.5c-2.5-2.4-3.6-5.2-3.6-8.5s1.1-6.1 3.6-8.5z"/></symbol>
   <symbol id="i-relogio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
   <symbol id="i-quadro" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/></symbol>
   <symbol id="i-bastidores" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v10H9l-5 4z"/><path d="M8 9h8M8 12h5"/></symbol>
@@ -342,6 +343,7 @@
     <nav role="tablist">
       <h2>Configurações</h2>
       <button role="tab" data-painel="equipe" aria-selected="true"><svg><use href="#i-equipe"/></svg>Equipe e modelos</button>
+      <button role="tab" data-painel="ferramentas" aria-selected="false"><svg><use href="#i-globo"/></svg>Ferramentas</button>
       <button role="tab" data-painel="expediente" aria-selected="false"><svg><use href="#i-relogio"/></svg>Expediente</button>
       <button role="tab" data-painel="quadro" aria-selected="false"><svg><use href="#i-quadro"/></svg>Quadro de tarefas</button>
       <button role="tab" data-painel="bastidores" aria-selected="false"><svg><use href="#i-bastidores"/></svg>Bastidores</button>
@@ -357,6 +359,11 @@
           <span class="info" id="progressoTeste"></span>
         </div>
         <div id="equipe"></div>
+      </section>
+      <section data-conteudo="ferramentas" hidden>
+        <h3>Ferramentas</h3>
+        <p class="sub">Recursos extras que o escritório liga em todas as IAs de uma vez. Com o navegador, elas abrem sites, clicam, preenchem formulários e testam as páginas que criaram.</p>
+        <div id="listaFerramentas"></div>
       </section>
       <section data-conteudo="expediente" hidden>
         <h3>Expediente</h3>
@@ -654,6 +661,29 @@ function renderConfig() {
     : "Manda uma pergunta mínima para cada modelo e marca o que o seu plano libera.";
   $("#btnTestar").disabled = !!(t && t.rodando);
 
+  // Ferramentas
+  const F = e.ferramentas;
+  const NAV = { brave: "Brave", firefox: "Firefox", chrome: "Chrome", edge: "Edge" };
+  $("#listaFerramentas").innerHTML = Object.entries(F.catalogo).map(([id, f]) => {
+    const st = F.estado[id];
+    const opcoes = Object.keys(f.navegadores).map((n) => {
+      const proprio = f.preparar?.[n]; // navegador que a ferramenta baixa sozinha
+      const ok = !!F.navegadores[n] || !!proprio || n === "chrome" || n === "edge";
+      return `<option value="${n}" ${n === st.navegador ? "selected" : ""} ${ok ? "" : "disabled"}>${NAV[n] || n}${proprio ? " (versão de automação)" : F.navegadores[n] || ok ? "" : " (não instalado)"}</option>`;
+    }).join("");
+    const prep = f.preparar?.[st.navegador];
+    return `<div class="membroCfg"><div class="cab"><span class="nome">${esc(f.nome)}</span>
+        <span class="direita"><label class="interruptor"><input type="checkbox" data-ferr-ligar="${esc(id)}" ${st.ligada ? "checked" : ""}><span class="trilho"></span>${st.ligada ? "Ligada" : "Desligada"}</label></span></div>
+      <p style="color:var(--suave);font-size:13px;margin:8px 0 0">${esc(f.descricao)}</p>
+      <div class="linhaPerm"><span>Navegador</span><select data-ferr-nav="${esc(id)}">${opcoes}</select>
+        <label style="display:inline-flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" data-ferr-livre="${esc(id)}" ${st.semPerguntar ? "checked" : ""}> Usar sem pedir permissão</label>
+        ${prep ? `<button class="btn pequeno" data-ferr-preparar="${esc(id)}" title="${esc(prep.descricao)}">Preparar ${NAV[st.navegador] || st.navegador}</button>` : ""}
+      </div>
+      ${prep ? `<p style="color:var(--fraco);font-size:12px;margin:8px 0 0">${esc(prep.descricao)} Faça isso uma vez antes de usar.</p>` : ""}
+      ${F.navegadores[st.navegador] && !prep ? `<p style="color:var(--fraco);font-size:12px;margin:6px 0 0;word-break:break-all">${esc(F.navegadores[st.navegador])}</p>` : ""}
+    </div>`;
+  }).join("") + `<p style="color:var(--fraco);font-size:12.5px">Depois de ligar ou trocar o navegador, as IAs passam a ver a ferramenta na próxima vez que acordarem. As janelas abertas por elas usam um perfil separado, sem as suas senhas e logins.</p>`;
+
   // Expediente
   $("#coordenadora").innerHTML = e.equipe.filter((d) => d.instalado).map((d) => `<option value="${esc(d.id)}" ${d.id === e.runner.coordenadora ? "selected" : ""}>${esc(nome(d.id))}</option>`).join("");
   $("#pasta").value = e.runner.pastaTrabalho; $("#maxHora").value = e.runner.maxPorHora;
@@ -789,6 +819,24 @@ $("#equipe").addEventListener("click", async (ev) => {
   try { const r = await api("conectar", { cli: b.dataset.conectar }); avisar(r.mensagens.join(" ") + " Reinicie o CLI para ele carregar."); }
   catch (e) { avisar(e.message); }
   atualizar(true);
+});
+$("#listaFerramentas").addEventListener("change", async (ev) => {
+  const t = ev.target; let corpo = null;
+  if (t.dataset.ferrLigar) corpo = { id: t.dataset.ferrLigar, ligada: t.checked };
+  else if (t.dataset.ferrNav) corpo = { id: t.dataset.ferrNav, navegador: t.value };
+  else if (t.dataset.ferrLivre) corpo = { id: t.dataset.ferrLivre, semPerguntar: t.checked };
+  if (!corpo) return;
+  avisar("Aplicando nas IAs…");
+  try { const r = await api("ferramenta", corpo); avisar(r.mensagens.join(" ")); } catch (e) { avisar(e.message); }
+  atualizar();
+});
+$("#listaFerramentas").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-ferr-preparar]"); if (!b) return;
+  const id = b.dataset.ferrPreparar; const nav = estado.ferramentas.estado[id].navegador;
+  if (!confirm(`Baixar o ${nav} de automação agora? Pode levar alguns minutos.`)) return;
+  b.disabled = true; avisar("Preparando… pode levar alguns minutos.");
+  try { const r = await api("ferramenta/preparar", { id, navegador: nav }); avisar(r.mensagem); } catch (e) { avisar(e.message); }
+  b.disabled = false;
 });
 $("#btnDetectar").addEventListener("click", () => atualizar(true));
 $("#btnTestar").addEventListener("click", async () => {

@@ -205,6 +205,35 @@ try {
   assert.ok(rp.ok && frases.includes("💬 pensando"), "repassa a saída do CLI como progresso");
   assert.equal(rp.texto, "eco(opus): progresso", "resultado final continua certo com várias linhas");
 
+  // 2h. Ferramentas (navegador): liga em todas as IAs com o navegador escolhido
+  {
+    process.env.KTN_NAVEGADORES = JSON.stringify({ brave: path.join(tmp, "brave", "brave.exe") });
+    const { abrirBanco, Escritorio } = await import("../src/db.js");
+    const { aplicarFerramenta, argsFerramenta, catalogoFerramentas } = await import("../src/ferramentas.js");
+    const esc = new Escritorio(abrirBanco(path.join(tmp, "f.db")));
+    const cat = catalogoFerramentas();
+    assert.deepEqual(argsFerramenta(cat.playwright, "firefox"), ["-y", "@playwright/mcp@latest", "--browser", "firefox"]);
+    assert.ok(argsFerramenta(cat["chrome-devtools"], "brave").includes(path.join(tmp, "brave", "brave.exe")));
+    assert.throws(() => argsFerramenta(cat["chrome-devtools"], "firefox"), /não funciona com firefox/);
+    assert.throws(() => argsFerramenta(cat.playwright, "brave", {}), /Não achei o brave/);
+
+    rmSync(path.join(home, ".fake-mcp"), { force: true });
+    const msgs = await aplicarFerramenta(esc, "playwright", { ligada: true, navegador: "brave", semPerguntar: true });
+    assert.ok(msgs.some((m) => m.includes("Fake Claude: ligado")), msgs.join(" | "));
+    assert.equal(readFileSync(path.join(home, ".fake-mcp"), "utf8"), path.join(tmp, "brave", "brave.exe"), "claude mcp add recebeu o navegador");
+    const mcpAgy2 = JSON.parse(readFileSync(path.join(home, ".gemini", "config", "mcp_config.json"), "utf8"));
+    assert.deepEqual(mcpAgy2.mcpServers.playwright.command, "npx");
+    assert.ok(mcpAgy2.mcpServers.office, "não mexe no office");
+    assert.ok(esc.sempreDe("fakeclaude").includes("mcp__playwright"), "sem perguntar no Claude");
+    const setAgy2 = JSON.parse(readFileSync(path.join(home, ".gemini", "antigravity-cli", "settings.json"), "utf8"));
+    assert.ok(setAgy2.permissions.allow.includes("mcp(playwright/*)"), "sem perguntar no Antigravity");
+
+    await aplicarFerramenta(esc, "playwright", { ligada: false });
+    assert.equal(JSON.parse(readFileSync(path.join(home, ".gemini", "config", "mcp_config.json"), "utf8")).mcpServers.playwright, undefined);
+    assert.ok(!esc.sempreDe("fakeclaude").includes("mcp__playwright"), "desligar tira a liberação");
+    await assert.rejects(aplicarFerramenta(esc, "chrome-devtools", { ligada: true, navegador: "firefox" }), /não funciona/);
+  }
+
   // 3. Plano de instalação não executa nada, só descreve
   const plano = planejarInstalacao(reg.ausente);
   assert.equal(plano.possivel, true);

@@ -7,6 +7,7 @@ import { conectarAoOffice, liberarFerramentasOffice } from "./equipe/instalar.js
 import { catalogoComEstado, testarModelos, type ProgressoTeste } from "./equipe/modelos.js";
 import { carregarRegistro, definirModelo } from "./equipe/registro.js";
 import type { Runner } from "./runner.js";
+import { aplicarFerramenta, catalogoFerramentas, estadoFerramentas, navegadoresInstalados, prepararNavegador } from "./ferramentas.js";
 import { apagarMemoria, arquivoMemoria, escreverMemoria, lerMemoria } from "./memoria.js";
 
 const PUBLICO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
@@ -62,6 +63,11 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       runner: runner.estado(),
       projetos: escritorio.listarProjetos(15),
       foraDaEquipe: escritorio.lerConfig<string[]>("foraDaEquipe", []),
+      ferramentas: {
+        catalogo: catalogoFerramentas(),
+        estado: estadoFerramentas(escritorio),
+        navegadores: navegadoresInstalados(),
+      },
       permissoes: {
         pendentes: escritorio.pedidosPendentes(),
         niveis: Object.fromEntries(Object.keys(carregarRegistro()).map((id) => [id, escritorio.nivelDe(id)])),
@@ -154,6 +160,26 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       const cli = String(req.body?.cli);
       escritorio.definirSempre(cli, escritorio.sempreDe(cli).filter((f) => f !== String(req.body?.remover)));
     }),
+  );
+
+  // ---------- Ferramentas (navegador) ----------
+  api.post(
+    "/ferramenta",
+    protegido,
+    tentar(async (req) => {
+      const { id, ligada, navegador, semPerguntar } = req.body ?? {};
+      const mudanca = {
+        ...(typeof ligada === "boolean" ? { ligada } : {}),
+        ...(typeof navegador === "string" ? { navegador } : {}),
+        ...(typeof semPerguntar === "boolean" ? { semPerguntar } : {}),
+      };
+      return { mensagens: await aplicarFerramenta(escritorio, String(id), mudanca) };
+    }),
+  );
+  api.post(
+    "/ferramenta/preparar",
+    protegido,
+    tentar(async (req) => ({ mensagem: await prepararNavegador(String(req.body?.id), String(req.body?.navegador)) })),
   );
 
   // ---------- Chats ----------

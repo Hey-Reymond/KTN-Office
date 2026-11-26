@@ -51,6 +51,15 @@ Quando você pede algo grande no chat, a coordenadora:
 
 Na interface, a chave **na equipe** em cada IA define quem entra na divisão.
 
+### Ferramentas (navegador)
+Em **Configurações → Ferramentas** você liga, em todas as IAs de uma vez:
+- **Navegador (Playwright)**: abrir sites, clicar, preencher, tirar print. Funciona com Brave, Chrome, Edge ou Firefox
+  (o Firefox usa a versão de automação do Playwright; clique em *Preparar Firefox* uma vez).
+- **Chrome DevTools**: console, rede e desempenho. Só navegadores Chromium (Brave, Chrome, Edge).
+
+O navegador abre com um perfil separado, sem as suas senhas. "Usar sem pedir permissão" libera as ações dessa
+ferramenta; desligado, cada ação passa pelo aviso de permissão.
+
 ### Permissões
 Cada IA tem um nível (Configurações → Equipe e modelos → Permissões):
 

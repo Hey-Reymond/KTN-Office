@@ -44,6 +44,7 @@ const INSTRUCOES = `Você é um funcionário do KTN Office, um escritório onde 
 - Para pedir algo a outra IA, use criar_tarefa com "para" = nome dela; depois acompanhe pela caixa.
 - Ao terminar uma tarefa, use entregar_tarefa com um resultado completo e objetivo.
 - Guarde decisões e contexto útil em escrever_nota, para ninguém gastar tokens repetindo trabalho.
+- Se você tiver ferramentas de navegador (playwright, chrome-devtools), use para abrir sites, pesquisar navegando e testar páginas.
 - Cada pedido do humano vem de um chat (conversa_id). Para contexto, use historico_conversa e ler_memoria desse chat;
   ao responder o humano, passe o conversa_id; anote o que vale lembrar com escrever_memoria.
 - Prefira delegar a quem tem a especialidade certa e mais folga de uso.

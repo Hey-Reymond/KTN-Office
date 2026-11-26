@@ -1,0 +1,31 @@
+{
+  "_sobre": "Ferramentas extras (servidores MCP) que o KTN Office liga em todas as IAs. {caminho} vira o executável do navegador escolhido.",
+  "playwright": {
+    "nome": "Navegador (Playwright)",
+    "descricao": "As IAs abrem sites, clicam, preenchem formulários e tiram print. Bom para testar páginas e pesquisar navegando.",
+    "comando": "npx",
+    "args": ["-y", "@playwright/mcp@latest"],
+    "navegadores": {
+      "firefox": ["--browser", "firefox"],
+      "brave": ["--browser", "chrome", "--executable-path", "{caminho}"],
+      "chrome": ["--browser", "chrome"],
+      "edge": ["--browser", "msedge"]
+    },
+    "preparar": {
+      "firefox": { "comando": "npx", "args": ["-y", "playwright", "install", "firefox"], "descricao": "Baixa o Firefox de automação do Playwright (separado do seu Firefox)." }
+    },
+    "padrao": "brave"
+  },
+  "chrome-devtools": {
+    "nome": "Chrome DevTools",
+    "descricao": "Depuração a fundo: console, rede, desempenho e inspeção de páginas. Só navegadores baseados em Chromium.",
+    "comando": "npx",
+    "args": ["-y", "chrome-devtools-mcp@latest"],
+    "navegadores": {
+      "brave": ["--executablePath", "{caminho}"],
+      "chrome": [],
+      "edge": ["--executablePath", "{caminho}"]
+    },
+    "padrao": "brave"
+  }
+}
