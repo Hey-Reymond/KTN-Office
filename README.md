@@ -90,3 +90,8 @@ server/src/db.ts      regras do escritório + SQLite
 server/test/smoke.ts  teste ponta a ponta
 agents/               perfis e regras da equipe
 ```
+
+## 📄 Licença
+
+© 2026 Kaua Teixeira Nascimento / KTN Dev. **Todos os direitos reservados.**
+O código está público apenas para visualização. Veja o arquivo [`LICENSE`](LICENSE).
