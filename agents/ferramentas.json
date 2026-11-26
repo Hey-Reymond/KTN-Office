@@ -1,5 +1,19 @@
 {
   "_sobre": "Ferramentas extras (servidores MCP) que o KTN Office liga em todas as IAs. {caminho} vira o executável do navegador escolhido.",
+  "ktn-bridge": {
+    "nome": "KTN Bridge (Firefox real)",
+    "descricao": "Controla a sessão real do seu Firefox (ou Chromium) pela extensão KTN Bridge, com pareamento por código, aprovação por domínio e bloqueio automático de bancos.",
+    "httpUrl": "http://127.0.0.1:7788/mcp?agent={cli}",
+    "comando": "",
+    "args": [],
+    "navegadores": {
+      "firefox": [],
+      "brave": [],
+      "chrome": [],
+      "edge": []
+    },
+    "padrao": "firefox"
+  },
   "playwright": {
     "nome": "Navegador (Playwright)",
     "descricao": "As IAs abrem sites, clicam, preenchem formulários e tiram print. Bom para testar páginas e pesquisar navegando.",

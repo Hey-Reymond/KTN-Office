@@ -15,6 +15,8 @@ import { carregarRegistro, type ConfigCli } from "./equipe/registro.js";
 export interface Ferramenta {
   nome: string;
   descricao: string;
+  /** Servidor MCP HTTP local (ex.: KTN Bridge). Se informado, tem prioridade sobre comando/args. */
+  httpUrl?: string;
   comando: string;
   args: string[];
   navegadores?: Record<string, string[]>;
@@ -129,33 +131,46 @@ function editarJsonMcp(arq: string, id: string, entrada: Record<string, unknown>
   writeFileSync(arq, JSON.stringify(dados, null, 2) + "\n");
 }
 
-/** Liga (ou desliga, se args = null) a ferramenta em uma IA. */
-async function aplicarEmUma(cliId: string, cfg: ConfigCli, ferramentaId: string, comando: string, args: string[] | null): Promise<string> {
+/** Liga (ou desliga, se args = null e httpUrl = null) a ferramenta em uma IA. */
+async function aplicarEmUma(
+  cliId: string,
+  cfg: ConfigCli,
+  ferramentaId: string,
+  comando: string,
+  args: string[] | null,
+  httpUrl: string | null = null,
+): Promise<string> {
   const caminho = localizar(cfg);
   if (!caminho) return `${cfg.nome}: não instalado, pulei.`;
+  const ligar = args !== null || httpUrl !== null;
+  const url = httpUrl ? httpUrl.replace("{cli}", encodeURIComponent(cliId)) : null;
   switch (cfg.conexaoOffice) {
     case "claude-mcp": {
       await rodar(caminho, ["mcp", "remove", ferramentaId, "--scope", "user"], { timeoutMs: 20_000 });
-      if (!args) return `${cfg.nome}: removido.`;
-      const r = await rodar(caminho, ["mcp", "add", "--scope", "user", ferramentaId, "--", comando, ...args], { timeoutMs: 20_000 });
+      if (!ligar) return `${cfg.nome}: removido.`;
+      const cliArgs = url
+        ? ["mcp", "add", "--scope", "user", "--transport", "http", ferramentaId, url]
+        : ["mcp", "add", "--scope", "user", ferramentaId, "--", comando, ...(args ?? [])];
+      const r = await rodar(caminho, cliArgs, { timeoutMs: 20_000 });
       if (r.codigo !== 0) throw new Error(`${cfg.nome}: ${r.stderr || r.stdout}`);
       return `${cfg.nome}: ligado.`;
     }
     case "codex-mcp": {
       await rodar(caminho, ["mcp", "remove", ferramentaId], { timeoutMs: 20_000 });
-      if (!args) return `${cfg.nome}: removido.`;
-      const r = await rodar(caminho, ["mcp", "add", ferramentaId, "--", comando, ...args], { timeoutMs: 20_000 });
+      if (!ligar) return `${cfg.nome}: removido.`;
+      const cliArgs = url ? ["mcp", "add", ferramentaId, "--url", url] : ["mcp", "add", ferramentaId, "--", comando, ...(args ?? [])];
+      const r = await rodar(caminho, cliArgs, { timeoutMs: 20_000 });
       if (r.codigo !== 0) throw new Error(`${cfg.nome}: ${r.stderr || r.stdout}`);
       return `${cfg.nome}: ligado.`;
     }
     case "antigravity-mcp":
-      editarJsonMcp(ARQ_MCP_ANTIGRAVITY(), ferramentaId, args ? { command: comando, args } : null);
-      return `${cfg.nome}: ${args ? "ligado" : "removido"}.`;
+      editarJsonMcp(ARQ_MCP_ANTIGRAVITY(), ferramentaId, !ligar ? null : url ? { serverUrl: url } : { command: comando, args });
+      return `${cfg.nome}: ${ligar ? "ligado" : "removido"}.`;
     case "gemini-settings":
-      editarJsonMcp(path.join(os.homedir(), ".gemini", "settings.json"), ferramentaId, args ? { command: comando, args } : null);
-      return `${cfg.nome}: ${args ? "ligado" : "removido"}.`;
+      editarJsonMcp(path.join(os.homedir(), ".gemini", "settings.json"), ferramentaId, !ligar ? null : url ? { httpUrl: url } : { command: comando, args });
+      return `${cfg.nome}: ${ligar ? "ligado" : "removido"}.`;
     default:
-      return `${cfg.nome}: conexão manual (adicione o servidor MCP "${ferramentaId}": ${comando} ${(args ?? []).join(" ")}).`;
+      return `${cfg.nome}: conexão manual (adicione o servidor MCP "${ferramentaId}": ${url || `${comando} ${(args ?? []).join(" ")}`}).`;
   }
 }
 
@@ -174,16 +189,18 @@ export async function aplicarFerramenta(esc: Escritorio, id: string, mudanca: Pa
     if (f.exclusiva) {
       const cfg = atual.ia ? registro[atual.ia] : undefined;
       if (!cfg || !localizar(cfg)) throw new Error("Escolha qual IA vai usar (uma por vez).");
-      if (f.conexoes && !f.conexoes.includes(cfg.conexaoOffice ?? "")) throw new Error(`${cfg.nome} não consegue pedir permissão a cada ação; escolha uma IA tipo Claude Code.`);
+      if (f.conexoes && !f.conexoes.includes(cfg.conexaoOffice ?? "")) throw new Error(`${f.nome} não consegue pedir permissão a cada ação; escolha uma IA tipo Claude Code.`);
     }
   }
-  const args = atual.ligada ? argsFerramenta(f, atual.navegador) : null; // valida antes de mexer em qualquer IA
+  const urlHttp = atual.ligada && f.httpUrl ? f.httpUrl : null;
+  const args = atual.ligada && !f.httpUrl ? argsFerramenta(f, atual.navegador) : null; // valida antes de mexer em qualquer IA
   const msgs: string[] = [];
   for (const [cliId, cfg] of Object.entries(registro)) {
     if (cfg.ativo === false || cfg.tipo === "api" || !localizar(cfg)) continue; // IAs por API não usam MCP de navegador
-    const aqui = f.exclusiva ? (cliId === atual.ia ? args : null) : args; // exclusiva: tira de todas as outras
-    if (f.exclusiva && !aqui && !(f.conexoes ?? []).includes(cfg.conexaoOffice ?? "")) continue; // nunca foi posta nessa
-    msgs.push(await aplicarEmUma(cliId, cfg, id, f.comando, aqui).catch((e) => `⚠️ ${e instanceof Error ? e.message : e}`));
+    const aquiArgs = f.exclusiva ? (cliId === atual.ia ? args : null) : args; // exclusiva: tira de todas as outras
+    const aquiUrl = f.exclusiva ? (cliId === atual.ia ? urlHttp : null) : urlHttp;
+    if (f.exclusiva && !aquiArgs && !aquiUrl && !(f.conexoes ?? []).includes(cfg.conexaoOffice ?? "")) continue; // nunca foi posta nessa
+    msgs.push(await aplicarEmUma(cliId, cfg, id, f.comando, aquiArgs, aquiUrl).catch((e) => `⚠️ ${e instanceof Error ? e.message : e}`));
   }
   // Usar sem perguntar: IAs tipo Claude ganham a ferramenta na lista "sempre"; Antigravity ganha a regra de permissão.
   const liberar = atual.ligada && atual.semPerguntar;
