@@ -5,6 +5,9 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Mudou o app de desktop? Compila (sem publicar) para conferir que o instalador continua saindo.
+  pull_request:
+    paths: ["desktop/**", ".github/workflows/release.yml"]
   workflow_dispatch:
 
 permissions:
