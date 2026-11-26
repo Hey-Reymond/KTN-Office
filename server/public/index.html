@@ -341,10 +341,25 @@
     <div class="abas" role="tablist">
       <button class="aba" role="tab" data-aba="agora" aria-selected="true">Agora</button>
       <button class="aba" role="tab" data-aba="projetos" aria-selected="false">Projetos</button>
+      <button class="aba" role="tab" data-aba="agenda" aria-selected="false">Agenda</button>
       <button class="aba" role="tab" data-aba="memoria" aria-selected="false">Memória</button>
     </div>
     <div class="conteudoAba" id="abaAgora"></div>
     <div class="conteudoAba" id="abaProjetos" hidden></div>
+    <div class="conteudoAba" id="abaAgenda" hidden>
+      <div id="listaAgenda"></div>
+      <form id="formAgenda" class="membroCfg" style="margin-top:12px">
+        <div class="campo"><label for="agTexto">Pedido para repetir</label><textarea id="agTexto" rows="2" placeholder="Ex.: Resuma os commits de ontem no meu projeto"></textarea></div>
+        <div class="campo"><label for="agTipo">Quando</label>
+          <select id="agTipo"><option value="diario">Todo dia</option><option value="semanal">Dias da semana</option><option value="intervalo">A cada X minutos</option><option value="uma_vez">Uma vez</option></select></div>
+        <div class="campo" id="agCampoHora"><label for="agHora">Hora</label><input id="agHora" type="time" value="09:00" style="max-width:130px"></div>
+        <div class="campo" id="agCampoDias" hidden><span>Dias</span><div id="agDias" style="display:flex;gap:6px;flex-wrap:wrap"></div></div>
+        <div class="campo" id="agCampoMin" hidden><label for="agMin">Minutos (mínimo 15)</label><input id="agMin" type="number" min="15" value="60" style="max-width:110px"></div>
+        <div class="campo" id="agCampoData" hidden><label for="agData">Data</label><input id="agData" type="date" style="max-width:170px"></div>
+        <button class="btn primario pequeno" type="submit">Agendar neste chat</button>
+        <small style="display:block;margin-top:6px;color:var(--fraco)">Só roda com o expediente ligado e o Office aberto. Você também pode pedir no chat: "todo dia às 9h…".</small>
+      </form>
+    </div>
     <div class="conteudoAba memoria" id="abaMemoria" hidden>
       <p>O que a equipe precisa lembrar neste chat. As IAs leem antes de trabalhar e anotam decisões aqui. Você também pode editar.</p>
       <textarea id="textoMemoria" placeholder="Ex.: o projeto fica em C:\Users\…\KTN-Office. Prefiro respostas curtas."></textarea>
@@ -462,7 +477,7 @@ const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hora = (t) => (t ? new Date(t.replace(" ", "T") + "Z").toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "");
 const dur = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}min ${String(s % 60).padStart(2, "0")}s`; };
-const NOMES = { claude: "Claude", antigravity: "Antigravity", codex: "Codex", gemini: "Gemini", copilot: "Copilot", qwen: "Qwen", opencode: "OpenCode", kimi: "Kimi", escritorio: "Escritório", humano: "Você" };
+const NOMES = { claude: "Claude", antigravity: "Antigravity", codex: "Codex", gemini: "Gemini", copilot: "Copilot", qwen: "Qwen", opencode: "OpenCode", kimi: "Kimi", escritorio: "Escritório", humano: "Você", agenda: "Agenda" };
 const nome = (id) => NOMES[id] || (id ? id[0].toUpperCase() + id.slice(1) : "");
 const cor = (id) => (["claude", "antigravity", "codex"].includes(id) ? `var(--${id})` : "var(--outra)");
 const INICIAL = { claude: "C", antigravity: "A", codex: "X", gemini: "G", copilot: "P", qwen: "Q", opencode: "O", kimi: "K", escritorio: "E" };
@@ -589,6 +604,7 @@ function notificarNovidades(e) {
 function render() {
   const e = estado; if (!e) return;
   notificarNovidades(e);
+  desenharAgenda();
   const instalados = e.equipe.filter((d) => d.instalado);
   const naEquipe = instalados.filter((d) => !e.foraDaEquipe.includes(d.id));
 
@@ -621,13 +637,14 @@ function render() {
   $("#dicaExpediente").textContent = e.runner.ligado ? "" : "O expediente está desligado. Ligue no topo para a equipe responder.";
 
   // Conversa (só redesenha quando muda, pra não pular a rolagem)
-  const msgs = conversaAtual == null ? [] : e.mensagens.filter((m) => m.conversa_id === conversaAtual && (m.de === "humano" || m.para === "humano"));
+  const msgs = conversaAtual == null ? [] : e.mensagens.filter((m) => m.conversa_id === conversaAtual && (m.de === "humano" || m.para === "humano" || m.de === "agenda"));
   const assinatura = conversaAtual + ":" + msgs.map((m) => m.id).join(",") + ":" + naEquipe.length;
   if (assinatura !== ultimoFio) {
     const caixa = $("#rolagem");
     const noFim = caixa.scrollHeight - caixa.scrollTop - caixa.clientHeight < 80;
     $("#fio").innerHTML = msgs.length ? msgs.map((m) => {
       if (m.de === "humano") return `<div class="msg eu"><div class="bolha">${esc(m.texto)}</div></div>`;
+      if (m.de === "agenda") return `<div class="msg eu"><div class="bolha" style="opacity:.85">${esc(m.texto)}</div></div>`;
       if (m.de === "escritorio") return `<div class="msg sistema">${esc(m.texto)}</div>`;
       return `<div class="msg">${avatar(m.de)}<div class="corpo"><div class="quem"><b>${esc(nome(m.de))}</b>${hora(m.criada_em)}</div><div class="md">${md(m.texto)}</div></div></div>`;
     }).join("") : boasVindas(naEquipe);
@@ -866,10 +883,49 @@ $("#chats").addEventListener("click", async (ev) => {
 $("#chats").addEventListener("keydown", (ev) => { const item = ev.target.closest("[data-chat]"); if (item && ev.key === "Enter" && ev.target === item) abrirChat(Number(item.dataset.chat)); });
 $("#expediente").addEventListener("change", async (ev) => { await api("runner", { ligado: ev.target.checked }).catch((e) => avisar(e.message)); atualizar(); });
 
+// ---------- Agenda ----------
+const NOMES_DIA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+$("#agDias").innerHTML = NOMES_DIA.map((d, i) => `<label class="selo chip"><input type="checkbox" value="${i}" ${i >= 1 && i <= 5 ? "checked" : ""}> ${d}</label>`).join("");
+function campoAgenda() {
+  const t = $("#agTipo").value;
+  $("#agCampoHora").hidden = t === "intervalo"; $("#agCampoDias").hidden = t !== "semanal";
+  $("#agCampoMin").hidden = t !== "intervalo"; $("#agCampoData").hidden = t !== "uma_vez";
+}
+$("#agTipo").addEventListener("change", campoAgenda);
+function desenharAgenda() {
+  if (!estado) return;
+  const lista = (estado.agendamentos || []).filter((a) => !conversaAtual || a.conversa_id === conversaAtual);
+  $("#listaAgenda").innerHTML = lista.length ? lista.map((a) => `<div class="membroCfg ${a.ativo ? "" : "off"}">
+      <div style="font-weight:600">${esc(a.texto)}</div>
+      <div style="color:var(--fraco);font-size:12.5px;margin:4px 0 8px">${esc(a.quando)}${a.ativo && a.proxima ? ` · próxima: ${new Date(a.proxima).toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : " · pausado"}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn pequeno" data-ag-agora="${a.id}">Rodar agora</button><button class="btn pequeno" data-ag-alternar="${a.id}" data-ativo="${a.ativo ? 0 : 1}">${a.ativo ? "Pausar" : "Retomar"}</button><button class="btn pequeno" data-ag-apagar="${a.id}">Apagar</button></div></div>`).join("")
+    : `<div class="vazio">${conversaAtual ? "Nada agendado neste chat." : "Abra um chat para agendar pedidos nele."}</div>`;
+}
+$("#formAgenda").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  if (!conversaAtual) return avisar("Abra (ou crie) um chat primeiro.");
+  const tipo = $("#agTipo").value;
+  try {
+    await api("agendamento", { texto: $("#agTexto").value, tipo, hora: $("#agHora").value, minutos: $("#agMin").value, data: $("#agData").value,
+      dias: [...$("#agDias").querySelectorAll("input:checked")].map((x) => Number(x.value)), conversa_id: conversaAtual });
+    $("#agTexto").value = ""; avisar("Agendado.");
+  } catch (e) { avisar(e.message); }
+  atualizar();
+});
+$("#listaAgenda").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("button"); if (!b) return;
+  try {
+    if (b.dataset.agAgora) { await api("agendamento/agora", { id: Number(b.dataset.agAgora) }); avisar("Enviado para a equipe."); }
+    if (b.dataset.agAlternar) await api("agendamento/alternar", { id: Number(b.dataset.agAlternar), ativo: b.dataset.ativo === "1" });
+    if (b.dataset.agApagar && confirm("Apagar este agendamento?")) await api("agendamento/apagar", { id: Number(b.dataset.agApagar) });
+  } catch (e) { avisar(e.message); }
+  atualizar();
+});
+
 // ---------- Painel de atividade ----------
 function mostrarAba(nomeAba) {
   for (const b of document.querySelectorAll(".aba")) b.setAttribute("aria-selected", String(b.dataset.aba === nomeAba));
-  $("#abaAgora").hidden = nomeAba !== "agora"; $("#abaProjetos").hidden = nomeAba !== "projetos"; $("#abaMemoria").hidden = nomeAba !== "memoria";
+  $("#abaAgora").hidden = nomeAba !== "agora"; $("#abaProjetos").hidden = nomeAba !== "projetos"; $("#abaMemoria").hidden = nomeAba !== "memoria"; $("#abaAgenda").hidden = nomeAba !== "agenda";
   if (nomeAba === "memoria") { memoriaCarregada = null; carregarMemoria(); }
 }
 document.querySelector(".abas").addEventListener("click", (ev) => { const b = ev.target.closest("[data-aba]"); if (b) mostrarAba(b.dataset.aba); });

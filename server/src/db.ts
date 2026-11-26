@@ -1,4 +1,5 @@
 import { situacaoCota } from "./cota.js";
+import { proximaExecucao, validar, type Agendamento, type NovoAgendamento } from "./agenda.js";
 import Database from "better-sqlite3";
 import path from "node:path";
 
@@ -182,6 +183,18 @@ export function abrirBanco(arquivo = process.env.KTN_DB ?? path.resolve("office.
     ["agentes", "sem_cota_ate INTEGER"], ["agentes", "limite_5h INTEGER"],
   ];
   for (const [tabela, def] of novas) if (!temColuna(tabela, def.split(" ")[0])) db.exec(`ALTER TABLE ${tabela} ADD COLUMN ${def}`);
+  db.exec(`CREATE TABLE IF NOT EXISTS agendamentos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversa_id INTEGER,
+    para TEXT,
+    texto TEXT NOT NULL,
+    tipo TEXT NOT NULL,
+    minutos INTEGER, hora TEXT, dias TEXT, data TEXT,
+    proxima INTEGER,
+    ultima INTEGER,
+    ativo INTEGER NOT NULL DEFAULT 1,
+    criado_por TEXT NOT NULL DEFAULT 'humano'
+  );`);
   db.exec(`CREATE TABLE IF NOT EXISTS uso (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     agente TEXT NOT NULL,
@@ -367,7 +380,7 @@ export class Escritorio {
   historicoConversa(id: number, limite = 40): Mensagem[] {
     return (
       this.db
-        .prepare(`SELECT * FROM mensagens WHERE conversa_id = ? AND (de = 'humano' OR para = 'humano') ORDER BY id DESC LIMIT ?`)
+        .prepare(`SELECT * FROM mensagens WHERE conversa_id = ? AND (de IN ('humano', 'agenda') OR para = 'humano') ORDER BY id DESC LIMIT ?`)
         .all(id, limite) as Mensagem[]
     ).reverse();
   }
@@ -414,6 +427,46 @@ export class Escritorio {
       )
       .run(tokens, limite ?? null, observacao ?? null, agente);
     this.db.prepare(`INSERT INTO uso (agente, tokens, criado_em) VALUES (?, ?, ?)`).run(agente, Math.max(0, Math.round(tokens)), Date.now());
+  }
+
+  // ---------- Agenda ----------
+
+  criarAgendamento(criadoPor: string, n: NovoAgendamento, agora = Date.now()): Agendamento {
+    validar(n);
+    if (n.conversa_id && !this.conversa(n.conversa_id)) throw new Error(`Chat #${n.conversa_id} não existe.`);
+    const base = { tipo: n.tipo, minutos: n.minutos ?? null, hora: n.hora ?? null, dias: n.dias?.join(",") ?? null, data: n.data ?? null };
+    const proxima = proximaExecucao(base, agora);
+    if (proxima === null) throw new Error("Essa data/hora já passou.");
+    const info = this.db
+      .prepare(`INSERT INTO agendamentos (conversa_id, para, texto, tipo, minutos, hora, dias, data, proxima, criado_por) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(n.conversa_id ?? null, n.para ?? null, n.texto.trim(), base.tipo, base.minutos, base.hora, base.dias, base.data, proxima, criadoPor);
+    return this.agendamento(Number(info.lastInsertRowid))!;
+  }
+  agendamento(id: number): Agendamento | undefined {
+    return this.db.prepare(`SELECT * FROM agendamentos WHERE id = ?`).get(id) as Agendamento | undefined;
+  }
+  listarAgendamentos(conversaId?: number | null): Agendamento[] {
+    return (conversaId
+      ? this.db.prepare(`SELECT * FROM agendamentos WHERE conversa_id = ? ORDER BY ativo DESC, proxima`).all(conversaId)
+      : this.db.prepare(`SELECT * FROM agendamentos ORDER BY ativo DESC, proxima`).all()) as Agendamento[];
+  }
+  agendamentosVencidos(agora = Date.now()): Agendamento[] {
+    return this.db.prepare(`SELECT * FROM agendamentos WHERE ativo = 1 AND proxima IS NOT NULL AND proxima <= ? ORDER BY proxima`).all(agora) as Agendamento[];
+  }
+  marcarAgendamentoFeito(id: number, proxima: number | null, agora: number, conversa: number) {
+    this.db
+      .prepare(`UPDATE agendamentos SET ultima = ?, proxima = ?, ativo = CASE WHEN ? IS NULL THEN 0 ELSE ativo END, conversa_id = ? WHERE id = ?`)
+      .run(agora, proxima, proxima, conversa, id);
+  }
+  alternarAgendamento(id: number, ativo: boolean, agora = Date.now()) {
+    const a = this.agendamento(id);
+    if (!a) throw new Error(`Agendamento #${id} não existe.`);
+    const proxima = ativo ? proximaExecucao(a, agora) : a.proxima;
+    if (ativo && proxima === null) throw new Error("Esse agendamento era de uma vez só e já passou.");
+    this.db.prepare(`UPDATE agendamentos SET ativo = ?, proxima = ? WHERE id = ?`).run(ativo ? 1 : 0, proxima, id);
+  }
+  apagarAgendamento(id: number) {
+    if (!this.db.prepare(`DELETE FROM agendamentos WHERE id = ?`).run(id).changes) throw new Error(`Agendamento #${id} não existe.`);
   }
 
   /** Uso nas últimas 5 horas (a janela de limite da maioria dos planos). */

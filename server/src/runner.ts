@@ -3,6 +3,7 @@ import type { Escritorio, Tarefa } from "./db.js";
 import { localizar } from "./equipe/detectar.js";
 import { criarFuncionario } from "./equipe/apis.js";
 import { esperaDoErro } from "./cota.js";
+import { dispararVencidos } from "./agenda.js";
 import { PASTA_PADRAO, pastaDaTarefa, pastaDoChat, processarIntegracoes } from "./integracao.js";
 import { CliAgent, type Funcionario, type ResultadoTrabalho } from "./equipe/funcionario.js";
 import { carregarRegistro, modeloDisponivel, modelosDisponiveis, resolverModelo, salvarDeteccaoModelo, type ConfigCli } from "./equipe/registro.js";
@@ -120,6 +121,7 @@ export class Runner {
   async ciclo(): Promise<void> {
     const cfg = this.config;
     if (!cfg.ligado) return;
+    dispararVencidos(this.escritorio, cfg.coordenadora);
     const registro = carregarRegistro();
     const fora = this.escritorio.lerConfig<string[]>("foraDaEquipe", []);
     for (const [id, cli] of Object.entries(registro)) {
@@ -187,6 +189,8 @@ export class Runner {
               ]
             : [`- Pedido do humano: resolva ou responda; se precisar de outra IA, crie uma tarefa para ela.`]),
           `- Entrega de outra IA (tarefa avulsa): use o resultado para concluir o trabalho.`,
+          `- Mensagem de "agenda" é um pedido que o humano agendou: trate como pedido dele e responda ao humano no mesmo chat.`,
+          `- Se o humano pedir algo recorrente ("todo dia", "toda segunda", "daqui a 2h"), use agendar.`,
           `- Cada mensagem do humano tem conversa_id (o chat). Antes de agir, leia ler_memoria (e historico_conversa se precisar)`,
           `  desse chat. Responda com mandar_mensagem para "humano" passando o mesmo conversa_id, e use esse conversa_id em criar_projeto.`,
           `- Anote com escrever_memoria o que vale lembrar nas próximas vezes (decisões, preferências, caminhos de arquivos).`,

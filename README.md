@@ -90,6 +90,11 @@ pega tarefas, conversa pelo escritório e lê/escreve arquivos **só dentro da p
 
 As chaves ficam em `~/KTN-Office-dados/chaves-api.json`, fora da pasta do projeto (nunca vão pro git).
 
+### Agenda
+Aba **Agenda** no painel da direita, ou peça no chat ("todo dia às 9h resuma os commits"):
+todo dia, dias da semana, a cada X minutos (mínimo 15) ou uma vez. Na hora, o pedido entra no chat
+e a coordenadora trata como se fosse você pedindo. Só roda com o Office aberto e o expediente ligado.
+
 ### Notificações
 - **No PC:** em Configurações → Expediente, ligue "Avisar nesta tela". Respostas, projetos concluídos e pedidos de permissão viram notificação do sistema quando você está em outra janela. A aba mostra `(N)` quando há permissão esperando.
 - **No celular:** instale o app **ntfy**, assine um tópico difícil de adivinhar e coloque o mesmo tópico no Office. Pedidos de permissão chegam com prioridade alta.

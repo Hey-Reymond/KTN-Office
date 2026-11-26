@@ -11,6 +11,7 @@ import { aplicarFerramenta, catalogoFerramentas, estadoFerramentas, navegadoresI
 import { aplicarNoProjeto, ehRepositorio, limparWorktrees } from "./git.js";
 import { pastaDoChat } from "./integracao.js";
 import { salvarAnexos, textoAnexos } from "./anexos.js";
+import { descrever, dispararUm } from "./agenda.js";
 import { salvarCustom } from "./equipe/registro.js";
 import { chaveDe, listarModelosApi, PROVEDORES, salvarChave } from "./equipe/apis.js";
 import { enviarNtfy, type ConfigNotificacoes } from "./notificar.js";
@@ -71,6 +72,7 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       revisaoCruzada: escritorio.lerConfig("revisaoCruzada", true),
       notificacoes: escritorio.lerConfig<ConfigNotificacoes>("notificacoes", {}),
       provedores: PROVEDORES,
+      agendamentos: escritorio.listarAgendamentos().map((a) => ({ ...a, quando: descrever(a) })),
       projetos: escritorio.listarProjetos(15),
       foraDaEquipe: escritorio.lerConfig<string[]>("foraDaEquipe", []),
       ferramentas: {
@@ -150,6 +152,23 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       if (!ok) throw new Error("Não consegui enviar. Confira o tópico e a internet.");
     }),
   );
+  // ---------- Agenda ----------
+  api.post("/agendamento", protegido, tentar((req) => {
+    const b = req.body ?? {};
+    return escritorio.criarAgendamento("humano", {
+      texto: String(b.texto ?? ""), tipo: b.tipo, minutos: Number(b.minutos) || undefined, hora: b.hora || undefined,
+      dias: Array.isArray(b.dias) ? b.dias.map(Number) : undefined, data: b.data || undefined,
+      conversa_id: Number(b.conversa_id) || null,
+    });
+  }));
+  api.post("/agendamento/alternar", protegido, tentar((req) => escritorio.alternarAgendamento(Number(req.body?.id), !!req.body?.ativo)));
+  api.post("/agendamento/apagar", protegido, tentar((req) => escritorio.apagarAgendamento(Number(req.body?.id))));
+  api.post("/agendamento/agora", protegido, tentar((req) => {
+    const a = escritorio.agendamento(Number(req.body?.id));
+    if (!a) throw new Error("Agendamento não existe.");
+    dispararUm(escritorio, a, runner.config.coordenadora); // mantém a próxima execução como estava
+  }));
+
   // ---------- IAs por API ----------
   const dadosApi = (b: any) => {
     const prov = PROVEDORES[String(b?.provedor ?? "")];

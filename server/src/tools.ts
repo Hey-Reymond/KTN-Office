@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { descrever, type NovoAgendamento } from "./agenda.js";
 import type { Escritorio } from "./db.js";
 import { carregarRegistro, modeloDisponivel, modelosDisponiveis } from "./equipe/registro.js";
 import { equipeAtiva } from "./equipe/detectar.js";
@@ -441,6 +442,46 @@ export function criarServidor(escritorio: Escritorio, agente: string) {
       inputSchema: { chave: z.string().optional() },
     },
     seguro(({ chave }: { chave?: string }) => escritorio.lerNotas(chave)),
+  );
+
+  server.registerTool(
+    "agendar",
+    {
+      description:
+        "Agenda um pedido para a equipe repetir sozinha (ex.: 'todo dia às 9h resuma os commits'). Use quando o humano pedir algo recorrente ou para depois. " +
+        "tipo: intervalo (minutos ≥ 15), diario (hora HH:MM), semanal (hora + dias 0=dom…6=sáb), uma_vez (data AAAA-MM-DD + hora). Hora local do PC.",
+      inputSchema: {
+        texto: z.string().min(1).describe("O pedido, escrito como se fosse o humano pedindo."),
+        tipo: z.enum(["intervalo", "diario", "semanal", "uma_vez"]),
+        minutos: z.number().int().optional(),
+        hora: z.string().optional(),
+        dias: z.array(z.number().int()).optional(),
+        data: z.string().optional(),
+        conversa_id: z.number().int().optional().describe("Chat onde o resultado aparece (o mesmo do pedido)."),
+        para: z.string().optional().describe("Quem recebe; padrão: a coordenadora."),
+      },
+    },
+    seguro((n: NovoAgendamento) => {
+      const a = escritorio.criarAgendamento(agente, { ...n, conversa_id: n.conversa_id ?? escritorio.conversaAtualCom(agente) });
+      return { ...a, quando: descrever(a), proxima: new Date(a.proxima).toLocaleString("pt-BR") };
+    }),
+  );
+
+  server.registerTool(
+    "listar_agendamentos",
+    { description: "Lista os pedidos agendados (de um chat, ou todos).", inputSchema: { conversa_id: z.number().int().optional() } },
+    seguro(({ conversa_id }: { conversa_id?: number }) =>
+      escritorio.listarAgendamentos(conversa_id).map((a) => ({ id: a.id, texto: a.texto, quando: descrever(a), ativo: !!a.ativo, proxima: a.proxima ? new Date(a.proxima).toLocaleString("pt-BR") : null })),
+    ),
+  );
+
+  server.registerTool(
+    "cancelar_agendamento",
+    { description: "Pausa (ativo=false) ou apaga um agendamento quando o humano pedir.", inputSchema: { id: z.number().int(), apagar: z.boolean().optional() } },
+    seguro(({ id, apagar }: { id: number; apagar?: boolean }) => {
+      if (apagar) escritorio.apagarAgendamento(id); else escritorio.alternarAgendamento(id, false);
+      return { ok: true };
+    }),
   );
 
   return server;
