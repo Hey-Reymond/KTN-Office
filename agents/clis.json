@@ -65,7 +65,11 @@
         "velocidade": "rápido",
         "quando": "só perguntas muito básicas"
       }
-    }
+    },
+    "argsExtras": [
+      "--allowedTools",
+      "Read,Glob,Grep,WebSearch,WebFetch,mcp__office"
+    ]
   },
   "antigravity": {
     "nome": "Antigravity CLI",

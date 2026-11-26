@@ -24,6 +24,8 @@ export interface ConfigCli {
   modelosDesligados?: string[];
   /** Resultado do teste automático: true = respondeu, string = motivo da falha. */
   modelosDetectados?: Record<string, true | string>;
+  /** Argumentos fixos extras (ex.: ferramentas liberadas no modo automático). */
+  argsExtras?: string[];
   /** Argumentos extras pra saída estruturada (ex.: JSON com uso de tokens). */
   saidaJson?: string[];
   leitorSaida?: "texto" | "claude-json" | "json";

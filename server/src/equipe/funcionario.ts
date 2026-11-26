@@ -80,6 +80,22 @@ export function resumirProgresso(linha: string): string | null {
   }
 }
 
+/** Monta uma mensagem de erro útil: ignora avisos inofensivos e procura o erro real também no stdout (JSON). */
+export function explicarErro(stderr: string, stdout: string, codigo: number | null): string {
+  const ruido = /^(Reading additional input from stdin|Warning:|npm notice)/i;
+  const partes = stderr.split("\n").map((l) => l.trim()).filter((l) => l && !ruido.test(l));
+  for (const l of stdout.trim().split("\n").reverse().slice(0, 15)) {
+    try {
+      const j = JSON.parse(l);
+      const msg = j.error?.message ?? j.error ?? j.msg?.message ?? (j.type?.includes?.("error") ? j.message : undefined);
+      if (typeof msg === "string" && msg.trim()) { partes.unshift(msg.trim()); break; }
+    } catch {
+      /* linha não é JSON */
+    }
+  }
+  return partes.join(" | ").slice(0, 600) || `Saiu com código ${codigo} sem mensagem de erro.`;
+}
+
 /** Lê saídas JSON de outros CLIs (agy, codex…): procura o texto e o objeto usage nos campos mais comuns. */
 function lerJsonGenerico(stdout: string): Pick<ResultadoTrabalho, "texto" | "tokens"> {
   const linhas = stdout.trim().split("\n").reverse();
@@ -122,6 +138,7 @@ export class CliAgent implements Funcionario {
     const noLugar = template.includes("{modeloArgs}");
     const args: string[] = [];
     if (!noLugar) args.push(...argsModelo);
+    if (this.cfg.argsExtras) args.push(...this.cfg.argsExtras);
     if (this.cfg.saidaJson) args.push(...this.cfg.saidaJson);
     for (const parte of template) {
       if (parte === "{modeloArgs}") args.push(...argsModelo);
@@ -150,7 +167,7 @@ export class CliAgent implements Funcionario {
         : undefined,
     });
     if (r.estourouTempo) return { ok: false, texto: r.stdout, erro: "Tempo esgotado." };
-    if (r.codigo !== 0) return { ok: false, texto: r.stdout, erro: r.stderr.trim() || `Saiu com código ${r.codigo}` };
+    if (r.codigo !== 0) return { ok: false, texto: r.stdout, erro: explicarErro(r.stderr, r.stdout, r.codigo) };
 
     const lido =
       this.cfg.leitorSaida === "claude-json"

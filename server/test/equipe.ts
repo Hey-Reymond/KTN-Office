@@ -84,7 +84,7 @@ Object.assign(process.env, {
 const { detectarEquipe, detectarUm } = await import("../src/equipe/detectar.js");
 const { carregarRegistro, salvarCustom, definirModelo, modeloDisponivel } = await import("../src/equipe/registro.js");
 const { conectarAoOffice, planejarInstalacao, liberarFerramentasOffice } = await import("../src/equipe/instalar.js");
-const { CliAgent, resumirProgresso } = await import("../src/equipe/funcionario.js");
+const { CliAgent, resumirProgresso, explicarErro } = await import("../src/equipe/funcionario.js");
 
 try {
   // 1. Detecção
@@ -174,7 +174,11 @@ try {
   assert.deepEqual(new CliAgent("antigravity", real.antigravity).montarArgs("oi", "neon"),
     ["--model", "gemini-4-neon", "--output-format", "json", "-p", "oi"], "agy usa --model");
   assert.deepEqual(new CliAgent("claude", real.claude).montarArgs("oi"),
-    ["--model", "opus", "--output-format", "stream-json", "--verbose", "-p", "oi"]);
+    ["--model", "opus", "--allowedTools", "Read,Glob,Grep,WebSearch,WebFetch,mcp__office", "--output-format", "stream-json", "--verbose", "-p", "oi"]);
+  // Erro real do codex vem no stdout (JSON); o aviso do stdin é ruído
+  assert.equal(
+    explicarErro("Reading additional input from stdin...\n", '{"type":"thread.started"}\n{"type":"error","message":"The model gpt-6.2-sol is not available on your plan"}', 1),
+    "The model gpt-6.2-sol is not available on your plan");
 
   // 2f. Progresso ao vivo: eventos dos CLIs viram frases curtas
   assert.equal(resumirProgresso(JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", name: "mcp__office__pegar_tarefa" }] } })), "🔧 usando office/pegar_tarefa");
