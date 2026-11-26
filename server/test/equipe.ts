@@ -25,6 +25,7 @@ if (a[0] === "mcp" && a[1] === "remove") { try { fs.unlinkSync(mcp); } catch {} 
 const p = a[a.indexOf("-p") + 1];
 const modelo = a.includes("--model") ? a[a.indexOf("--model") + 1] : "padrao";
 if (p === "falhe") { console.error("deu ruim"); process.exit(2); }
+if (p === "progresso") console.log(JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "pensando" }] } }));
 if (a.includes("json")) console.log(JSON.stringify({ result: "eco(" + modelo + "): " + p, usage: { input_tokens: 10, cache_read_input_tokens: 5, output_tokens: 7 } }));
 else console.log("eco(" + modelo + "): " + p);
 `;
@@ -83,7 +84,7 @@ Object.assign(process.env, {
 const { detectarEquipe, detectarUm } = await import("../src/equipe/detectar.js");
 const { carregarRegistro, salvarCustom, definirModelo, modeloDisponivel } = await import("../src/equipe/registro.js");
 const { conectarAoOffice, planejarInstalacao, liberarFerramentasOffice } = await import("../src/equipe/instalar.js");
-const { CliAgent } = await import("../src/equipe/funcionario.js");
+const { CliAgent, resumirProgresso } = await import("../src/equipe/funcionario.js");
 
 try {
   // 1. Detecção
@@ -165,6 +166,25 @@ try {
   definirModelo("fakeclaude", "topo", true);
   assert.equal(modeloDisponivel(carregarRegistro().fakeclaude, "topo"), true);
   assert.throws(() => definirModelo("fakeclaude", "naoexiste", true));
+
+  // 2e. Ordem dos argumentos igual à que os CLIs reais aceitam (bugs vistos no Windows)
+  const real = JSON.parse(readFileSync(new URL("../../agents/clis.json", import.meta.url), "utf8"));
+  assert.deepEqual(new CliAgent("codex", real.codex).montarArgs("oi", "sol"),
+    ["exec", "--skip-git-repo-check", "--json", "-m", "gpt-6.2-sol", "oi"], "codex: tudo depois do exec");
+  assert.deepEqual(new CliAgent("antigravity", real.antigravity).montarArgs("oi", "neon"),
+    ["--model", "gemini-4-neon", "--output-format", "json", "-p", "oi"], "agy usa --model");
+  assert.deepEqual(new CliAgent("claude", real.claude).montarArgs("oi"),
+    ["--model", "opus", "--output-format", "stream-json", "--verbose", "-p", "oi"]);
+
+  // 2f. Progresso ao vivo: eventos dos CLIs viram frases curtas
+  assert.equal(resumirProgresso(JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", name: "mcp__office__pegar_tarefa" }] } })), "🔧 usando office/pegar_tarefa");
+  assert.equal(resumirProgresso(JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "Lendo o README" }] } })), "💬 Lendo o README");
+  assert.equal(resumirProgresso(JSON.stringify({ type: "item.completed", item: { type: "command_execution", command: "npm test" } })), "⚙️ npm test");
+  assert.equal(resumirProgresso(""), null);
+  const frases: string[] = [];
+  const rp = await new CliAgent("fakeclaude", reg.fakeclaude).trabalhar("progresso", { aoProgredir: (f) => frases.push(f) });
+  assert.ok(rp.ok && frases.includes("💬 pensando"), "repassa a saída do CLI como progresso");
+  assert.equal(rp.texto, "eco(opus): progresso", "resultado final continua certo com várias linhas");
 
   // 3. Plano de instalação não executa nada, só descreve
   const plano = planejarInstalacao(reg.ausente);

@@ -4,6 +4,8 @@ import { resolverModelo, type ConfigCli } from "./registro.js";
 
 export interface OpcoesTrabalho {
   modelo?: string;
+  /** Recebe frases curtas de progresso enquanto a IA trabalha ("usando ferramenta X", trecho do texto…). */
+  aoProgredir?: (frase: string) => void;
   /** Pasta onde a IA trabalha (arquivos do projeto). */
   cwd?: string;
   timeoutMs?: number;
@@ -34,7 +36,13 @@ const substituir = (args: string[], vars: Record<string, string>) =>
 /** Lê a saída JSON do `claude -p --output-format json`. Se o formato mudar, cai pro texto puro. */
 function lerClaudeJson(stdout: string): Pick<ResultadoTrabalho, "texto" | "tokens"> {
   try {
-    const j = JSON.parse(stdout);
+    // stream-json: uma linha por evento; o resultado final é o evento type=result.
+    const linhas = stdout.trim().split("\n");
+    const final =
+      [...linhas].reverse().find((l) => l.includes('"type":"result"')) ??
+      [...linhas].reverse().find((l) => l.includes('"result"')) ??
+      stdout;
+    const j = JSON.parse(final);
     const u = j.usage ?? {};
     const entrada =
       (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
@@ -44,6 +52,31 @@ function lerClaudeJson(stdout: string): Pick<ResultadoTrabalho, "texto" | "token
     };
   } catch {
     return { texto: stdout };
+  }
+}
+
+/** Transforma uma linha de saída do CLI numa frase curta de progresso (ou null se não interessa). */
+export function resumirProgresso(linha: string): string | null {
+  const t = linha.trim();
+  if (!t) return null;
+  try {
+    const j = JSON.parse(t);
+    const conteudo = j.message?.content ?? j.content;
+    if (Array.isArray(conteudo)) {
+      for (const c of conteudo) {
+        if (c.type === "tool_use") return `🔧 usando ${String(c.name).replace(/^mcp__office__/, "office/")}`;
+        if (c.type === "text" && c.text?.trim()) return `💬 ${c.text.trim().slice(0, 160)}`;
+      }
+    }
+    const item = j.item ?? j.msg ?? j;
+    if (item.type === "command_execution" || item.command) return `⚙️ ${String(item.command ?? "").slice(0, 120)}`;
+    if (item.type === "mcp_tool_call" || item.tool) return `🔧 usando ${item.server ? item.server + "/" : ""}${item.tool ?? item.name ?? ""}`;
+    const texto = item.text ?? item.message ?? item.delta;
+    if (typeof texto === "string" && texto.trim()) return `💬 ${texto.trim().slice(0, 160)}`;
+    if (j.type === "system" && j.subtype === "init") return "🟢 iniciou";
+    return null;
+  } catch {
+    return t.length > 3 ? t.slice(0, 160) : null;
   }
 }
 
@@ -77,12 +110,23 @@ export class CliAgent implements Funcionario {
     this.especialidades = cfg.especialidades ?? [];
   }
 
+  /**
+   * Monta os argumentos. Por padrão: [modelo] [saída json] [prompt].
+   * Se o template do prompt tiver "{modeloArgs}", o modelo vai exatamente ali
+   * (ex.: codex precisa de "exec ... -m X <prompt>", com o modelo depois do subcomando).
+   */
   montarArgs(prompt: string, modelo?: string): string[] {
     const m = resolverModelo(this.cfg, modelo);
+    const argsModelo = m && this.cfg.modelo ? substituir(this.cfg.modelo, { modelo: m }) : [];
+    const template = this.cfg.prompt;
+    const noLugar = template.includes("{modeloArgs}");
     const args: string[] = [];
-    if (m && this.cfg.modelo) args.push(...substituir(this.cfg.modelo, { modelo: m }));
+    if (!noLugar) args.push(...argsModelo);
     if (this.cfg.saidaJson) args.push(...this.cfg.saidaJson);
-    args.push(...substituir(this.cfg.prompt, { prompt }));
+    for (const parte of template) {
+      if (parte === "{modeloArgs}") args.push(...argsModelo);
+      else args.push(...substituir([parte], { prompt }));
+    }
     return args;
   }
 
@@ -90,9 +134,20 @@ export class CliAgent implements Funcionario {
     const caminho = localizar(this.cfg);
     if (!caminho) return { ok: false, texto: "", erro: `${this.cfg.nome} não está instalado.` };
 
+    let resto = "";
     const r = await rodar(caminho, this.montarArgs(prompt, opcoes.modelo), {
       cwd: opcoes.cwd,
       timeoutMs: opcoes.timeoutMs ?? 30 * 60_000,
+      aoReceber: opcoes.aoProgredir
+        ? (trecho) => {
+            const linhas = (resto + trecho).split("\n");
+            resto = linhas.pop() ?? "";
+            for (const l of linhas) {
+              const frase = resumirProgresso(l);
+              if (frase) opcoes.aoProgredir!(frase);
+            }
+          }
+        : undefined,
     });
     if (r.estourouTempo) return { ok: false, texto: r.stdout, erro: "Tempo esgotado." };
     if (r.codigo !== 0) return { ok: false, texto: r.stdout, erro: r.stderr.trim() || `Saiu com código ${r.codigo}` };

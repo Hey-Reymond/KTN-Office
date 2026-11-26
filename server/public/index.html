@@ -63,6 +63,13 @@
   .item .corpo { white-space: pre-wrap; word-break: break-word; }
   details summary { cursor: pointer; }
   .linha { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .vivo { border: 1px solid var(--borda); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+  .vivo .topo { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .vivo .pulso { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); animation: pulso 1.2s infinite; }
+  .vivo.parado .pulso { background: var(--alerta); animation: none; }
+  @keyframes pulso { 50% { opacity: .25; } }
+  .vivo ol { margin: 8px 0 0; padding-left: 18px; color: var(--suave); font-size: 12.5px; max-height: 170px; overflow-y: auto; }
+  .vivo ol li:last-child { color: var(--texto); }
   #aviso { position: fixed; bottom: 16px; right: 16px; background: var(--painel); border: 1px solid var(--borda); padding: 10px 14px; border-radius: 8px; display: none; max-width: 380px; }
 </style>
 </head>
@@ -106,6 +113,11 @@
   </div>
 
   <div class="coluna">
+    <section>
+      <h2>Trabalhando agora</h2>
+      <div id="aoVivo"></div>
+    </section>
+
     <section>
       <div class="linha" style="margin-bottom:8px">
         <h2 style="margin:0">Equipe e modelos</h2>
@@ -181,6 +193,9 @@ function render() {
     ? `A ${e.runner.coordenadora} vai ler sua mensagem em alguns segundos.`
     : "Ligue o expediente (lá em cima) pra equipe responder sozinha.";
   if (!editandoCfg) { $("#pasta").value = e.runner.pastaTrabalho; $("#maxHora").value = e.runner.maxPorHora; }
+
+  // Trabalhando agora: progresso ao vivo de cada IA
+  desenharAoVivo();
 
   // Chat com a coordenadora: mensagens de/para "humano"
   const chat = e.mensagens.filter((m) => m.de === "humano" || m.para === "humano");
@@ -258,6 +273,26 @@ function render() {
       <div class="meta">${hora(v.criado_em)} · ${esc(v.agente || "escritório")} <span class="pilula ${corEv[v.tipo] || ""}">${esc(v.tipo)}</span></div>
       <div class="corpo">${esc(v.texto)}</div></div>`).join("") : `<div class="vazio">Sem atividade ainda.</div>`;
 }
+
+const dur = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}min ${s % 60}s`; };
+function desenharAoVivo() {
+  if (!estado) return;
+  const trab = Object.entries(estado.runner.trabalhando);
+  const agora = Date.now();
+  $("#aoVivo").innerHTML = trab.length ? trab.map(([ia, t]) => {
+    const silencio = agora - t.ultimoSinal;
+    const parado = silencio > 90_000;
+    const passos = t.progresso.length ? t.progresso.map((p) => `<li>${esc(p.frase)}</li>`).join("")
+      : `<li>aguardando a primeira resposta da IA…</li>`;
+    return `<div class="vivo ${parado ? "parado" : ""}">
+      <div class="topo"><span class="pulso"></span><b>${esc(ia)}</b> <span class="pilula">${esc(t.oque)}</span>
+        ${t.modelo ? `<span class="pilula">${esc(t.modelo)}</span>` : ""}
+        <span class="espaco"></span><span class="meta">há ${dur(agora - t.desde)}</span></div>
+      <div class="meta" style="margin-top:4px">${parado ? `⚠️ sem sinal há ${dur(silencio)} (pode estar pensando ou travado)` : `último sinal há ${dur(silencio)}`}</div>
+      <ol>${passos}</ol></div>`;
+  }).join("") : `<div class="vazio">${estado.runner.ligado ? "Ninguém trabalhando agora. Quando uma IA acordar, o progresso dela aparece aqui ao vivo." : "Expediente desligado."}</div>`;
+}
+setInterval(desenharAoVivo, 1000);
 
 async function atualizar(forcar) {
   try { estado = await api("estado" + (forcar ? "?atualizar=1" : "")); render(); }

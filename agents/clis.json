@@ -17,7 +17,8 @@
     "modeloPadrao": "opus",
     "saidaJson": [
       "--output-format",
-      "json"
+      "stream-json",
+      "--verbose"
     ],
     "leitorSaida": "claude-json",
     "pastaConfig": "~/.claude",
@@ -77,7 +78,7 @@
       "{prompt}"
     ],
     "modelo": [
-      "-m",
+      "--model",
       "{modelo}"
     ],
     "pastaConfig": "~/.gemini/antigravity-cli",
@@ -144,6 +145,8 @@
     "prompt": [
       "exec",
       "--skip-git-repo-check",
+      "--json",
+      "{modeloArgs}",
       "{prompt}"
     ],
     "modelo": [
@@ -191,9 +194,6 @@
         "quando": "só o muito básico"
       }
     },
-    "saidaJson": [
-      "--json"
-    ],
     "leitorSaida": "json"
   },
   "gemini": {

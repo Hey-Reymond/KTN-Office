@@ -37,7 +37,10 @@ type Fabrica = (id: string, cfg: ConfigCli) => Funcionario;
  * tarefa aberta ou mensagem não lida, roda o CLI dela e registra o que aconteceu.
  */
 export class Runner {
-  private trabalhando = new Map<string, { desde: number; oque: string }>();
+  private trabalhando = new Map<
+    string,
+    { desde: number; oque: string; modelo?: string; ultimoSinal: number; progresso: { quando: number; frase: string }[] }
+  >();
   private execucoes = new Map<string, number[]>();
   private tentativas = new Map<number, number>();
   private timer?: NodeJS.Timeout;
@@ -174,9 +177,10 @@ export class Runner {
     trabalho: { prompt: string; modelo?: string; tarefa?: Tarefa; oque: string },
     cfg: ConfigRunner,
   ) {
-    this.trabalhando.set(id, { desde: Date.now(), oque: trabalho.oque });
-    this.execucoes.get(id)?.push(Date.now()) ?? this.execucoes.set(id, [Date.now()]);
     const modeloReal = resolverModelo(cli, trabalho.modelo);
+    const estado = { desde: Date.now(), oque: trabalho.oque, modelo: modeloReal, ultimoSinal: Date.now(), progresso: [] as { quando: number; frase: string }[] };
+    this.trabalhando.set(id, estado);
+    this.execucoes.get(id)?.push(Date.now()) ?? this.execucoes.set(id, [Date.now()]);
     this.escritorio.registrarEvento(id, "inicio", `Começou ${trabalho.oque}${modeloReal ? ` (modelo ${modeloReal})` : ""}.`);
     let r: ResultadoTrabalho;
     try {
@@ -185,6 +189,12 @@ export class Runner {
         modelo: trabalho.modelo,
         cwd: cfg.pastaTrabalho,
         timeoutMs: cfg.timeoutMin * 60_000,
+        aoProgredir: (frase) => {
+          estado.ultimoSinal = Date.now();
+          if (estado.progresso.at(-1)?.frase === frase) return;
+          estado.progresso.push({ quando: Date.now(), frase });
+          if (estado.progresso.length > 12) estado.progresso.shift();
+        },
       });
     } catch (e) {
       r = { ok: false, texto: "", erro: String(e) };

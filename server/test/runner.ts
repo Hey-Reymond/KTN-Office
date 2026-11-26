@@ -133,6 +133,8 @@ try {
     const rapida = esc.criarTarefa("x", "rápida", "", "antigravity");
     await par.ciclo(); // acorda os dois; claude fica preso
     await new Promise((r) => setTimeout(r, 50));
+    const vivo = par.estado().trabalhando as Record<string, { oque: string; progresso: unknown[] }>;
+    assert.ok(vivo.claude && vivo.claude.oque.startsWith("tarefa"), "interface vê quem está trabalhando e no quê");
     assert.equal(esc.tarefa(rapida.id)!.status, "entregue", "antigravity terminou sem esperar o claude");
     assert.deepEqual(ordem, ["antigravity"]);
     liberarLenta();
