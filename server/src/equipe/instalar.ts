@@ -14,25 +14,153 @@ export interface PlanoInstalacao {
   depois?: string;
 }
 
-const ehWindows = process.platform === "win32";
+export class InstalacaoCancelada extends Error {
+  constructor() {
+    super("Instalação cancelada.");
+    this.name = "InstalacaoCancelada";
+  }
+}
+
+/** Script de fallback para instalar o GitHub CLI (gh) sem precisar de admin/sudo. */
+const SCRIPT_GH_LINUX = [
+  'set -e',
+  'ARCH=$(uname -m); case "$ARCH" in x86_64|amd64) ARCH=amd64;; aarch64|arm64) ARCH=arm64;; *) echo "Arquitetura não suportada: $ARCH" >&2; exit 1;; esac',
+  'VER=$(curl -fsSL https://api.github.com/repos/cli/cli/releases/latest | sed -n \'s/.*"tag_name": *"v\\([^"]*\\)".*/\\1/p\' | head -n1)',
+  '[ -n "$VER" ] || { echo "Não consegui descobrir a última versão do gh." >&2; exit 1; }',
+  'TMP=$(mktemp -d); trap \'rm -rf "$TMP"\' EXIT',
+  'echo "Baixando GitHub CLI v$VER (linux/$ARCH)..."',
+  'curl -fL "https://github.com/cli/cli/releases/download/v${VER}/gh_${VER}_linux_${ARCH}.tar.gz" -o "$TMP/gh.tgz"',
+  'tar -xzf "$TMP/gh.tgz" -C "$TMP"',
+  'mkdir -p "$HOME/.local/bin"',
+  'cp "$TMP/gh_${VER}_linux_${ARCH}/bin/gh" "$HOME/.local/bin/gh"',
+  'chmod +x "$HOME/.local/bin/gh"',
+  'echo "GitHub CLI v$VER instalado em $HOME/.local/bin/gh"',
+].join("; ");
+
+const SCRIPT_GH_MACOS = [
+  'set -e',
+  'ARCH=$(uname -m); case "$ARCH" in x86_64) ARCH=amd64;; arm64) ARCH=arm64;; *) echo "Arquitetura não suportada: $ARCH" >&2; exit 1;; esac',
+  'VER=$(curl -fsSL https://api.github.com/repos/cli/cli/releases/latest | sed -n \'s/.*"tag_name": *"v\\([^"]*\\)".*/\\1/p\' | head -n1)',
+  '[ -n "$VER" ] || { echo "Não consegui descobrir a última versão do gh." >&2; exit 1; }',
+  'TMP=$(mktemp -d); trap \'rm -rf "$TMP"\' EXIT',
+  'echo "Baixando GitHub CLI v$VER (macOS/$ARCH)..."',
+  'curl -fL "https://github.com/cli/cli/releases/download/v${VER}/gh_${VER}_macOS_${ARCH}.zip" -o "$TMP/gh.zip"',
+  'unzip -q "$TMP/gh.zip" -d "$TMP"',
+  'mkdir -p "$HOME/.local/bin"',
+  'cp "$TMP/gh_${VER}_macOS_${ARCH}/bin/gh" "$HOME/.local/bin/gh"',
+  'chmod +x "$HOME/.local/bin/gh"',
+  'echo "GitHub CLI v$VER instalado em $HOME/.local/bin/gh"',
+].join("; ");
+
+const SCRIPT_GH_WINDOWS = [
+  '$ErrorActionPreference = "Stop"',
+  '$arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq "Arm64") { "arm64" } else { "amd64" }',
+  '$rel = Invoke-RestMethod "https://api.github.com/repos/cli/cli/releases/latest"',
+  '$ver = $rel.tag_name.TrimStart("v")',
+  '$url = "https://github.com/cli/cli/releases/download/v$ver/gh_${ver}_windows_${arch}.zip"',
+  '$tmp = Join-Path $env:TEMP ("ktn-gh-" + [guid]::NewGuid().ToString("N"))',
+  'New-Item -ItemType Directory -Force -Path $tmp | Out-Null',
+  'Write-Output "Baixando GitHub CLI v$ver (windows/$arch)..."',
+  'Invoke-WebRequest -Uri $url -OutFile "$tmp\\gh.zip"',
+  'Expand-Archive -Path "$tmp\\gh.zip" -DestinationPath $tmp -Force',
+  '$dest = Join-Path $env:LOCALAPPDATA "ktn-office\\bin"',
+  'New-Item -ItemType Directory -Force -Path $dest | Out-Null',
+  'Copy-Item "$tmp\\bin\\gh.exe" "$dest\\gh.exe" -Force',
+  'Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue',
+  '$userPath = [Environment]::GetEnvironmentVariable("Path", "User")',
+  'if ($userPath -notlike "*$dest*") { [Environment]::SetEnvironmentVariable("Path", "$userPath;$dest", "User") }',
+  'Write-Output "GitHub CLI v$ver instalado em $dest\\gh.exe"',
+].join("; ");
+
+/** Monta o plano de instalação do GitHub CLI (gh) para Windows, Ubuntu/Linux e macOS. */
+export function planejarInstalacaoGh(
+  plataforma: NodeJS.Platform = process.platform,
+  temComando: (cmd: string) => string | null = (c) => acharNoPath(c),
+): PlanoInstalacao {
+  const depois = 'Depois clique em "Entrar no GitHub" (ou rode gh auth login) para conectar sua conta.';
+  if (plataforma === "win32") {
+    if (temComando("winget")) {
+      return {
+        possivel: true,
+        comando: "winget",
+        args: ["install", "--id", "GitHub.cli", "-e", "--accept-source-agreements", "--accept-package-agreements", "--silent"],
+        descricao: "winget install --id GitHub.cli -e",
+        depois,
+      };
+    }
+    return {
+      possivel: true,
+      comando: "powershell",
+      args: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", SCRIPT_GH_WINDOWS],
+      descricao: "Baixar binário oficial do GitHub CLI (gh) em %LOCALAPPDATA%\\ktn-office\\bin",
+      depois,
+    };
+  }
+  if (plataforma === "darwin") {
+    if (temComando("brew")) {
+      return {
+        possivel: true,
+        comando: "brew",
+        args: ["install", "gh"],
+        descricao: "brew install gh",
+        depois,
+      };
+    }
+    if (!temComando("curl") || !temComando("unzip")) {
+      return {
+        possivel: false,
+        descricao: "Precisa do Homebrew (brew) ou de curl + unzip para instalar o gh no macOS.",
+      };
+    }
+    return {
+      possivel: true,
+      comando: "bash",
+      args: ["-c", SCRIPT_GH_MACOS],
+      descricao: "Baixar binário oficial do GitHub CLI (gh) em ~/.local/bin/gh",
+      depois,
+    };
+  }
+  if (!temComando("curl") || !temComando("tar")) {
+    return {
+      possivel: false,
+      descricao: "Precisa de curl e tar para instalar o gh no Linux (Ubuntu).",
+    };
+  }
+  return {
+    possivel: true,
+    comando: "bash",
+    args: ["-c", SCRIPT_GH_LINUX],
+    descricao: "Baixar binário oficial do GitHub CLI (gh) em ~/.local/bin/gh (sem precisar de sudo)",
+    depois,
+  };
+}
 
 /** Monta o plano. Não executa nada: quem chama mostra ao usuário e pede confirmação. */
-export function planejarInstalacao(cfg: ConfigCli): PlanoInstalacao {
+export function planejarInstalacao(
+  cfg: ConfigCli,
+  plataforma: NodeJS.Platform = process.platform,
+  temComando: (cmd: string) => string | null = (c) => acharNoPath(c),
+): PlanoInstalacao {
   const inst = cfg.instalar ?? {};
-  const script = ehWindows ? inst.windows : inst.unix;
+  const ehWin = plataforma === "win32";
+  const script = ehWin
+    ? inst.windows
+    : plataforma === "darwin"
+      ? (inst.macos ?? inst.unix)
+      : (inst.linux ?? inst.unix);
 
   // Instalador oficial do fabricante tem prioridade sobre npm.
   if (script) {
     return {
       possivel: true,
-      comando: ehWindows ? "powershell" : "bash",
-      args: ehWindows ? ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script] : ["-c", script],
+      comando: ehWin ? "powershell" : "bash",
+      args: ehWin ? ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script] : ["-c", script],
       descricao: script,
       depois: `${cfg.login ?? ""} Se o comando não for encontrado, abra um terminal novo (o PATH muda só em janelas novas).`.trim(),
     };
   }
   if (!inst.npm) return { possivel: false, descricao: `${cfg.nome} não tem instalação automática. Adicione manualmente.` };
-  if (!acharNoPath("npm")) {
+  if (!temComando("npm")) {
     return {
       possivel: false,
       descricao: "Precisa do Node.js (com npm) pra instalar. Baixe em https://nodejs.org e rode a detecção de novo.",
@@ -47,9 +175,15 @@ export function planejarInstalacao(cfg: ConfigCli): PlanoInstalacao {
   };
 }
 
-export async function executarInstalacao(plano: PlanoInstalacao, aoReceber?: (t: string) => void) {
+export async function executarInstalacao(
+  plano: PlanoInstalacao,
+  aoReceber?: (t: string) => void,
+  signal?: AbortSignal,
+) {
   if (!plano.possivel || !plano.comando) throw new Error(plano.descricao);
-  const r = await rodar(plano.comando, plano.args ?? [], { timeoutMs: 10 * 60_000, aoReceber });
+  const r = await rodar(plano.comando, plano.args ?? [], { timeoutMs: 10 * 60_000, aoReceber, signal });
+  if (r.cancelado || signal?.aborted) throw new InstalacaoCancelada();
+  if (r.estourouTempo) throw new Error("A instalação demorou mais de 10 minutos e foi interrompida.");
   if (r.codigo !== 0) throw new Error(`Instalação falhou (código ${r.codigo}). Veja o log acima.`);
 }
 

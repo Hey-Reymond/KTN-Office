@@ -6,6 +6,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import type { Escritorio } from "./db.js";
+import { acharNoPath } from "./equipe/detectar.js";
 import { rodar } from "./equipe/processo.js";
 
 export interface ConfigGithub {
@@ -19,13 +20,26 @@ export interface ConfigGithub {
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 const LIMITE = 60_000;
 
+/** Pastas extras onde o instalador rápido coloca o gh (antes do PATH atualizar). */
+export const CAMINHOS_GH = [
+  "~/.local/bin",
+  "/opt/homebrew/bin",
+  "/usr/local/bin",
+  "~/AppData/Local/ktn-office/bin",
+  "~/AppData/Local/Programs/GitHub CLI",
+  "C:\\Program Files\\GitHub CLI",
+];
+
+/** Procura o executável do GitHub CLI (gh) no PATH e nas pastas padrão de instalação. */
+export const localizarGh = () => acharNoPath("gh", CAMINHOS_GH);
+
 export const lerConfigGithub = (esc: Escritorio) => esc.lerConfig<ConfigGithub>("github", {});
 
 async function gh(args: string[], opcoes: { cwd?: string; entrada?: string } = {}) {
-  const r = await rodar("gh", args, { cwd: opcoes.cwd, timeoutMs: 120_000, entrada: opcoes.entrada });
+  const r = await rodar(localizarGh() ?? "gh", args, { cwd: opcoes.cwd, timeoutMs: 120_000, entrada: opcoes.entrada });
   if (r.codigo !== 0) {
     const msg = (r.stderr || r.stdout).trim().split("\n").slice(-4).join(" ");
-    throw new Error(r.codigo === null || /ENOENT|não é reconhecido|is not recognized/i.test(msg) ? "O GitHub CLI (gh) não foi encontrado. Instale em cli.github.com e rode 'gh auth login'." : msg || `gh saiu com código ${r.codigo}`);
+    throw new Error(r.codigo === null || /ENOENT|não é reconhecido|is not recognized/i.test(msg) ? "O GitHub CLI (gh) não foi encontrado. Instale pelo botão abaixo ou em cli.github.com e rode 'gh auth login'." : msg || `gh saiu com código ${r.codigo}`);
   }
   return r.stdout;
 }

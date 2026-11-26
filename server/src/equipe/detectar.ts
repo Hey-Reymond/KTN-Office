@@ -125,7 +125,7 @@ export async function detectarUm(id: string, cfg: ConfigCli): Promise<Deteccao> 
     versao: null,
     login: "desconhecido",
     office: "desconhecido",
-    podeInstalar: !!(cfg.instalar?.npm || cfg.instalar?.windows || cfg.instalar?.unix),
+    podeInstalar: !!(cfg.instalar?.npm || cfg.instalar?.windows || cfg.instalar?.linux || cfg.instalar?.macos || cfg.instalar?.unix),
     dicaLogin: cfg.login,
     aviso: cfg.aviso,
     experimental: cfg.experimental || cfg.tipo === "api",

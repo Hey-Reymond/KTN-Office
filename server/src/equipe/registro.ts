@@ -39,6 +39,8 @@ export interface ConfigCli {
     npm?: string;
     /** Comando de instalação oficial (PowerShell no Windows, bash no Linux/Mac). */
     windows?: string;
+    linux?: string;
+    macos?: string;
     unix?: string;
     /** Pastas onde o instalador costuma colocar o executável (quando o PATH ainda não foi atualizado). */
     caminhosExtras?: string[];

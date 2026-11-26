@@ -3,13 +3,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Escritorio } from "./db.js";
 import { detectarEquipe, localizar, type Deteccao } from "./equipe/detectar.js";
-import { conectarAoOffice, liberarFerramentasOffice } from "./equipe/instalar.js";
+import { conectarAoOffice, liberarFerramentasOffice, planejarInstalacao, planejarInstalacaoGh } from "./equipe/instalar.js";
+import { GerenciadorInstalacoes, GerenciadorLoginGh } from "./equipe/instalador-rapido.js";
 import { catalogoComEstado, testarModelos, type ProgressoTeste } from "./equipe/modelos.js";
 import { carregarRegistro, definirModelo } from "./equipe/registro.js";
 import type { Runner } from "./runner.js";
 import { aplicarFerramenta, catalogoFerramentas, estadoFerramentas, navegadoresInstalados, prepararNavegador } from "./ferramentas.js";
 import { exigePerguntar } from "./ferramentas.js";
-import { lerConfigGithub, reposDaConta, statusGithub } from "./github.js";
+import { lerConfigGithub, localizarGh, reposDaConta, statusGithub } from "./github.js";
 import { aplicarNoProjeto, ehRepositorio, limparWorktrees } from "./git.js";
 import { pastaDoChat } from "./integracao.js";
 import { salvarAnexos, textoAnexos } from "./anexos.js";
@@ -30,8 +31,8 @@ const PUBLICO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../p
  */
 let cacheGh: { quando: number; valor: Awaited<ReturnType<typeof statusGithub>> } | null = null;
 /** Pergunta ao gh quem está logado, no máximo uma vez por minuto (a interface consulta o estado a cada poucos segundos). */
-async function statusGithubCache() {
-  if (!cacheGh || Date.now() - cacheGh.quando > 60_000) cacheGh = { quando: Date.now(), valor: await statusGithub() };
+async function statusGithubCache(forcar = false) {
+  if (forcar || !cacheGh || Date.now() - cacheGh.quando > 60_000) cacheGh = { quando: Date.now(), valor: await statusGithub() };
   return cacheGh.valor;
 }
 
@@ -45,6 +46,37 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
     detectando ??= detectarEquipe().finally(() => (detectando = null));
     deteccao = { quando: Date.now(), dados: await detectando };
     return deteccao.dados;
+  };
+
+  const instalador = new GerenciadorInstalacoes({
+    aoTerminar: async (id, st) => {
+      if (st.status === "concluido") {
+        escritorio.registrarEvento(null, "config", `${st.nome} instalado pelo instalador rápido.`);
+        if (id === "gh") cacheGh = null;
+        else await equipe(true);
+      } else if (st.status === "cancelado") {
+        escritorio.registrarEvento(null, "config", `Instalação de ${st.nome} cancelada.`);
+      } else if (st.status === "erro") {
+        escritorio.registrarEvento(null, "erro", `Falha ao instalar ${st.nome}: ${st.erro || "erro desconhecido"}`);
+      }
+    },
+  });
+
+  const loginGh = new GerenciadorLoginGh(async () => {
+    cacheGh = null;
+    escritorio.registrarEvento(null, "config", "Conta do GitHub conectada pelo gh.");
+  });
+
+  const planosInstalacao = () => {
+    const out: Record<string, { possivel: boolean; descricao: string; depois?: string }> = {
+      gh: (({ possivel, descricao, depois }) => ({ possivel, descricao, depois }))(planejarInstalacaoGh()),
+    };
+    for (const [id, cfg] of Object.entries(carregarRegistro())) {
+      if (cfg.ativo === false || cfg.tipo === "api") continue;
+      const p = planejarInstalacao(cfg);
+      out[id] = { possivel: p.possivel, descricao: p.descricao, depois: p.depois };
+    }
+    return out;
   };
 
   const protegido = (req: Request, res: Response, next: NextFunction) => {
@@ -69,38 +101,48 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
 
   api.get(
     "/estado",
-    tentar(async (req) => ({
-      equipe: await equipe(req.query.atualizar === "1"),
-      status: escritorio.statusEquipe(),
-      tarefas: escritorio.listarTarefas().slice(-60).reverse(),
-      mensagens: escritorio.mensagensRecentes(400),
-      conversas: escritorio.listarConversas().map((c) => ({ ...c, pastaEfetiva: pastaDoChat(escritorio, c.id) })),
-      eventos: escritorio.eventosRecentes(60),
-      modelos: catalogoComEstado(),
-      teste,
-      runner: runner.estado(),
-      revisaoCruzada: escritorio.lerConfig("revisaoCruzada", true),
-      notificacoes: escritorio.lerConfig<ConfigNotificacoes>("notificacoes", {}),
-      provedores: PROVEDORES,
-      github: { ...lerConfigGithub(escritorio), ...(await statusGithubCache()) },
-      receitas: listarReceitas(),
-      agendamentos: escritorio.listarAgendamentos().map((a) => ({ ...a, quando: descrever(a) })),
-      projetos: escritorio.listarProjetos(15),
-      foraDaEquipe: escritorio.lerConfig<string[]>("foraDaEquipe", []),
-      ferramentas: {
-        catalogo: catalogoFerramentas(),
-        estado: estadoFerramentas(escritorio),
-        navegadores: navegadoresInstalados(),
-        sistema: process.platform,
-        // Para ferramentas exclusivas (controle da tela): IAs instaladas que pedem permissão a cada ação.
-        iasQuePedem: Object.entries(carregarRegistro()).filter(([, c]) => c.ativo !== false && c.conexaoOffice === "claude-mcp" && localizar(c)).map(([id]) => id),
-      },
-      permissoes: {
-        pendentes: escritorio.pedidosPendentes(),
-        niveis: Object.fromEntries(Object.keys(carregarRegistro()).map((id) => [id, escritorio.nivelDe(id)])),
-        sempre: Object.fromEntries(Object.keys(carregarRegistro()).map((id) => [id, escritorio.sempreDe(id)])),
-      },
-    })),
+    tentar(async (req) => {
+      const forcar = req.query.atualizar === "1";
+      return {
+        equipe: await equipe(forcar),
+        status: escritorio.statusEquipe(),
+        tarefas: escritorio.listarTarefas().slice(-60).reverse(),
+        mensagens: escritorio.mensagensRecentes(400),
+        conversas: escritorio.listarConversas().map((c) => ({ ...c, pastaEfetiva: pastaDoChat(escritorio, c.id) })),
+        eventos: escritorio.eventosRecentes(60),
+        modelos: catalogoComEstado(),
+        teste,
+        instalacoes: instalador.listar(),
+        planosInstalacao: planosInstalacao(),
+        runner: runner.estado(),
+        revisaoCruzada: escritorio.lerConfig("revisaoCruzada", true),
+        notificacoes: escritorio.lerConfig<ConfigNotificacoes>("notificacoes", {}),
+        provedores: PROVEDORES,
+        github: {
+          ...lerConfigGithub(escritorio),
+          ...(await statusGithubCache(forcar)),
+          instalado: !!localizarGh(),
+          login: loginGh.estado(),
+        },
+        receitas: listarReceitas(),
+        agendamentos: escritorio.listarAgendamentos().map((a) => ({ ...a, quando: descrever(a) })),
+        projetos: escritorio.listarProjetos(15),
+        foraDaEquipe: escritorio.lerConfig<string[]>("foraDaEquipe", []),
+        ferramentas: {
+          catalogo: catalogoFerramentas(),
+          estado: estadoFerramentas(escritorio),
+          navegadores: navegadoresInstalados(),
+          sistema: process.platform,
+          // Para ferramentas exclusivas (controle da tela): IAs instaladas que pedem permissão a cada ação.
+          iasQuePedem: Object.entries(carregarRegistro()).filter(([, c]) => c.ativo !== false && c.conexaoOffice === "claude-mcp" && localizar(c)).map(([id]) => id),
+        },
+        permissoes: {
+          pendentes: escritorio.pedidosPendentes(),
+          niveis: Object.fromEntries(Object.keys(carregarRegistro()).map((id) => [id, escritorio.nivelDe(id)])),
+          sempre: Object.fromEntries(Object.keys(carregarRegistro()).map((id) => [id, escritorio.sempreDe(id)])),
+        },
+      };
+    }),
   );
 
   api.post(
@@ -418,6 +460,36 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       await equipe(true);
       return { mensagens: msgs };
     }),
+  );
+
+  // ---------- Instalador rápido de CLIs (IAs e GitHub CLI gh) ----------
+  api.post(
+    "/instalar",
+    protegido,
+    tentar((req) => instalador.iniciar(String(req.body?.id ?? "").trim())),
+  );
+  api.post(
+    "/instalar/cancelar",
+    protegido,
+    tentar((req) => instalador.cancelar(String(req.body?.id ?? "").trim())),
+  );
+  api.post(
+    "/instalar/limpar",
+    protegido,
+    tentar((req) => {
+      instalador.limpar(String(req.body?.id ?? "").trim());
+    }),
+  );
+
+  api.post(
+    "/github/login",
+    protegido,
+    tentar(() => loginGh.iniciar()),
+  );
+  api.post(
+    "/github/login/cancelar",
+    protegido,
+    tentar(() => loginGh.cancelar()),
   );
 
   app.use("/api", api);

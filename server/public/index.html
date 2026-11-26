@@ -263,6 +263,31 @@
   #aviso { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--elevado); border: 1px solid var(--linha-forte); padding: 10px 16px; border-radius: 10px; z-index: 30; box-shadow: 0 10px 30px rgba(0,0,0,.35); font-size: 13.5px; max-width: 560px; }
   #aviso[hidden] { display: none; }
 
+  /* ---------- Instalador rápido (barra de progresso + botão X) ---------- */
+  .progInst { margin-top: 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--linha-forte); background: var(--lateral); display: grid; gap: 7px; }
+  .progInst.erro { border-color: color-mix(in srgb, var(--erro) 45%, transparent); }
+  .progInst.concluido { border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+  .progInst.cancelado { border-color: color-mix(in srgb, var(--alerta) 45%, transparent); }
+  .progInst .topoInst { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+  .progInst .etapaInst { flex: 1; min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .progInst .pctInst { font-variant-numeric: tabular-nums; color: var(--suave); font-size: 12px; }
+  .btnCancelarInst { width: 24px; height: 24px; flex: none; display: grid; place-items: center; border-radius: 6px; border: 1px solid var(--linha-forte); background: var(--superficie); color: var(--suave); font-size: 15px; line-height: 1; padding: 0; transition: background .15s, color .15s, border-color .15s; }
+  .btnCancelarInst:hover { background: color-mix(in srgb, var(--erro) 18%, transparent); border-color: var(--erro); color: var(--erro); }
+  .trilhoInst { height: 7px; border-radius: 999px; background: var(--linha); overflow: hidden; }
+  .cheioInst { height: 100%; border-radius: 999px; background: var(--acento); transition: width .35s ease; }
+  .progInst.ativo .cheioInst { background: linear-gradient(90deg, var(--acento), var(--acento-forte), var(--acento)); background-size: 200% 100%; animation: deslizaInst 1.4s linear infinite; }
+  .progInst.concluido .cheioInst { background: var(--ok); }
+  .progInst.erro .cheioInst { background: var(--erro); }
+  .progInst.cancelado .cheioInst { background: var(--alerta); }
+  @keyframes deslizaInst { from { background-position: 200% 0; } to { background-position: 0 0; } }
+  .progInst .msgInst { font-size: 12.5px; color: var(--suave); }
+  .progInst.erro .msgInst { color: var(--erro); }
+  .progInst .acoesInst { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .logInst summary { cursor: pointer; font-size: 12px; color: var(--fraco); user-select: none; }
+  .logInst pre { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--fundo); border: 1px solid var(--linha); font: 11.5px/1.45 var(--mono); max-height: 150px; overflow: auto; white-space: pre-wrap; word-break: break-word; color: var(--suave); }
+  .ghLoginBox { margin-top: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--acento) 45%, transparent); background: var(--lateral); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+  .ghCodigo { font: 700 15px/1 var(--mono); letter-spacing: 1.5px; padding: 5px 10px; border-radius: 8px; background: var(--superficie); border: 1px solid var(--linha-forte); user-select: all; }
+
   @media (max-width: 1100px) { .atividade { position: fixed; right: 0; top: 0; z-index: 10; box-shadow: -20px 0 40px rgba(0,0,0,.35); } }
   @media (max-width: 760px) {
     .app { grid-template-columns: 1fr; }
@@ -762,13 +787,65 @@ function seloCota(c) {
   if (c.percentual_usado == null) return c.execucoes_5h ? `<span class="selo" title="${t}">${c.execucoes_5h} exec. em 5h</span>` : "";
   return `<span class="selo ${c.situacao === "baixa" ? "alerta" : ""}" title="${t}. Fonte: ${c.fonte}${c.renova_em ? ". Renova às " + horaCurta(c.renova_em) : ""}">cota ${c.percentual_usado}% usada</span>`;
 }
+const logsInstAbertos = new Set();
+const instAtiva = (st) => !!st && ["preparando", "instalando", "conectando"].includes(st.status);
+function temTrabalhoRapido() {
+  const insts = Object.values(estado?.instalacoes || {});
+  return insts.some(instAtiva) || estado?.github?.login?.status === "aguardando";
+}
+function desenharProgressoInst(id) {
+  const st = estado?.instalacoes?.[id];
+  if (!st) return "";
+  const ativo = instAtiva(st);
+  const cls = ativo ? "ativo" : st.status;
+  const pct = Math.max(0, Math.min(100, Number(st.progresso) || 0));
+  const btnX = ativo
+    ? `<button type="button" class="btnCancelarInst" data-inst-cancelar="${esc(id)}" title="Cancelar instalação" aria-label="Cancelar instalação de ${esc(st.nome)}">×</button>`
+    : `<button type="button" class="btnCancelarInst" data-inst-limpar="${esc(id)}" title="Fechar" aria-label="Fechar aviso de ${esc(st.nome)}">×</button>`;
+  const texto = st.status === "erro"
+    ? st.erro
+    : st.status === "concluido"
+      ? [st.mensagem, st.depois].filter(Boolean).join(" ")
+      : st.status === "cancelado"
+        ? "A instalação foi interrompida."
+        : "";
+  const acoes = (st.status === "erro" || st.status === "cancelado")
+    ? `<div class="acoesInst"><button type="button" class="btn pequeno" data-instalar="${esc(id)}">Tentar de novo</button></div>`
+    : "";
+  const aberto = logsInstAbertos.has(id) ? " open" : "";
+  const log = st.log ? `<details class="logInst" data-inst-log="${esc(id)}"${aberto}><summary>Ver saída</summary><pre>${esc(st.log)}</pre></details>` : "";
+  return `<div class="progInst ${cls}" role="status" aria-live="polite">
+    <div class="topoInst"><span class="etapaInst">${esc(st.etapa)}</span><span class="pctInst">${pct}%</span>${btnX}</div>
+    <div class="trilhoInst"><div class="cheioInst" style="width:${pct}%"></div></div>
+    ${texto ? `<div class="msgInst">${esc(texto)}</div>` : ""}${acoes}${log}
+  </div>`;
+}
+function desenharLoginGh(login) {
+  if (!login || login.status === "ocioso" || login.status === "concluido") return "";
+  if (login.status === "aguardando") {
+    const url = login.url || "https://github.com/login/device";
+    return `<div class="ghLoginBox">
+      <span>${login.codigo ? "Digite este código no GitHub:" : "Gerando código de login do GitHub…"}</span>
+      ${login.codigo ? `<span class="ghCodigo" title="Clique para selecionar">${esc(login.codigo)}</span>` : ""}
+      <a class="btn pequeno primario" href="${esc(url)}" target="_blank" rel="noopener">Abrir GitHub</a>
+      <button type="button" class="btnCancelarInst" data-gh-login-cancelar="1" title="Cancelar login" aria-label="Cancelar login do GitHub" style="margin-left:auto">×</button>
+    </div>`;
+  }
+  if (login.status === "erro") {
+    return `<div class="msgInst" style="color:var(--erro);margin-top:8px">${esc(login.erro || "Falha no login do GitHub.")}</div>`;
+  }
+  return "";
+}
 function renderConfig() {
   const e = estado; if (!e || editandoCfg) return;
   desenharReceitas();
+  const planos = e.planosInstalacao || {};
   // Equipe e modelos
-  $("#equipe").innerHTML = e.equipe.map((d) => {
+  const cardsEquipe = e.equipe.map((d) => {
     const cat = e.modelos.find((c) => c.cli === d.id);
     const st = e.status.find((s) => s.agente === d.id);
+    const inst = e.instalacoes?.[d.id];
+    const plano = planos[d.id];
     const selos = [
       d.instalado ? `<span class="selo">${esc(d.versao || "instalado")}</span>` : `<span class="selo erro">não instalado</span>`,
       d.experimental ? `<span class="selo alerta" title="Ainda não testado com uso real: pode precisar de ajuste. Se algo der errado, abra uma issue no GitHub do projeto.">experimental</span>` : "",
@@ -778,7 +855,13 @@ function renderConfig() {
       e.runner.pausadas?.[d.id] ? `<span class="selo erro">pausada</span>` : "",
     ].join("");
     const direita = !d.instalado
-      ? (d.podeInstalar ? `<span class="selo">instale com: npm run equipe -- instalar ${esc(d.id)}</span>` : "")
+      ? instAtiva(inst)
+        ? `<span class="selo acento">instalando…</span>`
+        : plano?.possivel
+          ? `<button type="button" class="btn pequeno primario" data-instalar="${esc(d.id)}" title="${esc(plano.descricao)}">Instalar</button>`
+          : d.podeInstalar
+            ? `<span class="selo alerta" title="${esc(plano?.descricao || "")}">precisa de pré-requisito</span>`
+            : ""
       : `${d.api ? `<button class="btn pequeno" data-remover-api="${esc(d.id)}">Remover</button>` : ""}${d.office !== "conectado" ? `<button class="btn pequeno" data-conectar="${esc(d.id)}">Conectar ao escritório</button>` : ""}
          <label class="interruptor"><input type="checkbox" data-equipe="${esc(d.id)}" ${e.foraDaEquipe.includes(d.id) ? "" : "checked"}><span class="trilho"></span>Na equipe</label>`;
     const modelos = !cat ? "" : `<div class="modelos">${cat.modelos.map((m) => {
@@ -801,8 +884,35 @@ function renderConfig() {
         ${st?.cota?.situacao === "sem_cota" ? `<button class="btn pequeno" data-liberar="${esc(d.id)}">Já renovou</button>` : ""}
         <span style="color:var(--fraco);font-size:12px">${st?.cota?.fonte === "informada pelo CLI" ? "Este CLI informa a cota sozinho." : "Se o CLI não informar, o Office estima pelo limite que você colocar."}</span></div>`;
     const aviso = d.instalado && d.aviso ? `<div class="linhaPerm" style="color:var(--alerta, #c08a00)">⚠️ ${esc(d.aviso)}</div>` : "";
-    return `<div class="membroCfg"><div class="cab">${avatar(d.id)}<span class="nome">${esc(d.nome)}</span><span class="selos">${selos}</span><span class="direita">${direita}</span></div>${aviso}${perm}${modelos}</div>`;
+    const dicaPrereq = !d.instalado && !inst && plano && !plano.possivel ? `<div class="linhaPerm" style="color:var(--alerta)">${esc(plano.descricao)}</div>` : "";
+    const prog = desenharProgressoInst(d.id);
+    return `<div class="membroCfg"><div class="cab">${avatar(d.id)}<span class="nome">${esc(d.nome)}</span><span class="selos">${selos}</span><span class="direita">${direita}</span></div>${dicaPrereq}${prog}${aviso}${perm}${modelos}</div>`;
   }).join("");
+
+  // GitHub CLI (gh) também aparece aqui pra ficar fácil instalar todos os CLIs sem abrir terminal.
+  const gh = e.github || {};
+  const planoGh = planos.gh;
+  const instGh = e.instalacoes?.gh;
+  const ghSelos = gh.disponivel
+    ? `<span class="selo ok">instalado</span><span class="selo ok">logado como ${esc(gh.usuario)}</span>`
+    : gh.instalado
+      ? `<span class="selo ok">instalado</span><span class="selo alerta">sem login</span>`
+      : `<span class="selo erro">não instalado</span>`;
+  const ghDireita = !gh.instalado
+    ? instAtiva(instGh)
+      ? `<span class="selo acento">instalando…</span>`
+      : planoGh?.possivel
+        ? `<button type="button" class="btn pequeno primario" data-instalar="gh" title="${esc(planoGh.descricao)}">Instalar</button>`
+        : `<span class="selo alerta" title="${esc(planoGh?.descricao || "")}">indisponível</span>`
+    : !gh.disponivel
+      ? `<button type="button" class="btn pequeno primario" data-gh-login="1" ${gh.login?.status === "aguardando" ? "disabled" : ""}>Entrar no GitHub</button>`
+      : `<span class="selo">pronto em Ferramentas → GitHub</span>`;
+  const cardGhEquipe = `<div class="membroCfg"><div class="cab"><span class="av" style="--cor:var(--linha-forte);color:var(--texto)" aria-hidden="true">gh</span><span class="nome">GitHub CLI (gh)</span><span class="selos">${ghSelos}</span><span class="direita">${ghDireita}</span></div>
+    <p style="color:var(--suave);font-size:12.5px;margin:6px 0 0">Dá acesso seguro ao GitHub para todas as IAs da equipe (issues, PRs, clonar repositórios).</p>
+    ${!gh.instalado && !instGh && planoGh && !planoGh.possivel ? `<div class="linhaPerm" style="color:var(--alerta)">${esc(planoGh.descricao)}</div>` : ""}
+    ${desenharProgressoInst("gh")}${gh.instalado && !gh.disponivel ? desenharLoginGh(gh.login) : ""}</div>`;
+
+  $("#equipe").innerHTML = cardsEquipe + cardGhEquipe;
   const t = e.teste;
   $("#progressoTeste").textContent = t
     ? t.rodando ? `Testando ${t.atual || ""} (${t.feitos} de ${t.total})…` : `Último teste: ${t.resultados.filter((r) => r.ok).length} de ${t.total} modelos responderam.`
@@ -990,13 +1100,32 @@ $("#expediente").addEventListener("change", async (ev) => { await api("runner", 
 let reposDaConta = null;
 function desenharGithub(g) {
   const repos = g.repos || [];
+  const planoGh = estado?.planosInstalacao?.gh;
+  const instGh = estado?.instalacoes?.gh;
   const lista = reposDaConta
     ? reposDaConta.map((r) => `<label class="selo chip" title="${esc(r.descricao)}"><input type="checkbox" data-gh-repo="${esc(r.nome)}" ${repos.includes(r.nome) ? "checked" : ""}> ${esc(r.nome)}${r.privado ? " 🔒" : ""}</label>`).join("")
     : repos.map((r) => `<span class="selo">${esc(r)}</span>`).join("") || `<span style="color:var(--fraco);font-size:12.5px">Nenhum repositório liberado.</span>`;
-  $("#cardGithub").innerHTML = `<div class="cab"><span class="nome">GitHub</span><span class="selos">${g.disponivel ? `<span class="selo ok">logado como ${esc(g.usuario)}</span>` : `<span class="selo alerta">gh não encontrado ou sem login</span>`}</span>
+  const seloGh = g.disponivel
+    ? `<span class="selo ok">logado como ${esc(g.usuario)}</span>`
+    : g.instalado
+      ? `<span class="selo ok">gh instalado</span><span class="selo alerta">sem login</span>`
+      : `<span class="selo alerta">gh não instalado</span>`;
+  const acoesSemLogin = !g.instalado
+    ? `<div class="linhaPerm"><span>Instalação</span>
+        ${instAtiva(instGh)
+          ? `<span class="selo acento">instalando…</span>`
+          : planoGh?.possivel
+            ? `<button type="button" class="btn pequeno primario" data-instalar="gh" title="${esc(planoGh.descricao)}">Instalar GitHub CLI (gh)</button>`
+            : `<span style="color:var(--alerta);font-size:12.5px">${esc(planoGh?.descricao || "Instale em cli.github.com")}</span>`}
+      </div>${desenharProgressoInst("gh")}`
+    : `<div class="linhaPerm"><span>Conta</span>
+        <button type="button" class="btn pequeno primario" data-gh-login="1" ${g.login?.status === "aguardando" ? "disabled" : ""}>Entrar no GitHub</button>
+        <span style="color:var(--fraco);font-size:12px">Abre o login pelo navegador sem precisar de terminal.</span>
+      </div>${desenharProgressoInst("gh")}${desenharLoginGh(g.login)}`;
+  $("#cardGithub").innerHTML = `<div class="cab"><span class="nome">GitHub</span><span class="selos">${seloGh}</span>
       <span class="direita"><label class="interruptor"><input type="checkbox" id="ghLigado" ${g.ligado ? "checked" : ""} ${g.disponivel ? "" : "disabled"}><span class="trilho"></span>${g.ligado ? "Ligado" : "Desligado"}</label></span></div>
     <p style="color:var(--suave);font-size:13px;margin:8px 0 0">Todas as IAs (CLIs e APIs) leem issues, PRs, commits e arquivos, e clonam os repositórios que você liberar. Criar issue, comentar ou abrir PR <b>sempre pede sua permissão</b>. Usa o <code>gh</code> logado neste PC: o token não é passado para as IAs.</p>
-    ${!g.disponivel ? `<p style="color:var(--alerta);font-size:12.5px;margin:8px 0 0">Instale o GitHub CLI (cli.github.com) e rode <code>gh auth login</code> num terminal.</p>` : `
+    ${!g.disponivel ? acoesSemLogin : `${desenharProgressoInst("gh")}
     <div class="linhaPerm" style="align-items:flex-start"><span>Repositórios</span><div style="display:flex;gap:6px;flex-wrap:wrap;flex:1">${lista}</div></div>
     <div class="linhaPerm"><span></span>${reposDaConta ? `<button class="btn pequeno primario" id="ghSalvar">Salvar repositórios</button>` : `<button class="btn pequeno" id="ghEscolher">Escolher repositórios</button>`}
       <label style="font-size:12.5px"><input type="checkbox" id="ghTodos" ${g.todos ? "checked" : ""}> liberar todos da minha conta</label></div>`}`;
@@ -1269,8 +1398,66 @@ $("#btnSalvarCfg").addEventListener("click", async () => {
   editandoCfg = false; atualizar();
 });
 
-atualizar().then(carregarMemoria);
-setInterval(() => atualizar(), 3000);
+// ---------- Instalador rápido + Login GitHub (Equipe e Ferramentas) ----------
+$("#veuConfig").addEventListener("click", async (ev) => {
+  const bInst = ev.target.closest("[data-instalar]");
+  if (bInst) {
+    const id = bInst.dataset.instalar;
+    const plano = estado?.planosInstalacao?.[id];
+    const rotulo = id === "gh" ? "GitHub CLI (gh)" : (estado?.equipe?.find((x) => x.id === id)?.nome || id);
+    const cmd = plano?.descricao ? `\n\nComando:\n${plano.descricao}` : "";
+    if (!confirm(`Instalar ${rotulo} agora?${cmd}`)) return;
+    bInst.disabled = true;
+    try {
+      await api("instalar", { id });
+      avisar(`Instalando ${rotulo}… você pode cancelar a qualquer momento no botão ×.`);
+    } catch (e) { avisar(e.message); }
+    atualizar();
+    return;
+  }
+  const bCanc = ev.target.closest("[data-inst-cancelar]");
+  if (bCanc) {
+    const id = bCanc.dataset.instCancelar;
+    bCanc.disabled = true;
+    try { await api("instalar/cancelar", { id }); avisar("Cancelando instalação…"); } catch (e) { avisar(e.message); }
+    atualizar();
+    return;
+  }
+  const bLimp = ev.target.closest("[data-inst-limpar]");
+  if (bLimp) {
+    const id = bLimp.dataset.instLimpar;
+    logsInstAbertos.delete(id);
+    try { await api("instalar/limpar", { id }); } catch (e) { avisar(e.message); }
+    atualizar();
+    return;
+  }
+  const bGhLogin = ev.target.closest("[data-gh-login]");
+  if (bGhLogin) {
+    bGhLogin.disabled = true;
+    try { await api("github/login", {}); avisar("Gerando código de login do GitHub…"); } catch (e) { avisar(e.message); }
+    atualizar();
+    return;
+  }
+  const bGhCanc = ev.target.closest("[data-gh-login-cancelar]");
+  if (bGhCanc) {
+    try { await api("github/login/cancelar", {}); avisar("Login do GitHub cancelado."); } catch (e) { avisar(e.message); }
+    atualizar();
+    return;
+  }
+});
+$("#veuConfig").addEventListener("toggle", (ev) => {
+  const det = ev.target;
+  if (det instanceof HTMLDetailsElement && det.dataset.instLog) {
+    if (det.open) logsInstAbertos.add(det.dataset.instLog);
+    else logsInstAbertos.delete(det.dataset.instLog);
+  }
+}, true);
+
+async function cicloAtualizar() {
+  await atualizar();
+  setTimeout(cicloAtualizar, temTrabalhoRapido() ? 750 : 3000);
+}
+atualizar().then(() => { carregarMemoria(); setTimeout(cicloAtualizar, temTrabalhoRapido() ? 750 : 3000); });
 </script>
 </body>
 </html>
