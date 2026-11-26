@@ -375,6 +375,17 @@
           <span class="info" id="progressoTeste"></span>
         </div>
         <div id="equipe"></div>
+        <details class="membroCfg" id="novaApi">
+          <summary><b>Adicionar IA por API</b> <span style="color:var(--fraco)">(chave própria ou modelo local, como Ollama)</span></summary>
+          <div class="campo"><label for="apiProv">Provedor</label><select id="apiProv"></select><small id="apiDica"></small></div>
+          <div class="campo"><label for="apiUrl">Endereço</label><input id="apiUrl" placeholder="https://…/v1"></div>
+          <div class="campo"><label for="apiChave">Chave da API</label><input id="apiChave" type="password" autocomplete="off" placeholder="fica só no seu PC"></div>
+          <div class="campo"><label for="apiId">Nome curto na equipe</label><input id="apiId" placeholder="ex.: ollama, openrouter" style="max-width:220px"><small>É como as outras IAs vão chamar ela.</small></div>
+          <div class="barraAcoes"><button class="btn" type="button" id="btnApiModelos">Buscar modelos</button><span class="info" id="apiInfo"></span></div>
+          <div id="apiModelos" class="modelos"></div>
+          <div class="campo"><label for="apiEsp">Especialidades (opcional)</label><input id="apiEsp" placeholder="ex.: código, tradução, resumo"></div>
+          <button class="btn primario" type="button" id="btnApiSalvar">Colocar na equipe</button>
+        </details>
       </section>
       <section data-conteudo="ferramentas" hidden>
         <h3>Ferramentas</h3>
@@ -699,14 +710,14 @@ function renderConfig() {
     const st = e.status.find((s) => s.agente === d.id);
     const selos = [
       d.instalado ? `<span class="selo">${esc(d.versao || "instalado")}</span>` : `<span class="selo erro">não instalado</span>`,
-      d.instalado ? (d.login === "provavel" ? `<span class="selo ok">conta conectada</span>` : `<span class="selo alerta">sem login</span>`) : "",
+      d.instalado ? (d.login === "provavel" ? `<span class="selo ok">${d.api ? "pronta" : "conta conectada"}</span>` : `<span class="selo alerta">${d.api ? "sem chave" : "sem login"}</span>`) : "",
       d.instalado && d.office === "conectado" ? `<span class="selo ok">no escritório</span>` : "",
       st ? seloCota(st.cota) : "",
       e.runner.pausadas?.[d.id] ? `<span class="selo erro">pausada</span>` : "",
     ].join("");
     const direita = !d.instalado
       ? (d.podeInstalar ? `<span class="selo">instale com: npm run equipe -- instalar ${esc(d.id)}</span>` : "")
-      : `${d.office !== "conectado" ? `<button class="btn pequeno" data-conectar="${esc(d.id)}">Conectar ao escritório</button>` : ""}
+      : `${d.api ? `<button class="btn pequeno" data-remover-api="${esc(d.id)}">Remover</button>` : ""}${d.office !== "conectado" ? `<button class="btn pequeno" data-conectar="${esc(d.id)}">Conectar ao escritório</button>` : ""}
          <label class="interruptor"><input type="checkbox" data-equipe="${esc(d.id)}" ${e.foraDaEquipe.includes(d.id) ? "" : "checked"}><span class="trilho"></span>Na equipe</label>`;
     const modelos = !cat ? "" : `<div class="modelos">${cat.modelos.map((m) => {
       const info = ESTADO_MODELO[m.estado];
@@ -993,6 +1004,49 @@ $("#equipe").addEventListener("click", async (ev) => {
   const b = ev.target.closest("[data-liberar]"); if (!b) return;
   try { await api("cota/liberar", { cli: b.dataset.liberar }); } catch (e) { avisar(e.message); }
   atualizar();
+});
+// ---------- IA por API ----------
+let apiProvPreenchido = false;
+function prepararFormApi() {
+  if (apiProvPreenchido || !estado?.provedores) return;
+  apiProvPreenchido = true;
+  $("#apiProv").innerHTML = Object.entries(estado.provedores).map(([k, p]) => `<option value="${k}">${esc(p.nome)}</option>`).join("");
+  trocarProvedor();
+}
+function trocarProvedor() {
+  const p = estado.provedores[$("#apiProv").value];
+  $("#apiUrl").value = p.baseUrl; $("#apiDica").textContent = p.dica;
+  $("#apiChave").closest(".campo").hidden = !p.precisaChave && p.local;
+  if (!$("#apiId").dataset.mexido) $("#apiId").value = $("#apiProv").value === "outro" ? "" : $("#apiProv").value;
+  $("#apiModelos").innerHTML = ""; $("#apiInfo").textContent = "";
+}
+$("#novaApi").addEventListener("toggle", () => { editandoCfg = $("#novaApi").open; prepararFormApi(); });
+$("#apiProv").addEventListener("change", trocarProvedor);
+$("#apiId").addEventListener("input", () => ($("#apiId").dataset.mexido = "1"));
+const dadosFormApi = () => ({ provedor: $("#apiProv").value, baseUrl: $("#apiUrl").value, chave: $("#apiChave").value, id: $("#apiId").value });
+$("#btnApiModelos").addEventListener("click", async () => {
+  $("#apiInfo").textContent = "Buscando…";
+  try {
+    const { modelos } = await api("api-ia/modelos", dadosFormApi());
+    $("#apiInfo").textContent = modelos.length ? `${modelos.length} modelos. Marque os que quer usar e escolha o padrão.` : "Nenhum modelo encontrado.";
+    $("#apiModelos").innerHTML = modelos.slice(0, 300).map((m, i) => `<label class="modelo"><input type="checkbox" value="${esc(m)}" ${i < 3 ? "checked" : ""}><span class="nome">${esc(m)}</span><span class="desc"><label><input type="radio" name="apiPadrao" value="${esc(m)}" ${i === 0 ? "checked" : ""}> padrão</label></span><span></span></label>`).join("");
+  } catch (e) { $("#apiInfo").textContent = e.message; }
+});
+$("#btnApiSalvar").addEventListener("click", async () => {
+  const modelos = [...$("#apiModelos").querySelectorAll("input[type=checkbox]:checked")].map((x) => x.value);
+  const padrao = $("#apiModelos").querySelector("input[type=radio]:checked")?.value;
+  try {
+    await api("api-ia/salvar", { ...dadosFormApi(), modelos, padrao, nome: estado.provedores[$("#apiProv").value].nome, especialidades: $("#apiEsp").value });
+    avisar(`${$("#apiId").value} entrou na equipe.`);
+    $("#apiChave").value = ""; $("#novaApi").open = false; editandoCfg = false;
+  } catch (e) { avisar(e.message); }
+  atualizar(true);
+});
+$("#equipe").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-remover-api]"); if (!b) return;
+  if (!confirm(`Tirar ${b.dataset.removerApi} da equipe e apagar a chave salva?`)) return;
+  try { await api("api-ia/remover", { id: b.dataset.removerApi }); } catch (e) { avisar(e.message); }
+  atualizar(true);
 });
 $("#btnSalvarCfg").addEventListener("click", async () => {
   try {

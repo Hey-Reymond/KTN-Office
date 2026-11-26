@@ -153,7 +153,7 @@ export async function aplicarFerramenta(esc: Escritorio, id: string, mudanca: Pa
   const args = atual.ligada ? argsFerramenta(f, atual.navegador) : null; // valida antes de mexer em qualquer IA
   const msgs: string[] = [];
   for (const [cliId, cfg] of Object.entries(carregarRegistro())) {
-    if (cfg.ativo === false || !localizar(cfg)) continue;
+    if (cfg.ativo === false || cfg.tipo === "api" || !localizar(cfg)) continue; // IAs por API não usam MCP de navegador
     msgs.push(await aplicarEmUma(cliId, cfg, id, f.comando, args).catch((e) => `⚠️ ${e instanceof Error ? e.message : e}`));
   }
   // Usar sem perguntar: IAs tipo Claude ganham a ferramenta na lista "sempre"; Antigravity ganha a regra de permissão.

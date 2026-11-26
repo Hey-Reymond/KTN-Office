@@ -48,6 +48,9 @@ export interface ConfigCli {
   especialidades?: string[];
   /** false = ignorado na detecção. */
   ativo?: boolean;
+  /** "api" = IA por chave/servidor local (não é um programa instalado). */
+  tipo?: "cli" | "api";
+  api?: { provedor?: string; tipo: "openai" | "anthropic"; baseUrl: string };
 }
 
 export interface InfoModelo {
@@ -140,8 +143,8 @@ export function carregarRegistro(): Registro {
   const registro: Registro = {};
   for (const id of new Set([...Object.keys(padrao), ...Object.keys(custom)])) {
     const cfg = { ...padrao[id], ...custom[id] } as ConfigCli;
-    if (!cfg.executavel || !cfg.prompt) continue; // entrada incompleta
-    registro[id] = { ...cfg, versao: cfg.versao ?? ["--version"], ativo: cfg.ativo ?? true };
+    if (cfg.tipo === "api" ? !cfg.api?.baseUrl : !cfg.executavel || !cfg.prompt) continue; // entrada incompleta
+    registro[id] = { ...cfg, versao: cfg.versao ?? ["--version"], prompt: cfg.prompt ?? [], executavel: cfg.executavel ?? "", ativo: cfg.ativo ?? true };
   }
   return registro;
 }

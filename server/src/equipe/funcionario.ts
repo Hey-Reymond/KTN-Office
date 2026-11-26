@@ -195,15 +195,3 @@ export class CliAgent implements Funcionario {
     return { ok: true, texto: lido.texto.trim(), tokens: "tokens" in lido ? lido.tokens : undefined, cota };
   }
 }
-
-/** Reservado pra fase com chaves de API. Mesma interface, outro "contrato de trabalho". */
-export class ApiAgent implements Funcionario {
-  readonly tipo = "api" as const;
-  constructor(
-    readonly id: string,
-    readonly especialidades: string[] = [],
-  ) {}
-  async trabalhar(): Promise<ResultadoTrabalho> {
-    return { ok: false, texto: "", erro: "Funcionários via API ainda não foram implementados." };
-  }
-}

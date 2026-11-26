@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import type { Escritorio, Tarefa } from "./db.js";
 import { localizar } from "./equipe/detectar.js";
+import { criarFuncionario } from "./equipe/apis.js";
 import { esperaDoErro } from "./cota.js";
 import { PASTA_PADRAO, pastaDaTarefa, pastaDoChat, processarIntegracoes } from "./integracao.js";
 import { CliAgent, type Funcionario, type ResultadoTrabalho } from "./equipe/funcionario.js";
@@ -56,7 +57,7 @@ export class Runner {
 
   constructor(
     private escritorio: Escritorio,
-    private fabrica: Fabrica = (id, cfg) => new CliAgent(id, cfg),
+    private fabrica: Fabrica = criarFuncionario,
   ) {}
 
   get config(): ConfigRunner {

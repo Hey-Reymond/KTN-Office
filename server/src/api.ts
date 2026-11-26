@@ -11,6 +11,8 @@ import { aplicarFerramenta, catalogoFerramentas, estadoFerramentas, navegadoresI
 import { aplicarNoProjeto, ehRepositorio, limparWorktrees } from "./git.js";
 import { pastaDoChat } from "./integracao.js";
 import { salvarAnexos, textoAnexos } from "./anexos.js";
+import { salvarCustom } from "./equipe/registro.js";
+import { chaveDe, listarModelosApi, PROVEDORES, salvarChave } from "./equipe/apis.js";
 import { enviarNtfy, type ConfigNotificacoes } from "./notificar.js";
 import { existsSync, statSync } from "node:fs";
 import { apagarMemoria, arquivoMemoria, escreverMemoria, lerMemoria } from "./memoria.js";
@@ -68,6 +70,7 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       runner: runner.estado(),
       revisaoCruzada: escritorio.lerConfig("revisaoCruzada", true),
       notificacoes: escritorio.lerConfig<ConfigNotificacoes>("notificacoes", {}),
+      provedores: PROVEDORES,
       projetos: escritorio.listarProjetos(15),
       foraDaEquipe: escritorio.lerConfig<string[]>("foraDaEquipe", []),
       ferramentas: {
@@ -145,6 +148,69 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
     tentar(async () => {
       const ok = await enviarNtfy(escritorio.lerConfig<ConfigNotificacoes>("notificacoes", {}), "KTN Office", "Teste: os avisos estão chegando no celular.");
       if (!ok) throw new Error("Não consegui enviar. Confira o tópico e a internet.");
+    }),
+  );
+  // ---------- IAs por API ----------
+  const dadosApi = (b: any) => {
+    const prov = PROVEDORES[String(b?.provedor ?? "")];
+    if (!prov) throw new Error("Escolha um provedor.");
+    const baseUrl = String(b?.baseUrl || prov.baseUrl).trim().replace(/\/+$/, "");
+    if (!/^https?:\/\/[^\s]+$/.test(baseUrl)) throw new Error("Endereço da API inválido (comece com http:// ou https://).");
+    return { prov, provedor: String(b.provedor), baseUrl };
+  };
+  api.post(
+    "/api-ia/modelos",
+    protegido,
+    tentar(async (req) => {
+      const { prov, baseUrl } = dadosApi(req.body);
+      const chave = String(req.body?.chave ?? "").trim() || (req.body?.id ? chaveDe(String(req.body.id)) : undefined);
+      if (prov.precisaChave && !chave) throw new Error("Cole a chave da API primeiro.");
+      try {
+        return { modelos: await listarModelosApi(prov.tipo, baseUrl, chave) };
+      } catch (e) {
+        throw new Error(`Não consegui listar os modelos: ${e instanceof Error ? e.message : e}. ${prov.local ? prov.dica : "Confira a chave."}`);
+      }
+    }),
+  );
+  api.post(
+    "/api-ia/salvar",
+    protegido,
+    tentar(async (req) => {
+      const { prov, provedor, baseUrl } = dadosApi(req.body);
+      const id = String(req.body?.id ?? "").trim().toLowerCase();
+      if (!/^[a-z0-9_-]{2,32}$/.test(id)) throw new Error("Nome curto: 2 a 32 letras minúsculas, números, - ou _.");
+      const existente = carregarRegistro()[id];
+      if (existente && existente.tipo !== "api") throw new Error(`"${id}" já é um CLI. Escolha outro nome.`);
+      const modelos: string[] = Array.isArray(req.body?.modelos) ? req.body.modelos.map(String).filter(Boolean) : [];
+      if (!modelos.length) throw new Error("Escolha pelo menos um modelo.");
+      const padrao = modelos.includes(String(req.body?.padrao)) ? String(req.body.padrao) : modelos[0];
+      const chave = String(req.body?.chave ?? "").trim();
+      if (prov.precisaChave && !chave && !chaveDe(id)) throw new Error("Cole a chave da API.");
+      salvarCustom(id, {
+        tipo: "api",
+        nome: String(req.body?.nome || `${prov.nome}`).slice(0, 60),
+        api: { provedor, tipo: prov.tipo, baseUrl },
+        modelos: Object.fromEntries(modelos.map((m) => [m, { id: m }])),
+        modeloPadrao: padrao,
+        modelosDetectados: {}, modelosLigados: [], modelosDesligados: [],
+        especialidades: String(req.body?.especialidades ?? "").split(",").map((x) => x.trim()).filter(Boolean),
+        ativo: true,
+      });
+      if (chave) salvarChave(id, chave);
+      escritorio.registrarEvento(null, "config", `${id} (${prov.nome}) entrou na equipe com ${modelos.length} modelo(s).`);
+      await equipe(true);
+    }),
+  );
+  api.post(
+    "/api-ia/remover",
+    protegido,
+    tentar(async (req) => {
+      const id = String(req.body?.id ?? "");
+      if (carregarRegistro()[id]?.tipo !== "api") throw new Error("Essa IA não é por API.");
+      salvarCustom(id, { ativo: false });
+      salvarChave(id, null);
+      escritorio.registrarEvento(null, "config", `${id} saiu da equipe (chave apagada).`);
+      await equipe(true);
     }),
   );
   api.post("/cota/limite", protegido, tentar((req) => escritorio.definirLimite5h(String(req.body?.cli), Number(req.body?.limite) || null)));

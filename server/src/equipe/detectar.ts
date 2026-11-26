@@ -17,6 +17,8 @@ export interface Deteccao {
   login: "provavel" | "nao" | "desconhecido";
   office: "conectado" | "nao" | "manual" | "desconhecido";
   podeInstalar: boolean;
+  /** true = IA por API (chave ou servidor local), não um programa. */
+  api?: boolean;
   dicaLogin?: string;
   problemas: string[];
 }
@@ -52,7 +54,9 @@ export function acharNoPath(comando: string, pastasExtras: string[] = []): strin
 }
 
 /** Acha o executável de um CLI: PATH + pastas onde o instalador costuma colocar. */
-export const localizar = (cfg: ConfigCli) => acharNoPath(cfg.executavel, cfg.instalar?.caminhosExtras);
+/** Caminho do executável; para IAs por API devolve o endereço da API (não há programa para achar). */
+export const localizar = (cfg: ConfigCli): string | null =>
+  cfg.tipo === "api" ? cfg.api?.baseUrl || null : acharNoPath(cfg.executavel, cfg.instalar?.caminhosExtras);
 
 /** Arquivo global de MCP do Antigravity (compartilhado entre CLI, IDE e Antigravity 2.0). */
 export const ARQ_MCP_ANTIGRAVITY = () => path.join(os.homedir(), ".gemini", "config", "mcp_config.json");
@@ -113,6 +117,20 @@ export async function detectarUm(id: string, cfg: ConfigCli): Promise<Deteccao> 
     problemas: [],
   };
 
+  if (cfg.tipo === "api") {
+    // Não é programa: "instalado" = configurado; conversa com o escritório direto por HTTP.
+    const { chaveDe, PROVEDORES } = await import("./apis.js");
+    const prov = PROVEDORES[cfg.api?.provedor ?? ""];
+    d.caminho = cfg.api?.baseUrl ?? null;
+    d.instalado = !!d.caminho;
+    d.versao = `API: ${prov?.nome ?? cfg.api?.provedor ?? "própria"}`;
+    d.login = chaveDe(id) ? "provavel" : prov?.precisaChave ? "nao" : "provavel";
+    d.office = "conectado";
+    d.podeInstalar = false;
+    d.api = true;
+    d.dicaLogin = prov?.dica;
+    return d;
+  }
   d.caminho = localizar(cfg);
   if (!d.caminho) {
     if (path.isAbsolute(cfg.executavel)) d.problemas.push(`Executável não encontrado em ${cfg.executavel}`);

@@ -61,6 +61,22 @@ branch `ktn/projN-ia-tN`). Assim as IAs editam ao mesmo tempo sem atrapalhar uma
 4. você clica em **Aplicar no meu projeto** (git merge na sua branch atual). Seu projeto nunca muda antes disso.
 **Limpar cópias** remove as pastas temporárias (as branches ficam).
 
+### IAs por API (chave própria ou local)
+Em Configurações → Equipe → **Adicionar IA por API**: escolha o provedor, cole a chave (se precisar),
+clique em **Buscar modelos**, marque os que quer e coloque na equipe. Ela trabalha igual às outras:
+pega tarefas, conversa pelo escritório e lê/escreve arquivos **só dentro da pasta do trabalho**
+(escrever só com permissão de edição; comandos no terminal, não).
+
+| Provedor | Precisa de chave | Observação |
+|---|---|---|
+| Ollama / LM Studio | não | roda no seu PC, grátis |
+| OpenRouter | sim | uma chave, centenas de modelos (alguns grátis) |
+| Gemini API, Groq | sim | têm cota grátis |
+| OpenAI, Anthropic, DeepSeek, Mistral | sim | cobrado por uso |
+| Outro | opcional | qualquer servidor compatível com OpenAI |
+
+As chaves ficam em `~/KTN-Office-dados/chaves-api.json`, fora da pasta do projeto (nunca vão pro git).
+
 ### Notificações
 - **No PC:** em Configurações → Expediente, ligue "Avisar nesta tela". Respostas, projetos concluídos e pedidos de permissão viram notificação do sistema quando você está em outra janela. A aba mostra `(N)` quando há permissão esperando.
 - **No celular:** instale o app **ntfy**, assine um tópico difícil de adivinhar e coloque o mesmo tópico no Office. Pedidos de permissão chegam com prioridade alta.

@@ -1,5 +1,6 @@
 import { localizar } from "./detectar.js";
-import { CliAgent, type Funcionario } from "./funcionario.js";
+import { criarFuncionario } from "./apis.js";
+import type { Funcionario } from "./funcionario.js";
 import { carregarRegistro, estadoModelo, salvarDeteccaoModelo, type ConfigCli } from "./registro.js";
 
 export interface ProgressoTeste {
@@ -19,7 +20,7 @@ type Fabrica = (id: string, cfg: ConfigCli) => Funcionario;
 export async function testarModelos(
   opcoes: { cli?: string; aoProgredir?: (p: ProgressoTeste) => void; fabrica?: Fabrica } = {},
 ): Promise<ProgressoTeste> {
-  const fabrica = opcoes.fabrica ?? ((id, cfg) => new CliAgent(id, cfg));
+  const fabrica = opcoes.fabrica ?? criarFuncionario;
   const fila: [string, ConfigCli, string][] = [];
   for (const [id, cfg] of Object.entries(carregarRegistro())) {
     if (cfg.ativo === false || (opcoes.cli && opcoes.cli !== id) || !cfg.modelos || !localizar(cfg)) continue;
