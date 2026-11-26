@@ -9,6 +9,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+// No Windows o git pode converter finais de linha (autocrlf) nas cópias.
+const ler = (p: string, _c?: string) => readFileSync(p, "utf8").replace(/\r\n/g, "\n");
 const tmp = mkdtempSync(path.join(tmpdir(), "ktn-git-"));
 process.env.KTN_DADOS = path.join(tmp, "dados");
 const repo = path.join(tmp, "meu-projeto");
@@ -51,8 +53,8 @@ try {
   });
   assert.equal(p1.status, "consolidando");
   assert.equal(p1.branch_final, "ktn/proj1");
-  assert.equal(readFileSync(path.join(p1.pasta_final!, "b.txt"), "utf8"), "novo do claude\n");
-  assert.match(readFileSync(path.join(p1.pasta_final!, "a.txt"), "utf8"), /linha 3 do agy/);
+  assert.equal(ler(path.join(p1.pasta_final!, "b.txt"), "utf8"), "novo do claude\n");
+  assert.match(ler(path.join(p1.pasta_final!, "a.txt"), "utf8"), /linha 3 do agy/);
   assert.ok(!existsSync(path.join(repo, "b.txt")), "o projeto do humano não muda sozinho");
   assert.match(esc.partesDoProjeto(p1.id)[0].resultado!, /Arquivos alterados \(branch ktn\/proj1-claude-t1\)/);
   const aviso = esc.lerCaixa("claude").find((m) => m.texto.includes("Projeto #1"))!;
@@ -63,7 +65,7 @@ try {
   assert.match(rodape, /Aplicar no meu projeto/);
   esc.concluirProjeto("claude", p1.id, "pronto" + rodape);
   assert.equal(await aplicarNoProjeto(repo, p1.id), "Projeto #1 aplicado na sua branch atual.");
-  assert.equal(readFileSync(path.join(repo, "b.txt"), "utf8"), "novo do claude\n", "aplicado no projeto do humano");
+  assert.equal(ler(path.join(repo, "b.txt"), "utf8"), "novo do claude\n", "aplicado no projeto do humano");
 
   // 2. Com conflito: as duas IAs mudam a mesma linha
   const p2 = await rodarProjeto({
@@ -78,7 +80,7 @@ try {
   await fecharIntegracao(esc, p2.id);
   esc.concluirProjeto("claude", p2.id, "resolvido");
   await aplicarNoProjeto(repo, p2.id);
-  assert.match(readFileSync(path.join(repo, "a.txt"), "utf8"), /claude e agy/);
+  assert.match(ler(path.join(repo, "a.txt"), "utf8"), /claude e agy/);
 
   // 2b. Revisão cruzada
   const { escolherRevisor } = await import("../src/integracao.js");
@@ -105,7 +107,7 @@ try {
   g("add", "-A"); g("commit", "-qm", "sub");
   const wsub = await criarWorktree(path.join(repo, "app"), 99, "claude", 1);
   assert.equal(path.basename(wsub.pasta), "app");
-  assert.equal(readFileSync(path.join(wsub.pasta, "x.txt"), "utf8"), "x");
+  assert.equal(ler(path.join(wsub.pasta, "x.txt"), "utf8"), "x");
 
   // 3. Aplicar recusa se o humano tem alterações não salvas
   writeFileSync(path.join(repo, "a.txt"), "mexi aqui\n");
