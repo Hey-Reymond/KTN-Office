@@ -188,6 +188,13 @@ try {
     explicarErro("Reading additional input from stdin...\n", '{"type":"thread.started"}\n{"type":"error","message":"The model gpt-6.2-sol is not available on your plan"}', 1),
     "The model gpt-6.2-sol is not available on your plan");
 
+  // 2g. Padrão fora do plano: não manda -m, o CLI escolhe o modelo da conta
+  const { resolverModelo } = await import("../src/equipe/registro.js");
+  const codexFree = { ...real.codex, modelosDetectados: { sol: "The 'gpt-6.2-sol' model is not supported when using Codex with a ChatGPT account." } };
+  assert.equal(resolverModelo(codexFree), undefined);
+  assert.ok(!new CliAgent("codex", codexFree).montarArgs("oi").includes("-m"));
+  assert.equal(resolverModelo(real.codex), "gpt-6.2-sol");
+
   // 2f. Progresso ao vivo: eventos dos CLIs viram frases curtas
   assert.equal(resumirProgresso(JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", name: "mcp__office__pegar_tarefa" }] } })), "🔧 usando office/pegar_tarefa");
   assert.equal(resumirProgresso(JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "Lendo o README" }] } })), "💬 Lendo o README");

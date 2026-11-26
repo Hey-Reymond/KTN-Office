@@ -4,7 +4,10 @@ import path from "node:path";
 import type { Escritorio, Tarefa } from "./db.js";
 import { localizar } from "./equipe/detectar.js";
 import { CliAgent, type Funcionario, type ResultadoTrabalho } from "./equipe/funcionario.js";
-import { carregarRegistro, modeloDisponivel, resolverModelo, type ConfigCli } from "./equipe/registro.js";
+import { carregarRegistro, modeloDisponivel, resolverModelo, salvarDeteccaoModelo, type ConfigCli } from "./equipe/registro.js";
+
+/** Erros que querem dizer "esse modelo não está no seu plano" (não é falha da IA). */
+export const ERRO_MODELO = /model.{0,80}(not supported|not available|does not exist|not found|unavailable|no access)|unknown model|invalid model|modelo .{0,40}(indispon|não (está )?dispon)/i;
 
 export interface ConfigRunner {
   ligado: boolean;
@@ -209,19 +212,36 @@ export class Runner {
     try {
       mkdirSync(cfg.pastaTrabalho, { recursive: true });
       const nivel = this.escritorio.tomarUmaVez(id) ?? this.escritorio.nivelDe(id);
+      const progredir = (frase: string) => {
+        estado.ultimoSinal = Date.now();
+        if (estado.progresso.at(-1)?.frase === frase) return;
+        estado.progresso.push({ quando: Date.now(), frase });
+        if (estado.progresso.length > 12) estado.progresso.shift();
+      };
       r = await this.fabrica(id, cli).trabalhar(trabalho.prompt, {
         modelo: trabalho.modelo,
         nivel,
         ferramentas: this.escritorio.sempreDe(id),
         cwd: cfg.pastaTrabalho,
         timeoutMs: cfg.timeoutMin * 60_000,
-        aoProgredir: (frase) => {
-          estado.ultimoSinal = Date.now();
-          if (estado.progresso.at(-1)?.frase === frase) return;
-          estado.progresso.push({ quando: Date.now(), frase });
-          if (estado.progresso.length > 12) estado.progresso.shift();
-        },
+        aoProgredir: progredir,
       });
+      // Modelo recusado pelo plano: aprende (marca indisponível) e tenta de novo com o padrão do CLI.
+      if (!r.ok && trabalho.modelo && ERRO_MODELO.test(r.erro ?? "")) {
+        const motivo = (r.erro ?? "").slice(0, 200);
+        salvarDeteccaoModelo(id, trabalho.modelo, motivo);
+        this.escritorio.registrarEvento(id, "config", `Modelo ${trabalho.modelo} não está no seu plano; marcado como indisponível. Tentando com o modelo padrão.`);
+        estado.modelo = undefined;
+        estado.progresso.push({ quando: Date.now(), frase: `🔁 ${trabalho.modelo} não está no plano; usando o modelo padrão` });
+        const atualizado = carregarRegistro()[id] ?? cli; // já sem o modelo recusado
+        r = await this.fabrica(id, atualizado).trabalhar(trabalho.prompt, {
+          nivel,
+          ferramentas: this.escritorio.sempreDe(id),
+          cwd: cfg.pastaTrabalho,
+          timeoutMs: cfg.timeoutMin * 60_000,
+          aoProgredir: progredir,
+        });
+      }
     } catch (e) {
       r = { ok: false, texto: "", erro: String(e) };
     } finally {

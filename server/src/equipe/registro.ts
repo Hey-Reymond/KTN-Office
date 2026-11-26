@@ -113,7 +113,10 @@ export function definirModelo(id: string, apelido: string, ligado: boolean) {
 
 /** Converte apelido ("carbon") no id do CLI ("gemini-4-carbon"). Id desconhecido passa direto. */
 export function resolverModelo(cfg: ConfigCli, modelo?: string): string | undefined {
-  const m = modelo ?? cfg.modeloPadrao;
+  // Sem modelo pedido: usa o padrão do catálogo só se ele estiver liberado no seu plano;
+  // senão não passa -m e o próprio CLI escolhe o modelo da sua conta.
+  const padrao = cfg.modeloPadrao && (!cfg.modelos?.[cfg.modeloPadrao] || modeloDisponivel(cfg, cfg.modeloPadrao)) ? cfg.modeloPadrao : undefined;
+  const m = modelo ?? padrao;
   if (!m) return undefined;
   return cfg.modelos?.[m]?.id ?? m;
 }

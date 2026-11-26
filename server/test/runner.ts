@@ -259,6 +259,34 @@ try {
     assert.equal(migrado.historicoConversa(c1[0].id)[0].texto, "msg antiga");
   }
 
+  // ---------- Modelo fora do plano: aprende sozinho e tenta de novo com o padrão ----------
+  {
+    const usados: (string | undefined)[] = [];
+    const rm = new Runner(esc, (id) => ({ id, tipo: "cli", especialidades: [], async trabalhar(prompt, o = {}) {
+      usados.push(o.modelo);
+      if (o.modelo === "carbon") return { ok: false, texto: "", erro: "The 'gemini-4-carbon' model is not supported when using Codex with a ChatGPT account." };
+      const t = prompt.match(/pegar_tarefa com id (\d+)/);
+      if (t) { const x = esc.pegarTarefa(id, Number(t[1])); esc.entregarTarefa(id, x.id, "ok"); }
+      return { ok: true, texto: "ok" };
+    } }));
+    rm.atualizarConfig({ ligado: true, maxPorHora: 99 });
+    definirModelo("antigravity", "carbon", true);
+    // limpa a escolha manual pra valer o resultado do teste automático
+    const { salvarCustom } = await import("../src/equipe/registro.js");
+    salvarCustom("antigravity", { modelosLigados: [], modelosDesligados: [], modelosDetectados: {} });
+    for (const t of esc.tarefasAbertasPara("antigravity")) esc.cancelarTarefa(t.id, "limpeza do teste");
+    esc.gravarConfig("foraDaEquipe", ["claude"]);
+    const tm = esc.criarTarefa("claude", "difícil", "", "antigravity", "carbon");
+    esc.lerCaixa("antigravity");
+    await rm.ciclo(); await rm.aguardarOcioso();
+    assert.deepEqual(usados, ["carbon", undefined], "tentou o modelo e depois o padrão, na mesma execução");
+    assert.equal(esc.tarefa(tm.id)!.status, "entregue");
+    assert.equal(estadoModelo(carregarRegistro().antigravity, "carbon"), "indisponivel", "aprendeu que o modelo está fora do plano");
+    assert.equal(rm.estado().pausadas.antigravity, undefined, "não conta como falha");
+    rm.atualizarConfig({ ligado: false });
+    esc.gravarConfig("foraDaEquipe", []);
+  }
+
   // ---------- Permissões no runner: nível por IA e "uma vez" ----------
   {
     const niveis: (string | undefined)[] = [];
