@@ -1,0 +1,35 @@
+name: Testes
+
+on:
+  push:
+    branches: [main, fase-2]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    name: Testes (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Identidade do git (os testes criam commits em repositórios temporários)
+        run: |
+          git config --global user.name "KTN CI"
+          git config --global user.email "ci@ktn.invalid"
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test

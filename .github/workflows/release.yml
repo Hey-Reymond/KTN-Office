@@ -1,0 +1,74 @@
+name: Release
+
+# Crie uma tag de versão (ex.: git tag v0.3.0 && git push origin v0.3.0)
+# e esta automação compila o app e publica os instaladores na página de Releases.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  compilar:
+    name: Compilar (${{ matrix.nome }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, nome: Windows, alvo: --win }
+          - { os: ubuntu-latest, nome: Linux, alvo: --linux }
+          - { os: macos-latest, nome: macOS, alvo: --mac }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Servidor
+        working-directory: server
+        run: |
+          npm ci
+          npm run build
+      - name: App de desktop
+        working-directory: desktop
+        run: |
+          npm ci
+          npx electron-builder ${{ matrix.alvo }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false" # sem certificado de assinatura (ainda)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ matrix.nome }}
+          path: |
+            desktop/release/*.exe
+            desktop/release/*.AppImage
+            desktop/release/*.dmg
+          if-no-files-found: error
+
+  publicar:
+    name: Publicar na página de Releases
+    needs: compilar
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: arquivos
+          merge-multiple: true
+      - name: Somas de verificação (SHA-256)
+        run: cd arquivos && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: arquivos/*
+          generate_release_notes: true
+          body: |
+            ## Baixar
+            - **Windows:** `KTN-Office-Setup-*.exe` (instalador) ou `KTN-Office-Portatil-*.exe` (sem instalar)
+            - **Linux:** `*.AppImage`
+            - **macOS:** `*.dmg`
+
+            O instalador ainda não é assinado digitalmente: no Windows pode aparecer "O Windows protegeu o computador"
+            → **Mais informações → Executar assim mesmo**. Confira o arquivo com o `SHA256SUMS.txt` se quiser.
+            Este binário foi compilado automaticamente pelo GitHub Actions a partir do código desta versão (veja a aba Actions).

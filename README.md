@@ -1,25 +1,79 @@
-# KTN Office
+<p align="center"><img src="desktop/build/icon.png" width="96" alt=""></p>
 
-Um escritório onde IAs (Claude, Gemini, Codex…) trabalham juntas: dividem tarefas,
-trocam mensagens, compartilham notas e enxergam o uso de cada uma pra economizar tokens.
+<h1 align="center">KTN Office</h1>
 
-Feito pela **KTN Dev**.
+<p align="center">
+  Um escritório onde várias IAs trabalham juntas no seu PC.<br>
+  Você conversa com uma coordenadora; ela divide o trabalho entre Claude, Gemini (Antigravity), Codex, Copilot e outras,<br>
+  cada uma faz a parte em que é melhor, uma revisa a outra e no final tudo é juntado.
+</p>
 
-## Status
+<p align="center">
+  <a href="https://github.com/reireymond/KTN-Office/releases/latest"><b>⬇️ Baixar</b></a> ·
+  <a href="#como-funciona">Como funciona</a> ·
+  <a href="SECURITY.md">Segurança</a> ·
+  <a href="CONTRIBUTING.md">Contribuir</a>
+</p>
 
-**Fase 1 – servidor MCP "Escritório"** ✅
-As IAs se conectam ao mesmo servidor e ganham ferramentas da equipe.
-Nesta fase você ainda "cutuca" cada IA manualmente; o runner automático vem na fase 2.
+<p align="center">
+  <a href="https://github.com/reireymond/KTN-Office/actions/workflows/ci.yml"><img src="https://github.com/reireymond/KTN-Office/actions/workflows/ci.yml/badge.svg" alt="Testes"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licen%C3%A7a-MIT-blue" alt="Licença MIT"></a>
+</p>
 
-**Fase 2 – equipe** ✅
-- ✅ Detecção automática dos CLIs (instalado, versão, login, conectado ao escritório)
-- ✅ Instalação automática (com confirmação) ou adição manual
-- ✅ Conexão automática ao escritório (Claude e Gemini)
-- ✅ Interface de funcionário (`CliAgent`; `ApiAgent` reservado)
-- ✅ Expediente (runner): IAs acordam e trabalham sozinhas
-- ✅ Coordenadora distribui tarefas e escolhe modelos
-- ✅ Detecção automática de modelos + caixinhas
-- ✅ Interface web
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/tela-escuro.png">
+  <img src="docs/tela-claro.png" alt="Tela do KTN Office: chats à esquerda, conversa com a coordenadora no centro e atividade das IAs à direita">
+</picture>
+
+## Por que usar
+
+- **Usa as assinaturas que você já tem.** Ele conversa com os CLIs oficiais (Claude Code, Antigravity, Codex, Copilot, Qwen, OpenCode, Kimi), então não precisa de chave de API. Se quiser, também aceita APIs e modelos locais (Ollama, LM Studio, OpenRouter…).
+- **Cada IA no que faz melhor.** A coordenadora escolhe quem faz o quê e com qual modelo, olhando a cota de cada uma para não estourar o limite de ninguém.
+- **Trabalho de verdade em paralelo.** Em projetos com git, cada IA trabalha numa cópia própria (worktree), outra IA revisa e o resultado vem numa branch. Seu código só muda quando você clica em "Aplicar".
+- **Você no controle.** Permissões por IA, pedidos de permissão em popup, nada instalado sem confirmar e tudo rodando só no seu PC.
+- **Código aberto (MIT).** Qualquer pessoa pode ler o código e conferir o que ele faz. Os instaladores são compilados pelo GitHub Actions a partir deste código.
+
+## Começar em 3 passos
+
+1. **Instale pelo menos uma IA de linha de comando** e faça login nela (use a que você já assina):
+   - Claude Code: `npm i -g @anthropic-ai/claude-code`, e depois `claude`
+   - Antigravity (Google AI Pro): veja [antigravity.google/cli](https://antigravity.google/cli)
+   - Codex (ChatGPT): `npm i -g @openai/codex`, e depois `codex login`
+   - Copilot (grátis para estudantes): `npm i -g @github/copilot`, e depois `copilot`
+2. **Baixe o KTN Office** na [página de Releases](https://github.com/reireymond/KTN-Office/releases/latest) e instale.
+   (Ou rode do código: `cd server && npm install && npm start` e abra http://127.0.0.1:7777/.)
+3. Em **Configurações → Equipe**, clique em **Conectar ao escritório** em cada IA, ligue o **Expediente** e peça algo no chat.
+
+> O instalador do Windows ainda não tem assinatura digital. Se aparecer "O Windows protegeu o computador", clique em **Mais informações → Executar assim mesmo**.
+
+## Como funciona
+
+```
+você ──chat──▶ coordenadora ──divide──▶ IA 1 · IA 2 · IA 3 (cada uma na sua cópia)
+                    ▲                          │ entregam, outra IA revisa
+                    └──── junta (merge) ◀──────┘
+```
+
+Tudo passa por um servidor local (MCP) que guarda tarefas, mensagens, notas e a memória de cada chat num banco SQLite no seu PC.
+As IAs se falam por ele: pegam tarefas, mandam mensagens, veem a cota umas das outras e entregam o trabalho.
+
+## Recursos
+
+| | |
+|---|---|
+| 💬 Chats com memória própria | 🧩 Projetos divididos por especialidade |
+| 🌿 Cópia git por IA + merge | 🔍 Revisão cruzada automática |
+| 📎 Anexos (arrastar e colar) | 📊 Cota real e divisão que poupa quem está no limite |
+| 🔔 Notificações no PC e no celular | 🔑 IAs por API e modelos locais |
+| ⏰ Tarefas agendadas | 📋 Receitas (pedidos prontos) |
+| 🌐 Navegador para as IAs (Playwright / DevTools) | 🖱️ Controle da tela (opcional, Windows) |
+| 🖥️ App de desktop com bandeja | 🌗 Tema claro, escuro ou do Windows |
+
+O guia completo de cada recurso está abaixo.
+
+---
+
+# Guia
 
 ## Interface (recomendado)
 
@@ -290,11 +344,14 @@ npm run typecheck
 
 ## Roadmap
 
-- [x] **Fase 1** – servidor MCP com tarefas, mensagens, uso e notas
-- [x] **Fase 2** – detecção/instalação/conexão dos CLIs, expediente automático, coordenadora, modelos e interface web
-- [ ] **Fase 3** – cota real (agy `/usage --output-format json`, transcript.jsonl), economia e mais CLIs
-- [ ] **Fase 3b** – funcionários via API (chaves Anthropic/Google/OpenAI)
-- [ ] **Fase 4** – app desktop: chat com o gerente, painel do escritório, conversa da equipe
+- [x] Servidor MCP do escritório: tarefas, mensagens, notas, uso
+- [x] Equipe: detectar, instalar e conectar CLIs; expediente automático; coordenadora; modelos; interface
+- [x] Pasta por chat, cópia git por IA e merge; revisão cruzada; anexos; cota real; notificações
+- [x] IAs por API e locais; Copilot, Qwen, OpenCode e Kimi; agenda; receitas; controle da tela; app de desktop
+- [ ] Instalador assinado digitalmente
+- [ ] Atualização automática do app
+
+Ideias e problemas: abra uma [issue](https://github.com/reireymond/KTN-Office/issues).
 
 ## Estrutura
 
@@ -306,4 +363,12 @@ server/src/equipe/    detecção, instalação, conexão e funcionários (CliAge
 server/test/          testes (smoke: escritório; equipe: CLIs falsos, sem gastar tokens)
 agents/clis.json      CLIs conhecidos e especialidades
 agents/INSTRUCOES-EQUIPE.md  regras pra colar no CLAUDE.md / GEMINI.md
+agents/ferramentas.json   ferramentas extras (navegador, controle da tela)
+agents/receitas.json      receitas prontas
+desktop/              app de desktop (Electron)
+.github/workflows/    testes (Linux e Windows) e release automática dos instaladores
 ```
+
+## Licença
+
+[MIT](LICENSE): pode usar, copiar, modificar e distribuir à vontade, mantendo o aviso de licença.
