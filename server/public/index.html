@@ -17,8 +17,19 @@
   header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--borda); background: var(--painel); position: sticky; top: 0; z-index: 2; flex-wrap: wrap; }
   header h1 { font-size: 17px; margin: 0; letter-spacing: .2px; }
   header h1 span { color: var(--acento); }
-  .grade { display: grid; grid-template-columns: minmax(320px, 1.1fr) minmax(320px, 1fr); gap: 16px; padding: 16px 20px; }
-  @media (max-width: 900px) { .grade { grid-template-columns: 1fr; } }
+  .grade { display: grid; grid-template-columns: 230px minmax(320px, 1.1fr) minmax(320px, 1fr); gap: 16px; padding: 16px 20px; }
+  @media (max-width: 1150px) { .grade { grid-template-columns: 210px 1fr; } .grade > .coluna:last-child { grid-column: 1 / -1; } }
+  @media (max-width: 750px) { .grade { grid-template-columns: 1fr; } }
+  .lateral { position: sticky; top: 70px; align-self: start; }
+  .chats { display: flex; flex-direction: column; gap: 2px; max-height: calc(100vh - 160px); overflow-y: auto; }
+  .chatItem { display: flex; align-items: center; gap: 4px; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
+  .chatItem:hover { background: var(--bg); }
+  .chatItem.ativo { background: color-mix(in srgb, var(--acento) 18%, transparent); }
+  .chatItem .tit { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chatItem .acoes { display: none; gap: 2px; }
+  .chatItem:hover .acoes, .chatItem.ativo .acoes { display: flex; }
+  .chatItem .acoes button { padding: 1px 5px; border: 0; font-size: 13px; }
+  #tituloChat { font-size: 15px; font-weight: 600; margin: 0 0 8px; text-transform: none; letter-spacing: 0; color: var(--texto); }
   section { background: var(--painel); border: 1px solid var(--borda); border-radius: var(--raio); padding: 14px 16px; }
   section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: var(--suave); margin: 0 0 10px; font-weight: 600; }
   .coluna { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
@@ -85,15 +96,28 @@
 </header>
 
 <div class="grade">
+  <div class="lateral">
+    <section>
+      <button class="primario" id="btnNovoChat" style="width:100%;margin-bottom:10px">+ Novo chat</button>
+      <div id="chats" class="chats"></div>
+    </section>
+  </div>
+
   <div class="coluna">
     <section>
-      <h2>Chat com a coordenadora</h2>
+      <h2 id="tituloChat">Novo chat</h2>
       <div id="chat"></div>
       <form class="envio" id="formChat">
         <textarea id="texto" placeholder="Peça algo pra equipe… (Enter envia, Shift+Enter quebra linha)"></textarea>
         <button class="primario" type="submit">Enviar</button>
       </form>
       <div class="meta" id="dicaExpediente" style="margin-top:6px;color:var(--suave);font-size:12px"></div>
+      <details id="painelMemoria" style="margin-top:10px">
+        <summary class="meta">🧠 Memória deste chat</summary>
+        <div class="meta" id="arquivoMemoria" style="color:var(--suave);font-size:12px;margin:6px 0;word-break:break-all"></div>
+        <textarea id="textoMemoria" style="width:100%;min-height:120px" placeholder="As IAs anotam aqui o que vale lembrar neste chat. Você também pode escrever."></textarea>
+        <div style="margin-top:6px"><button id="btnSalvarMemoria">Salvar memória</button></div>
+      </details>
     </section>
 
     <section>
@@ -153,6 +177,23 @@ const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hora = (t) => (t ? new Date(t.replace(" ", "T") + "Z").toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "");
 let estado = null;
+let conversaAtual;
+try { const v = localStorage.getItem("ktn-chat"); if (v) conversaAtual = Number(v); } catch {}
+function abrirChat(id) {
+  conversaAtual = id;
+  try { id === null ? localStorage.removeItem("ktn-chat") : localStorage.setItem("ktn-chat", String(id)); } catch {}
+  memoriaCarregada = null;
+  render(); carregarMemoria();
+}
+let memoriaCarregada = null;
+async function carregarMemoria() {
+  if (!conversaAtual || memoriaCarregada === conversaAtual) return;
+  try {
+    const m = await api("memoria?id=" + conversaAtual);
+    $("#textoMemoria").value = m.memoria; $("#arquivoMemoria").textContent = "Arquivo: " + m.arquivo;
+    memoriaCarregada = conversaAtual;
+  } catch (e) { avisar(e.message); }
+}
 let editandoCfg = false;
 
 async function api(rota, corpo) {
@@ -198,12 +239,23 @@ function render() {
   desenharAoVivo();
 
   // Chat com a coordenadora: mensagens de/para "humano"
-  const chat = e.mensagens.filter((m) => m.de === "humano" || m.para === "humano");
+  // Chats (barra lateral)
+  if (conversaAtual && !e.conversas.some((c) => c.id === conversaAtual)) conversaAtual = null;
+  if (conversaAtual === undefined) conversaAtual = e.conversas[0]?.id ?? null;
+  $("#chats").innerHTML = e.conversas.length ? e.conversas.map((c) => `<div class="chatItem ${c.id === conversaAtual ? "ativo" : ""}" data-chat="${c.id}">
+      <span class="tit" title="${esc(c.titulo)}">${esc(c.titulo)}</span>
+      <span class="acoes"><button data-renomear="${c.id}" title="Renomear">✏️</button><button data-apagar="${c.id}" title="Apagar">🗑️</button></span>
+    </div>`).join("") : `<div class="vazio">Nenhum chat ainda.</div>`;
+  const atual = e.conversas.find((c) => c.id === conversaAtual);
+  $("#tituloChat").textContent = atual ? atual.titulo : "Novo chat";
+  $("#painelMemoria").style.display = atual ? "" : "none";
+
+  const chat = e.mensagens.filter((m) => m.conversa_id === conversaAtual && conversaAtual !== null && (m.de === "humano" || m.para === "humano"));
   const box = $("#chat");
   const noFim = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
   box.innerHTML = chat.length
     ? chat.map((m) => `<div class="bolha ${m.de === "humano" ? "eu" : "ia"}"><small>${m.de === "humano" ? "você → " + esc(m.para) : esc(m.de)} · ${hora(m.criada_em)}</small>${esc(m.texto)}</div>`).join("")
-    : `<div class="vazio">Escreva o que você quer. A coordenadora divide o trabalho com a equipe.</div>`;
+    : `<div class="vazio">${conversaAtual ? "Chat vazio." : "Novo chat: escreva o que você quer. A coordenadora divide o trabalho com a equipe."}</div>`;
   if (noFim) box.scrollTop = box.scrollHeight;
 
   // Equipe + modelos
@@ -243,7 +295,8 @@ function render() {
   // Projetos
   const corProj = { dividindo: "alerta", em_andamento: "ok", consolidando: "alerta", concluido: "", cancelado: "erro" };
   const nomeProj = { dividindo: "dividindo", em_andamento: "em andamento", consolidando: "fazendo o merge", concluido: "concluído", cancelado: "cancelado" };
-  $("#projetos").innerHTML = e.projetos.length ? e.projetos.map((p) => {
+  const projetosChat = e.projetos.filter((p) => p.conversa_id === conversaAtual);
+  $("#projetos").innerHTML = projetosChat.length ? projetosChat.map((p) => {
     const feitas = p.partes.filter((t) => t.status === "entregue" || t.status === "cancelada").length;
     const pct = p.status === "concluido" ? 100 : p.partes.length ? Math.round((feitas / p.partes.length) * 90) : 5;
     return `<div class="item">
@@ -310,7 +363,12 @@ $("#coordenadora").addEventListener("change", async (ev) => {
 $("#formChat").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const texto = $("#texto").value.trim(); if (!texto) return;
-  try { await api("mensagem", { texto }); $("#texto").value = ""; $("#chat").scrollTop = 1e9; atualizar(); }
+  try {
+    const m = await api("mensagem", { texto, conversa_id: conversaAtual });
+    $("#texto").value = "";
+    if (m.conversa_id !== conversaAtual) abrirChat(m.conversa_id);
+    await atualizar(); $("#chat").scrollTop = 1e9;
+  }
   catch (e) { avisar(e.message); }
 });
 $("#texto").addEventListener("keydown", (ev) => {
@@ -333,6 +391,34 @@ $("#equipe").addEventListener("click", async (ev) => {
   catch (e) { avisar(e.message); }
   atualizar(true);
 });
+$("#btnNovoChat").addEventListener("click", () => { abrirChat(null); $("#texto").focus(); });
+$("#chats").addEventListener("click", async (ev) => {
+  const ren = ev.target.closest("button[data-renomear]");
+  const apg = ev.target.closest("button[data-apagar]");
+  if (ren) {
+    const c = estado.conversas.find((x) => x.id === Number(ren.dataset.renomear));
+    const titulo = prompt("Novo nome do chat:", c?.titulo || "");
+    if (titulo && titulo.trim()) await api("conversa/renomear", { id: c.id, titulo }).catch((e) => avisar(e.message));
+    return atualizar();
+  }
+  if (apg) {
+    const id = Number(apg.dataset.apagar);
+    if (!confirm("Apagar este chat? As mensagens e a memória dele serão apagadas de vez.")) return;
+    await api("conversa/apagar", { id }).catch((e) => avisar(e.message));
+    if (id === conversaAtual) {
+      conversaAtual = undefined; // abre o chat mais recente que sobrou
+      try { localStorage.removeItem("ktn-chat"); } catch {}
+    }
+    return atualizar();
+  }
+  const item = ev.target.closest("[data-chat]");
+  if (item) abrirChat(Number(item.dataset.chat));
+});
+$("#painelMemoria").addEventListener("toggle", () => { memoriaCarregada = null; carregarMemoria(); });
+$("#btnSalvarMemoria").addEventListener("click", async () => {
+  try { await api("memoria", { id: conversaAtual, texto: $("#textoMemoria").value }); avisar("Memória salva."); }
+  catch (e) { avisar(e.message); }
+});
 $("#btnDetectar").addEventListener("click", () => atualizar(true));
 $("#btnTestar").addEventListener("click", async () => {
   if (!confirm("Testar cada modelo com uma pergunta mínima? Gasta poucos tokens dos seus planos.")) return;
@@ -347,7 +433,7 @@ $("#btnSalvarCfg").addEventListener("click", async () => {
   editandoCfg = false; atualizar();
 });
 
-atualizar();
+atualizar().then(carregarMemoria);
 setInterval(() => atualizar(), 3000);
 </script>
 </body>

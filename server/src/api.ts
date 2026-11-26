@@ -7,6 +7,7 @@ import { conectarAoOffice, liberarFerramentasOffice } from "./equipe/instalar.js
 import { catalogoComEstado, testarModelos, type ProgressoTeste } from "./equipe/modelos.js";
 import { carregarRegistro, definirModelo } from "./equipe/registro.js";
 import type { Runner } from "./runner.js";
+import { apagarMemoria, arquivoMemoria, escreverMemoria, lerMemoria } from "./memoria.js";
 
 const PUBLICO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
 
@@ -53,7 +54,8 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       equipe: await equipe(req.query.atualizar === "1"),
       status: escritorio.statusEquipe(),
       tarefas: escritorio.listarTarefas().slice(-60).reverse(),
-      mensagens: escritorio.mensagensRecentes(120),
+      mensagens: escritorio.mensagensRecentes(400),
+      conversas: escritorio.listarConversas(),
       eventos: escritorio.eventosRecentes(60),
       modelos: catalogoComEstado(),
       teste,
@@ -120,7 +122,47 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
       const texto = String(req.body?.texto ?? "").trim();
       if (!texto) throw new Error("Mensagem vazia.");
       const para = String(req.body?.para || runner.config.coordenadora);
-      return escritorio.enviarMensagem("humano", para, texto);
+      // Sem chat aberto: cria um, com o começo da mensagem como título.
+      let conversa = Number(req.body?.conversa_id) || null;
+      if (!conversa || !escritorio.conversa(conversa)) {
+        conversa = escritorio.criarConversa(texto.split("\n")[0].slice(0, 50)).id;
+      }
+      return escritorio.enviarMensagem("humano", para, texto, null, conversa);
+    }),
+  );
+
+  // ---------- Chats ----------
+  api.post("/conversa", protegido, tentar((req) => escritorio.criarConversa(String(req.body?.titulo ?? "Novo chat"))));
+  api.post(
+    "/conversa/renomear",
+    protegido,
+    tentar((req) => escritorio.renomearConversa(Number(req.body?.id), String(req.body?.titulo ?? ""))),
+  );
+  api.post(
+    "/conversa/apagar",
+    protegido,
+    tentar((req) => {
+      const id = Number(req.body?.id);
+      escritorio.apagarConversa(id);
+      apagarMemoria(id);
+      escritorio.registrarEvento(null, "config", `Chat #${id} apagado (mensagens e memória).`);
+    }),
+  );
+  api.get(
+    "/memoria",
+    tentar((req) => {
+      const id = Number(req.query.id);
+      return { arquivo: arquivoMemoria(id), memoria: lerMemoria(id) };
+    }),
+  );
+  api.post(
+    "/memoria",
+    protegido,
+    tentar((req) => {
+      const id = Number(req.body?.id);
+      const c = escritorio.conversa(id);
+      if (!c) throw new Error(`Chat #${id} não existe.`);
+      escreverMemoria(id, c.titulo, String(req.body?.texto ?? ""), true);
     }),
   );
 

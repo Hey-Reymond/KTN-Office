@@ -25,7 +25,11 @@ Nesta fase você ainda "cutuca" cada IA manualmente; o runner automático vem na
 
 Com o servidor ligado (`npm start`), abra **http://127.0.0.1:7777/**:
 
+- **Chats** (barra lateral, como no Claude Desktop): crie, renomeie (✏️) e apague (🗑️) conversas por assunto.
 - **Chat com a coordenadora**: você pede, ela divide o trabalho com a equipe e te responde ali.
+- **🧠 Memória de cada chat**: um arquivo `memoria.md` no seu PC (`~/KTN-Office-dados/conversas/<id>/`).
+  As IAs anotam decisões e preferências ali e leem quando precisam (`ler_memoria`, `historico_conversa`).
+  Você pode editar pela interface ou no Bloco de Notas. Apagar o chat apaga a memória dele.
 - **Expediente** (chave no topo): ligado = as IAs acordam sozinhas quando têm tarefa ou mensagem.
 - **Equipe e modelos**: status de cada CLI, botão *Conectar* e uma caixinha por modelo.
   *Testar modelos* descobre o que o seu plano libera; o que responder fica marcado, e você desmarca o que não quiser.
@@ -104,6 +108,7 @@ O runner (próxima etapa) roda a tarefa com esse modelo. Confira os ids exatos c
 | `modelos_equipe` | Modelos que cada IA pode usar (nível, custo, velocidade, quando usar) |
 | `criar_projeto` / `distribuir_projeto` | Coordenadora divide um pedido em uma parte por IA |
 | `status_projeto` / `concluir_projeto` | Lê as entregas, faz o merge e entrega pro humano |
+| `historico_conversa` / `ler_memoria` / `escrever_memoria` | Contexto de cada chat (histórico e memória no PC) |
 | `listar_tarefas` | Vê o quadro |
 | `pegar_tarefa` | Assume uma tarefa (atômico, ninguém pega duas vezes) |
 | `entregar_tarefa` | Entrega o resultado pra quem pediu |

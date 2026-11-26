@@ -18,7 +18,7 @@ writeFileSync(
     antigravity: { nome: "Agy", executavel: exe, prompt: ["{prompt}"], modelos: { neon: { id: "n" }, carbon: { id: "c" } } },
   }),
 );
-Object.assign(process.env, { KTN_CLIS: clis, KTN_CLIS_CUSTOM: path.join(tmp, "custom.json") });
+Object.assign(process.env, { KTN_CLIS: clis, KTN_CLIS_CUSTOM: path.join(tmp, "custom.json"), KTN_DADOS: path.join(tmp, "dados") });
 
 const { abrirBanco, Escritorio } = await import("../src/db.js");
 const { Runner } = await import("../src/runner.js");
@@ -213,7 +213,53 @@ try {
   const p2 = esc.criarProjeto("claude", "Só eu", "");
   assert.throws(() => esc.distribuirProjeto("claude", p2.id, [{ para: "antigravity", titulo: "x", descricao: "" }], ["claude"]), /Não estão na equipe/);
 
-  console.log("OK: expediente, projetos (dividir → fazer → merge), modelos, travas e teste automático de modelos.");
+  // ---------- Chats separados: cada pedido e resposta fica no seu chat ----------
+  {
+    const memoria = await import("../src/memoria.js");
+    const { existsSync } = await import("node:fs");
+    const a = esc.criarConversa("Chat A");
+    const b = esc.criarConversa("Chat B");
+    esc.enviarMensagem("humano", "claude", "pedido do A", null, a.id);
+    esc.enviarMensagem("humano", "claude", "pedido do B", null, b.id);
+    for (const m of esc.lerCaixa("claude").filter((m) => m.de === "humano")) {
+      esc.enviarMensagem("claude", "humano", `resposta: ${m.texto}`, null, m.conversa_id);
+    }
+    const doA = esc.historicoConversa(a.id).map((m) => m.texto);
+    assert.deepEqual(doA, ["pedido do A", "resposta: pedido do A"], "chat A não mistura com B");
+    // Projeto herda o chat e o resultado final volta pra ele
+    const pj = esc.criarProjeto("claude", "x", "", b.id);
+    const [parte] = esc.distribuirProjeto("claude", pj.id, [{ para: "claude", titulo: "t", descricao: "" }], ["claude"]);
+    assert.equal(parte.conversa_id, b.id);
+    esc.pegarTarefa("claude", parte.id); esc.entregarTarefa("claude", parte.id, "feito");
+    esc.concluirProjeto("claude", pj.id, "final");
+    assert.match(esc.historicoConversa(b.id).at(-1)!.texto, /Projeto #\d+ concluído/);
+    // Renomear e apagar (com a memória)
+    esc.renomearConversa(a.id, "Landing azul");
+    assert.equal(esc.conversa(a.id)!.titulo, "Landing azul");
+    memoria.escreverMemoria(a.id, "Landing azul", "- prefere azul");
+    assert.ok(existsSync(memoria.arquivoMemoria(a.id)));
+    esc.apagarConversa(a.id); memoria.apagarMemoria(a.id);
+    assert.equal(esc.conversa(a.id), undefined);
+    assert.equal(esc.historicoConversa(a.id).length, 0);
+    assert.ok(!existsSync(memoria.arquivoMemoria(a.id)));
+  }
+
+  // Banco antigo (sem chats): mensagens com o humano viram a "Conversa 1"
+  {
+    const Database = (await import("better-sqlite3")).default;
+    const velho = path.join(tmp, "velho.db");
+    const db = new Database(velho);
+    db.exec(`CREATE TABLE mensagens (id INTEGER PRIMARY KEY AUTOINCREMENT, de TEXT NOT NULL, para TEXT NOT NULL, texto TEXT NOT NULL,
+      tarefa_id INTEGER, lida INTEGER NOT NULL DEFAULT 0, criada_em TEXT NOT NULL DEFAULT (datetime('now')));
+      INSERT INTO mensagens (de, para, texto) VALUES ('humano','claude','msg antiga');`);
+    db.close();
+    const migrado = new Escritorio(abrirBanco(velho));
+    const c1 = migrado.listarConversas();
+    assert.equal(c1[0].titulo, "Conversa 1");
+    assert.equal(migrado.historicoConversa(c1[0].id)[0].texto, "msg antiga");
+  }
+
+  console.log("OK: expediente, projetos (dividir → fazer → merge), chats e memória, modelos, travas e teste automático de modelos.");
 } finally {
   rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }

@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Escritorio } from "./db.js";
 import { carregarRegistro, modeloDisponivel, modelosDisponiveis } from "./equipe/registro.js";
 import { equipeAtiva } from "./equipe/detectar.js";
+import { arquivoMemoria, escreverMemoria, lerMemoria } from "./memoria.js";
 
 const json = (dados: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(dados, null, 2) }],
@@ -29,6 +30,8 @@ const INSTRUCOES = `Você é um funcionário do KTN Office, um escritório onde 
 - Para pedir algo a outra IA, use criar_tarefa com "para" = nome dela; depois acompanhe pela caixa.
 - Ao terminar uma tarefa, use entregar_tarefa com um resultado completo e objetivo.
 - Guarde decisões e contexto útil em escrever_nota, para ninguém gastar tokens repetindo trabalho.
+- Cada pedido do humano vem de um chat (conversa_id). Para contexto, use historico_conversa e ler_memoria desse chat;
+  ao responder o humano, passe o conversa_id; anote o que vale lembrar com escrever_memoria.
 - Prefira delegar a quem tem a especialidade certa e mais folga de uso.
 - Pedidos grandes do humano viram PROJETO: criar_projeto, depois distribuir_projeto com UMA parte para CADA IA da equipe
   (inclusive você), dando a cada uma a parte em que ela é melhor. No fim, junte tudo (merge) e use concluir_projeto.
@@ -97,10 +100,11 @@ export function criarServidor(escritorio: Escritorio, agente: string) {
       inputSchema: {
         titulo: z.string().min(1),
         pedido: z.string().default("").describe("O pedido original do humano, completo"),
+        conversa_id: z.number().int().optional().describe("Chat de onde veio o pedido (está na mensagem do humano)"),
       },
     },
-    seguro(({ titulo, pedido }: { titulo: string; pedido: string }) => {
-      const projeto = escritorio.criarProjeto(agente, titulo, pedido);
+    seguro(({ titulo, pedido, conversa_id }: { titulo: string; pedido: string; conversa_id?: number }) => {
+      const projeto = escritorio.criarProjeto(agente, titulo, pedido, conversa_id ?? null);
       const time = perfilEquipe();
       return {
         projeto,
@@ -169,6 +173,52 @@ export function criarServidor(escritorio: Escritorio, agente: string) {
   );
 
   server.registerTool(
+    "historico_conversa",
+    {
+      description:
+        "Lê as últimas mensagens entre o humano e a equipe num chat. Use quando precisar de contexto do que já foi conversado.",
+      inputSchema: { conversa_id: z.number().int(), limite: z.number().int().min(1).max(200).default(30) },
+    },
+    seguro(({ conversa_id, limite }: { conversa_id: number; limite: number }) => {
+      const c = escritorio.conversa(conversa_id);
+      if (!c) throw new Error(`Chat #${conversa_id} não existe.`);
+      return { conversa: c, mensagens: escritorio.historicoConversa(conversa_id, limite).map(({ de, para, texto, criada_em }) => ({ de, para, texto, criada_em })) };
+    }),
+  );
+
+  server.registerTool(
+    "ler_memoria",
+    {
+      description:
+        "Lê a memória de um chat: decisões, preferências e fatos importantes anotados antes. Leia antes de trabalhar num pedido desse chat.",
+      inputSchema: { conversa_id: z.number().int() },
+    },
+    seguro(({ conversa_id }: { conversa_id: number }) => {
+      if (!escritorio.conversa(conversa_id)) throw new Error(`Chat #${conversa_id} não existe.`);
+      return { arquivo: arquivoMemoria(conversa_id), memoria: lerMemoria(conversa_id) || "(vazia)" };
+    }),
+  );
+
+  server.registerTool(
+    "escrever_memoria",
+    {
+      description:
+        "Anota na memória do chat algo que vale lembrar nas próximas vezes (decisão, preferência do humano, caminho de arquivo, resultado). Curto e objetivo.",
+      inputSchema: {
+        conversa_id: z.number().int(),
+        texto: z.string().min(1),
+        substituir: z.boolean().default(false).describe("true reescreve a memória inteira (use para resumir/limpar)"),
+      },
+    },
+    seguro(({ conversa_id, texto, substituir }: { conversa_id: number; texto: string; substituir: boolean }) => {
+      const c = escritorio.conversa(conversa_id);
+      if (!c) throw new Error(`Chat #${conversa_id} não existe.`);
+      escreverMemoria(conversa_id, c.titulo, substituir ? texto : `- ${texto.replace(/^- /, "")} (${agente})`, substituir);
+      return { ok: true, arquivo: arquivoMemoria(conversa_id) };
+    }),
+  );
+
+  server.registerTool(
     "modelos_equipe",
     {
       description:
@@ -229,10 +279,11 @@ export function criarServidor(escritorio: Escritorio, agente: string) {
         para: z.string().min(1),
         texto: z.string().min(1),
         tarefa_id: z.number().int().optional(),
+        conversa_id: z.number().int().optional().describe("Chat do humano a que isso pertence (veja ler_caixa). Use ao responder o humano."),
       },
     },
-    seguro(({ para, texto, tarefa_id }: { para: string; texto: string; tarefa_id?: number }) =>
-      escritorio.enviarMensagem(agente, para, texto, tarefa_id ?? null),
+    seguro(({ para, texto, tarefa_id, conversa_id }: { para: string; texto: string; tarefa_id?: number; conversa_id?: number }) =>
+      escritorio.enviarMensagem(agente, para, texto, tarefa_id ?? null, conversa_id ?? null),
     ),
   );
 

@@ -21,7 +21,7 @@ real.antigravity.executavel = process.execPath;
 real.codex.executavel = path.join(dir, "codex-nao-existe");
 writeFileSync(path.join(dir, "clis.json"), JSON.stringify(real));
 const servidor = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
-  env: { ...process.env, KTN_PORT: String(PORTA), KTN_DB: path.join(dir, "teste.db"), KTN_CLIS_CUSTOM: path.join(dir, "nao-existe.json"), KTN_CLIS: path.join(dir, "clis.json") },
+  env: { ...process.env, KTN_PORT: String(PORTA), KTN_DB: path.join(dir, "teste.db"), KTN_CLIS_CUSTOM: path.join(dir, "nao-existe.json"), KTN_CLIS: path.join(dir, "clis.json"), KTN_DADOS: path.join(dir, "dados") },
   stdio: ["ignore", "pipe", "pipe"],
 });
 
@@ -100,6 +100,21 @@ try {
     { para: "claude", titulo: "código", modelo: "opus" }, { para: "antigravity", titulo: "pesquisa de referências", modelo: "neon" }] })).dados;
   assert.equal(partes.length, 2);
   assert.ok((await claude.chamar("concluir_projeto", { projeto_id: proj.projeto.id, resultado: "x" })).erro, "não conclui com partes pendentes");
+
+  // Chats: histórico e memória que as IAs podem ler
+  const { abrirBanco, Escritorio } = await import("../src/db.js");
+  const direto = new Escritorio(abrirBanco(path.join(dir, "teste.db")));
+  const chatA = direto.criarConversa("Landing");
+  direto.enviarMensagem("humano", "claude", "quero tons de azul", null, chatA.id);
+  const hist = (await claude.chamar("historico_conversa", { conversa_id: chatA.id })).dados;
+  assert.equal(hist.mensagens[0].texto, "quero tons de azul");
+  await claude.chamar("escrever_memoria", { conversa_id: chatA.id, texto: "humano prefere azul" });
+  const mem = (await gemini.chamar("ler_memoria", { conversa_id: chatA.id })).dados;
+  assert.match(mem.memoria, /humano prefere azul \(claude\)/);
+  assert.ok(mem.arquivo.includes(path.join("dados", "conversas", String(chatA.id))), "memória fica numa pasta do PC");
+  const resp = (await claude.chamar("mandar_mensagem", { para: "humano", texto: "ok, azul" })).dados;
+  assert.equal(resp.conversa_id, chatA.id, "resposta cai no chat certo mesmo sem informar");
+  assert.ok((await claude.chamar("ler_memoria", { conversa_id: 999 })).erro);
 
   await claude.chamar("escrever_nota", { chave: "decisoes", conteudo: "Usar SQLite como estado." });
   assert.equal((await gemini.chamar("ler_notas", { chave: "decisoes" })).dados[0].autor, "claude");

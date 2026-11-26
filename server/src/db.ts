@@ -12,9 +12,17 @@ export interface Tarefa {
   para: string | null; // null = qualquer agente pode pegar
   modelo: string | null; // modelo sugerido pela coordenação (ex.: "carbon", "haiku")
   projeto_id: number | null; // parte de qual projeto (null = tarefa avulsa)
+  conversa_id: number | null; // chat de onde veio o pedido
   status: StatusTarefa;
   responsavel: string | null;
   resultado: string | null;
+  criada_em: string;
+  atualizada_em: string;
+}
+
+export interface Conversa {
+  id: number;
+  titulo: string;
   criada_em: string;
   atualizada_em: string;
 }
@@ -25,6 +33,7 @@ export interface Mensagem {
   para: string;
   texto: string;
   tarefa_id: number | null;
+  conversa_id: number | null;
   lida: number;
   criada_em: string;
 }
@@ -37,6 +46,7 @@ export interface Projeto {
   pedido: string;
   coordenadora: string;
   status: StatusProjeto;
+  conversa_id: number | null;
   resultado: string | null;
   criado_em: string;
   atualizado_em: string;
@@ -81,6 +91,12 @@ export function abrirBanco(arquivo = process.env.KTN_DB ?? path.resolve("office.
       limite_estimado INTEGER,
       observacao TEXT
     );
+    CREATE TABLE IF NOT EXISTS conversas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      titulo TEXT NOT NULL,
+      criada_em TEXT NOT NULL DEFAULT (datetime('now')),
+      atualizada_em TEXT NOT NULL DEFAULT (datetime('now'))
+    );
     CREATE TABLE IF NOT EXISTS projetos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       titulo TEXT NOT NULL,
@@ -113,6 +129,18 @@ export function abrirBanco(arquivo = process.env.KTN_DB ?? path.resolve("office.
   const colunas = db.prepare(`PRAGMA table_info(tarefas)`).all() as { name: string }[];
   if (!colunas.some((c) => c.name === "modelo")) db.exec(`ALTER TABLE tarefas ADD COLUMN modelo TEXT`);
   if (!colunas.some((c) => c.name === "projeto_id")) db.exec(`ALTER TABLE tarefas ADD COLUMN projeto_id INTEGER`);
+  const temColuna = (tabela: string, coluna: string) =>
+    (db.prepare(`PRAGMA table_info(${tabela})`).all() as { name: string }[]).some((c) => c.name === coluna);
+  for (const tabela of ["tarefas", "mensagens", "projetos"]) {
+    if (!temColuna(tabela, "conversa_id")) db.exec(`ALTER TABLE ${tabela} ADD COLUMN conversa_id INTEGER`);
+  }
+  // Mensagens antigas com o humano (antes dos chats existirem) vão para a "Conversa 1".
+  const orfas = db.prepare(`SELECT COUNT(*) AS n FROM mensagens WHERE conversa_id IS NULL AND (de = 'humano' OR para = 'humano')`).get() as { n: number };
+  if (orfas.n > 0) {
+    const id = Number(db.prepare(`INSERT INTO conversas (titulo) VALUES ('Conversa 1')`).run().lastInsertRowid);
+    db.prepare(`UPDATE mensagens SET conversa_id = ? WHERE conversa_id IS NULL AND (de = 'humano' OR para = 'humano')`).run(id);
+    db.prepare(`UPDATE projetos SET conversa_id = ? WHERE conversa_id IS NULL`).run(id);
+  }
   return db;
 }
 
@@ -137,10 +165,11 @@ export class Escritorio {
     descricao: string,
     para: string | null,
     modelo: string | null = null,
+    conversaId: number | null = null,
   ): Tarefa {
     const info = this.db
-      .prepare(`INSERT INTO tarefas (titulo, descricao, criada_por, para, modelo) VALUES (?, ?, ?, ?, ?)`)
-      .run(titulo, descricao, criadaPor, para, modelo);
+      .prepare(`INSERT INTO tarefas (titulo, descricao, criada_por, para, modelo, conversa_id) VALUES (?, ?, ?, ?, ?, ?)`)
+      .run(titulo, descricao, criadaPor, para, modelo, conversaId);
     const tarefa = this.tarefa(Number(info.lastInsertRowid))!;
     if (para) {
       const sugestao = modelo ? ` (modelo sugerido: ${modelo})` : "";
@@ -213,11 +242,76 @@ export class Escritorio {
     return this.tarefa(id)!;
   }
 
-  enviarMensagem(de: string, para: string, texto: string, tarefaId: number | null = null): Mensagem {
+  enviarMensagem(
+    de: string,
+    para: string,
+    texto: string,
+    tarefaId: number | null = null,
+    conversaId: number | null = null,
+  ): Mensagem {
+    // Resposta pro humano sem chat informado: vai pro último chat em que o humano falou com essa IA.
+    let conversa = conversaId;
+    if (conversa === null && tarefaId) conversa = this.tarefa(tarefaId)?.conversa_id ?? null;
+    if (conversa === null && para === "humano") conversa = this.conversaAtualCom(de);
+    if (conversa !== null) {
+      if (!this.conversa(conversa)) throw new Error(`Chat #${conversa} não existe.`);
+      this.db.prepare(`UPDATE conversas SET atualizada_em = datetime('now') WHERE id = ?`).run(conversa);
+    }
     const info = this.db
-      .prepare(`INSERT INTO mensagens (de, para, texto, tarefa_id) VALUES (?, ?, ?, ?)`)
-      .run(de, para, texto, tarefaId);
+      .prepare(`INSERT INTO mensagens (de, para, texto, tarefa_id, conversa_id) VALUES (?, ?, ?, ?, ?)`)
+      .run(de, para, texto, tarefaId, conversa);
     return this.db.prepare(`SELECT * FROM mensagens WHERE id = ?`).get(info.lastInsertRowid) as Mensagem;
+  }
+
+  // ---------- Chats (conversas com o humano) ----------
+
+  criarConversa(titulo = "Novo chat"): Conversa {
+    const info = this.db.prepare(`INSERT INTO conversas (titulo) VALUES (?)`).run(titulo.trim() || "Novo chat");
+    return this.conversa(Number(info.lastInsertRowid))!;
+  }
+
+  conversa(id: number): Conversa | undefined {
+    return this.db.prepare(`SELECT * FROM conversas WHERE id = ?`).get(id) as Conversa | undefined;
+  }
+
+  listarConversas(): Conversa[] {
+    return this.db.prepare(`SELECT * FROM conversas ORDER BY atualizada_em DESC, id DESC`).all() as Conversa[];
+  }
+
+  renomearConversa(id: number, titulo: string) {
+    if (!titulo.trim()) throw new Error("Título vazio.");
+    if (!this.conversa(id)) throw new Error(`Chat #${id} não existe.`);
+    this.db.prepare(`UPDATE conversas SET titulo = ? WHERE id = ?`).run(titulo.trim().slice(0, 120), id);
+  }
+
+  /** Apaga o chat e as mensagens dele. Projetos e tarefas ficam no histórico, só perdem o vínculo. */
+  apagarConversa(id: number) {
+    this.db.transaction(() => {
+      this.db.prepare(`DELETE FROM mensagens WHERE conversa_id = ?`).run(id);
+      this.db.prepare(`UPDATE projetos SET conversa_id = NULL WHERE conversa_id = ?`).run(id);
+      this.db.prepare(`UPDATE tarefas SET conversa_id = NULL WHERE conversa_id = ?`).run(id);
+      this.db.prepare(`DELETE FROM conversas WHERE id = ?`).run(id);
+    })();
+  }
+
+  /** Mensagens entre o humano e as IAs num chat (o "histórico" que as IAs podem ler). */
+  historicoConversa(id: number, limite = 40): Mensagem[] {
+    return (
+      this.db
+        .prepare(`SELECT * FROM mensagens WHERE conversa_id = ? AND (de = 'humano' OR para = 'humano') ORDER BY id DESC LIMIT ?`)
+        .all(id, limite) as Mensagem[]
+    ).reverse();
+  }
+
+  conversaAtualCom(agente: string): number | null {
+    const r = this.db
+      .prepare(`SELECT conversa_id FROM mensagens WHERE de = 'humano' AND para = ? AND conversa_id IS NOT NULL ORDER BY id DESC LIMIT 1`)
+      .get(agente) as { conversa_id: number } | undefined;
+    if (r) return r.conversa_id;
+    const ultima = this.db.prepare(`SELECT id FROM conversas ORDER BY atualizada_em DESC, id DESC LIMIT 1`).get() as
+      | { id: number }
+      | undefined;
+    return ultima?.id ?? null;
   }
 
   /** Lê as mensagens não lidas do agente e marca como lidas. */
@@ -328,10 +422,11 @@ export class Escritorio {
 
   // ---------- Projetos: a coordenadora divide, cada IA faz uma parte, a coordenadora junta ----------
 
-  criarProjeto(coordenadora: string, titulo: string, pedido: string): Projeto {
+  criarProjeto(coordenadora: string, titulo: string, pedido: string, conversaId: number | null = null): Projeto {
+    const conversa = conversaId ?? this.conversaAtualCom(coordenadora);
     const info = this.db
-      .prepare(`INSERT INTO projetos (titulo, pedido, coordenadora) VALUES (?, ?, ?)`)
-      .run(titulo, pedido, coordenadora);
+      .prepare(`INSERT INTO projetos (titulo, pedido, coordenadora, conversa_id) VALUES (?, ?, ?, ?)`)
+      .run(titulo, pedido, coordenadora, conversa);
     this.registrarEvento(coordenadora, "projeto", `Abriu o projeto #${info.lastInsertRowid}: ${titulo}`);
     return this.projeto(Number(info.lastInsertRowid))!;
   }
@@ -367,8 +462,8 @@ export class Escritorio {
     const criar = this.db.transaction(() => {
       const tarefas = partes.map((x) => {
         const info = this.db
-          .prepare(`INSERT INTO tarefas (titulo, descricao, criada_por, para, modelo, projeto_id) VALUES (?, ?, ?, ?, ?, ?)`)
-          .run(x.titulo, x.descricao, coordenadora, x.para, x.modelo ?? null, id);
+          .prepare(`INSERT INTO tarefas (titulo, descricao, criada_por, para, modelo, projeto_id, conversa_id) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+          .run(x.titulo, x.descricao, coordenadora, x.para, x.modelo ?? null, id, p.conversa_id);
         return this.tarefa(Number(info.lastInsertRowid))!;
       });
       this.db.prepare(`UPDATE projetos SET status = 'em_andamento', atualizado_em = datetime('now') WHERE id = ?`).run(id);
@@ -398,6 +493,8 @@ export class Escritorio {
       p.coordenadora,
       `Projeto #${id} (${p.titulo}): todas as ${partes.length} partes terminaram${canceladas ? ` (${canceladas} cancelada(s))` : ""}. ` +
         `Use status_projeto para ler as entregas, faça o merge com a sua parte e finalize com concluir_projeto.`,
+      null,
+      p.conversa_id,
     );
     this.registrarEvento(p.coordenadora, "projeto", `Projeto #${id}: todas as partes chegaram; hora do merge.`);
   }
@@ -411,7 +508,7 @@ export class Escritorio {
     this.db
       .prepare(`UPDATE projetos SET status = 'concluido', resultado = ?, atualizado_em = datetime('now') WHERE id = ?`)
       .run(resultado, id);
-    this.enviarMensagem(coordenadora, "humano", `✅ Projeto #${id} concluído: ${p.titulo}\n\n${resultado}`);
+    this.enviarMensagem(coordenadora, "humano", `✅ Projeto #${id} concluído: ${p.titulo}\n\n${resultado}`, null, p.conversa_id);
     this.registrarEvento(coordenadora, "projeto", `Concluiu o projeto #${id}.`);
     return this.projeto(id)!;
   }

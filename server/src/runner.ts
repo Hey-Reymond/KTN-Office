@@ -147,6 +147,9 @@ export class Runner {
           `3. entregar_tarefa com um resultado completo (o que fez, arquivos, pendências).`,
           `4. registrar_uso com uma estimativa dos tokens gastos.`,
           `Se precisar de ajuda de outra IA, crie uma tarefa para ela e entregue a sua dizendo o que ficou pendente.`,
+          ...(tarefa.conversa_id
+            ? [`Contexto: este trabalho é do chat #${tarefa.conversa_id}. Se precisar, use ler_memoria e historico_conversa com conversa_id ${tarefa.conversa_id}.`]
+            : []),
         ].join("\n"),
       };
     }
@@ -166,7 +169,9 @@ export class Runner {
               ]
             : [`- Pedido do humano: resolva ou responda; se precisar de outra IA, crie uma tarefa para ela.`]),
           `- Entrega de outra IA (tarefa avulsa): use o resultado para concluir o trabalho.`,
-          `- Responda o humano com mandar_mensagem para "humano" quando tiver algo para ele.`,
+          `- Cada mensagem do humano tem conversa_id (o chat). Antes de agir, leia ler_memoria (e historico_conversa se precisar)`,
+          `  desse chat. Responda com mandar_mensagem para "humano" passando o mesmo conversa_id, e use esse conversa_id em criar_projeto.`,
+          `- Anote com escrever_memoria o que vale lembrar nas próximas vezes (decisões, preferências, caminhos de arquivos).`,
           `Não fique esperando: o escritório te acorda de novo quando chegar algo.`,
         ].join("\n"),
       };
