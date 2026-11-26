@@ -4,7 +4,7 @@ import { localizar } from "./equipe/detectar.js";
 import { esperaDoErro } from "./cota.js";
 import { PASTA_PADRAO, pastaDaTarefa, pastaDoChat, processarIntegracoes } from "./integracao.js";
 import { CliAgent, type Funcionario, type ResultadoTrabalho } from "./equipe/funcionario.js";
-import { carregarRegistro, modeloDisponivel, resolverModelo, salvarDeteccaoModelo, type ConfigCli } from "./equipe/registro.js";
+import { carregarRegistro, modeloDisponivel, modelosDisponiveis, resolverModelo, salvarDeteccaoModelo, type ConfigCli } from "./equipe/registro.js";
 
 /** Erros que querem dizer "esse modelo não está no seu plano" (não é falha da IA). */
 export const ERRO_MODELO = /model.{0,80}(not supported|not available|does not exist|not found|unavailable|no access)|unknown model|invalid model|modelo .{0,40}(indispon|não (está )?dispon)/i;
@@ -245,15 +245,27 @@ export class Runner {
         timeoutMs: cfg.timeoutMin * 60_000,
         aoProgredir: progredir,
       });
-      // Modelo recusado pelo plano: aprende (marca indisponível) e tenta de novo com o padrão do CLI.
-      if (!r.ok && trabalho.modelo && ERRO_MODELO.test(r.erro ?? "")) {
+      // Modelo recusado pelo plano: aprende (marca indisponível) e tenta o próximo modelo liberado.
+      // Também cobre o caso em que o PRÓPRIO padrão do CLI não está no plano (o erro cita o id do modelo).
+      const tentados = new Set<string>();
+      let atual = trabalho.modelo;
+      for (let i = 0; i < 5 && !r.ok && ERRO_MODELO.test(r.erro ?? ""); i++) {
         const motivo = (r.erro ?? "").slice(0, 200);
-        salvarDeteccaoModelo(id, trabalho.modelo, motivo);
-        this.escritorio.registrarEvento(id, "config", `Modelo ${trabalho.modelo} não está no seu plano; marcado como indisponível. Tentando com o modelo padrão.`);
-        estado.modelo = undefined;
-        estado.progresso.push({ quando: Date.now(), frase: `🔁 ${trabalho.modelo} não está no plano; usando o modelo padrão` });
-        const atualizado = carregarRegistro()[id] ?? cli; // já sem o modelo recusado
-        r = await this.fabrica(id, atualizado).trabalhar(trabalho.prompt, {
+        const cfgAtual = carregarRegistro()[id] ?? cli;
+        const recusado =
+          atual ?? Object.entries(cfgAtual.modelos ?? {}).find(([k, m]) => (r.erro ?? "").includes(m.id ?? k))?.[0];
+        if (recusado) {
+          salvarDeteccaoModelo(id, recusado, motivo);
+          tentados.add(recusado);
+        }
+        const proximo = Object.keys(modelosDisponiveis(carregarRegistro()[id] ?? cli)).find((k) => !tentados.has(k));
+        if (!proximo && atual === undefined) break; // já tentou o padrão do CLI e não sobrou nada
+        this.escritorio.registrarEvento(id, "config", `Modelo ${recusado ?? "padrão"} não está no seu plano; marcado como indisponível. Tentando ${proximo ?? "o modelo padrão do CLI"}.`);
+        estado.progresso.push({ quando: Date.now(), frase: `🔁 ${recusado ?? "padrão"} não está no plano; tentando ${proximo ?? "o padrão"}` });
+        atual = proximo;
+        estado.modelo = proximo;
+        r = await this.fabrica(id, carregarRegistro()[id] ?? cli).trabalhar(trabalho.prompt, {
+          modelo: proximo,
           nivel,
           ferramentas: this.escritorio.sempreDe(id),
           cwd: trabalho.pasta,

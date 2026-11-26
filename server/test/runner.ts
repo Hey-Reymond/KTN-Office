@@ -279,12 +279,45 @@ try {
     const tm = esc.criarTarefa("claude", "difícil", "", "antigravity", "carbon");
     esc.lerCaixa("antigravity");
     await rm.ciclo(); await rm.aguardarOcioso();
-    assert.deepEqual(usados, ["carbon", undefined], "tentou o modelo e depois o padrão, na mesma execução");
+    assert.equal(usados[0], "carbon");
+    assert.equal(usados.length, 2, "tentou o modelo e depois outro liberado, na mesma execução");
+    assert.notEqual(usados[1], "carbon");
     assert.equal(esc.tarefa(tm.id)!.status, "entregue");
     assert.equal(estadoModelo(carregarRegistro().antigravity, "carbon"), "indisponivel", "aprendeu que o modelo está fora do plano");
     assert.equal(rm.estado().pausadas.antigravity, undefined, "não conta como falha");
     rm.atualizarConfig({ ligado: false });
     esc.gravarConfig("foraDaEquipe", []);
+  }
+
+  // ---------- O padrão do próprio CLI fora do plano (codex grátis com sol): aprende pelo id e troca ----------
+  {
+    const { salvarCustom } = await import("../src/equipe/registro.js");
+    const exeTeste = carregarRegistro().antigravity.executavel;
+    salvarCustom("codex", { nome: "Codex", executavel: exeTeste, prompt: ["{prompt}"], ativo: true,
+      modelos: { astra: { id: "gpt-6.2-astra" }, sol: { id: "gpt-6.2-sol" }, luna: { id: "gpt-6-luna" } } } as never);
+    const recusados = ["gpt-6.2-sol", "gpt-6.2-astra"];
+    const usados: (string | undefined)[] = [];
+    const rc = new Runner(esc, (id, cfg) => ({ id, tipo: "cli", especialidades: [], async trabalhar(prompt, o = {}) {
+      const real = o.modelo ? cfg.modelos![o.modelo].id : "gpt-6.2-sol"; // sem -m o CLI usa o padrão da conta (sol)
+      usados.push(o.modelo);
+      if (recusados.includes(real!)) return { ok: false, texto: "", erro: `The '${real}' model is not supported when using Codex with a ChatGPT account.` };
+      const t = prompt.match(/pegar_tarefa com id (\d+)/);
+      if (t) { const x = esc.pegarTarefa(id, Number(t[1])); esc.entregarTarefa(id, x.id, "ok"); }
+      return { ok: true, texto: "ok" };
+    } }));
+    if (!carregarRegistro().codex) { console.log("(sem codex no catálogo de teste, pulando)"); } else {
+      rc.atualizarConfig({ ligado: true, maxPorHora: 99 });
+      esc.gravarConfig("foraDaEquipe", ["claude", "antigravity"]);
+      const tc = esc.criarTarefa("claude", "qualquer", "", "codex");
+      esc.lerCaixa("codex");
+      await rc.ciclo(); await rc.aguardarOcioso();
+      assert.equal(esc.tarefa(tc.id)!.status, "entregue", `entregou depois de trocar de modelo (tentou: ${usados.join(", ")})`);
+      assert.equal(estadoModelo(carregarRegistro().codex, "sol"), "indisponivel", "aprendeu que sol (padrão do CLI) está fora do plano");
+      assert.equal(rc.estado().pausadas.codex, undefined);
+      rc.atualizarConfig({ ligado: false });
+      esc.gravarConfig("foraDaEquipe", []);
+    }
+    salvarCustom("codex", { ativo: false } as never); // tira da equipe para os próximos testes
   }
 
   // ---------- Permissões no runner: nível por IA e "uma vez" ----------
