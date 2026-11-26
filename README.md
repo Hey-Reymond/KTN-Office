@@ -90,6 +90,13 @@ pega tarefas, conversa pelo escritório e lê/escreve arquivos **só dentro da p
 
 As chaves ficam em `~/KTN-Office-dados/chaves-api.json`, fora da pasta do projeto (nunca vão pro git).
 
+### App de desktop
+A pasta `desktop/` tem o app (Electron): janela própria, ícone na bandeja (fechar só esconde, então o expediente continua)
+e "Iniciar com o Windows" no menu da bandeja. A interface segue o tema do Windows.
+- **Usar sem compilar:** baixe o instalador em [Releases](https://github.com/reireymond/KTN-Office/releases).
+- **Rodar do código:** `cd desktop && npm install && npm start`. Se o servidor já estiver rodando (`npm start` na pasta `server`), o app só abre a janela.
+- **Gerar o instalador:** `npm run dist:win` (ou `dist:linux` / `dist:mac`), e o arquivo sai em `desktop/release/`.
+
 ### Controle da tela (opcional, Windows)
 Em Configurações → Ferramentas → **Controle da tela**: uma IA por vez (tipo Claude Code) vê a tela e usa
 mouse e teclado nos programas do Windows, pelo [Windows-MCP](https://github.com/CursorTouch/Windows-MCP) (código aberto).
