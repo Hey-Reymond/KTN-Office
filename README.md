@@ -90,6 +90,16 @@ pega tarefas, conversa pelo escritório e lê/escreve arquivos **só dentro da p
 
 As chaves ficam em `~/KTN-Office-dados/chaves-api.json`, fora da pasta do projeto (nunca vão pro git).
 
+### Controle da tela (opcional, Windows)
+Em Configurações → Ferramentas → **Controle da tela**: uma IA por vez (tipo Claude Code) vê a tela e usa
+mouse e teclado nos programas do Windows, pelo [Windows-MCP](https://github.com/CursorTouch/Windows-MCP) (código aberto).
+- Vem **desligado**; precisa do `uv` (botão "Instalar o uv").
+- **Toda ação pede permissão**; "Sempre permitir" não vale para ele.
+- Só aparece para a IA escolhida; as outras não recebem.
+
+### Aparência
+Configurações → Aparência: **Automático** (segue o tema claro/escuro do Windows e muda junto), Claro ou Escuro.
+
 ### Receitas
 Pedidos prontos que já dizem como dividir o trabalho: Revisar código, Nova funcionalidade, Corrigir bug,
 Pesquisar e comparar, Documentar projeto e Estudar para prova. Ficam na tela inicial e no ícone de prancheta

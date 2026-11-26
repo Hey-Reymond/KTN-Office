@@ -17,9 +17,17 @@ export interface Ferramenta {
   descricao: string;
   comando: string;
   args: string[];
-  navegadores: Record<string, string[]>;
+  navegadores?: Record<string, string[]>;
   preparar?: Record<string, { comando: string; args: string[]; descricao: string }>;
   padrao: string;
+  /** Só uma IA por vez (ex.: controle da tela). */
+  exclusiva?: boolean;
+  /** Toda ação pede permissão; nunca entra em "sempre permitir". */
+  semprePerguntar?: boolean;
+  /** Sistemas em que funciona (process.platform). */
+  sistemas?: string[];
+  /** Tipos de IA que podem usar (precisam pedir permissão a cada ação). */
+  conexoes?: string[];
 }
 
 export interface EstadoFerramenta {
@@ -27,7 +35,15 @@ export interface EstadoFerramenta {
   navegador: string;
   /** Liberar as ações dessa ferramenta sem aviso de permissão. */
   semPerguntar: boolean;
+  /** Ferramenta exclusiva: qual IA usa. */
+  ia?: string;
 }
+
+/** Ferramentas que nunca podem ser liberadas de vez (prefixo no Claude: mcp__<id>). */
+export function ferramentasSemprePerguntar(): string[] {
+  return Object.entries(catalogoFerramentas()).filter(([, f]) => f.semprePerguntar).map(([id]) => `mcp__${id}`);
+}
+export const exigePerguntar = (ferramenta: string) => ferramentasSemprePerguntar().some((p) => ferramenta === p || ferramenta.startsWith(p + "__"));
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const ARQ = process.env.KTN_FERRAMENTAS ?? path.join(RAIZ, "agents", "ferramentas.json");
@@ -89,6 +105,7 @@ export function estadoFerramentas(esc: Escritorio): Record<string, EstadoFerrame
 
 /** Argumentos finais do servidor MCP para o navegador escolhido. */
 export function argsFerramenta(f: Ferramenta, navegador: string, instalados = navegadoresInstalados()): string[] {
+  if (!f.navegadores) return [...f.args];
   const extra = f.navegadores[navegador];
   if (!extra) throw new Error(`${f.nome} não funciona com ${navegador}. Opções: ${Object.keys(f.navegadores).join(", ")}`);
   if (extra.some((a) => a.includes("{caminho}")) && !instalados[navegador]) {
@@ -150,11 +167,23 @@ export async function aplicarFerramenta(esc: Escritorio, id: string, mudanca: Pa
   const f = catalogoFerramentas()[id];
   if (!f) throw new Error(`Ferramenta "${id}" não existe.`);
   const atual = { ...estadoFerramentas(esc)[id], ...mudanca };
+  if (f.semprePerguntar) atual.semPerguntar = false;
+  const registro = carregarRegistro();
+  if (atual.ligada) {
+    if (f.sistemas && !f.sistemas.includes(process.platform)) throw new Error(`${f.nome} só funciona em ${f.sistemas.map((x) => (x === "win32" ? "Windows" : x)).join(", ")}.`);
+    if (f.exclusiva) {
+      const cfg = atual.ia ? registro[atual.ia] : undefined;
+      if (!cfg || !localizar(cfg)) throw new Error("Escolha qual IA vai usar (uma por vez).");
+      if (f.conexoes && !f.conexoes.includes(cfg.conexaoOffice ?? "")) throw new Error(`${cfg.nome} não consegue pedir permissão a cada ação; escolha uma IA tipo Claude Code.`);
+    }
+  }
   const args = atual.ligada ? argsFerramenta(f, atual.navegador) : null; // valida antes de mexer em qualquer IA
   const msgs: string[] = [];
-  for (const [cliId, cfg] of Object.entries(carregarRegistro())) {
+  for (const [cliId, cfg] of Object.entries(registro)) {
     if (cfg.ativo === false || cfg.tipo === "api" || !localizar(cfg)) continue; // IAs por API não usam MCP de navegador
-    msgs.push(await aplicarEmUma(cliId, cfg, id, f.comando, args).catch((e) => `⚠️ ${e instanceof Error ? e.message : e}`));
+    const aqui = f.exclusiva ? (cliId === atual.ia ? args : null) : args; // exclusiva: tira de todas as outras
+    if (f.exclusiva && !aqui && !(f.conexoes ?? []).includes(cfg.conexaoOffice ?? "")) continue; // nunca foi posta nessa
+    msgs.push(await aplicarEmUma(cliId, cfg, id, f.comando, aqui).catch((e) => `⚠️ ${e instanceof Error ? e.message : e}`));
   }
   // Usar sem perguntar: IAs tipo Claude ganham a ferramenta na lista "sempre"; Antigravity ganha a regra de permissão.
   const liberar = atual.ligada && atual.semPerguntar;
@@ -167,7 +196,7 @@ export async function aplicarFerramenta(esc: Escritorio, id: string, mudanca: Pa
     }
   }
   esc.gravarConfig("ferramentas", { ...esc.lerConfig<Record<string, unknown>>("ferramentas", {}), [id]: atual });
-  esc.registrarEvento(null, "config", `${f.nome}: ${atual.ligada ? `ligado com ${atual.navegador}` : "desligado"}${liberar ? ", sem perguntar" : ""}.`);
+  esc.registrarEvento(null, "config", `${f.nome}: ${atual.ligada ? (f.exclusiva ? `ligado só para ${atual.ia}` : `ligado com ${atual.navegador}`) : "desligado"}${liberar ? ", sem perguntar" : ""}.`);
   return msgs;
 }
 
@@ -177,5 +206,5 @@ export async function prepararNavegador(id: string, navegador: string) {
   if (!passo) return "Nada a preparar.";
   const r = await rodar(passo.comando, passo.args, { timeoutMs: 10 * 60_000 });
   if (r.codigo !== 0) throw new Error(`Falhou ao preparar ${navegador}: ${(r.stderr || r.stdout).slice(0, 300)}`);
-  return `${navegador} pronto para o ${catalogoFerramentas()[id].nome}.`;
+  return `${navegador === "uv" ? "uv instalado" : navegador + " pronto"} para o ${catalogoFerramentas()[id].nome}. Abra um terminal novo (ou reinicie o Office) para ele achar o uv.`;
 }

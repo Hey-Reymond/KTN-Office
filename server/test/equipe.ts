@@ -209,7 +209,7 @@ try {
   {
     process.env.KTN_NAVEGADORES = JSON.stringify({ brave: path.join(tmp, "brave", "brave.exe") });
     const { abrirBanco, Escritorio } = await import("../src/db.js");
-    const { aplicarFerramenta, argsFerramenta, catalogoFerramentas } = await import("../src/ferramentas.js");
+    const { aplicarFerramenta, argsFerramenta, catalogoFerramentas, estadoFerramentas: estadoFerr } = await import("../src/ferramentas.js");
     const esc = new Escritorio(abrirBanco(path.join(tmp, "f.db")));
     const cat = catalogoFerramentas();
     assert.deepEqual(argsFerramenta(cat.playwright, "firefox"), ["-y", "@playwright/mcp@latest", "--browser", "firefox"]);
@@ -232,6 +232,28 @@ try {
     assert.equal(JSON.parse(readFileSync(path.join(home, ".gemini", "config", "mcp_config.json"), "utf8")).mcpServers.playwright, undefined);
     assert.ok(!esc.sempreDe("fakeclaude").includes("mcp__playwright"), "desligar tira a liberação");
     await assert.rejects(aplicarFerramenta(esc, "chrome-devtools", { ligada: true, navegador: "firefox" }), /não funciona/);
+
+    // Controle da tela: opcional, só Windows, uma IA tipo Claude, nunca "sempre permitir"
+    const { exigePerguntar } = await import("../src/ferramentas.js");
+    assert.equal(estadoFerr(esc).tela.ligada, false, "desligado por padrão");
+    assert.ok(exigePerguntar("mcp__tela__Click-Tool") && exigePerguntar("mcp__tela") && !exigePerguntar("mcp__telas"));
+    esc.definirSempre("fakeclaude", ["mcp__tela", "mcp__office"]);
+    assert.deepEqual(esc.sempreDe("fakeclaude"), ["mcp__office"], "nunca fica liberado de vez");
+    const plat = Object.getOwnPropertyDescriptor(process, "platform")!;
+    if (process.platform !== "win32") await assert.rejects(aplicarFerramenta(esc, "tela", { ligada: true, ia: "fakeclaude" }), /só funciona em Windows/);
+    Object.defineProperty(process, "platform", { value: "win32" });
+    try {
+      await assert.rejects(aplicarFerramenta(esc, "tela", { ligada: true }), /Escolha qual IA/);
+      await assert.rejects(aplicarFerramenta(esc, "tela", { ligada: true, ia: "fakeagy" }), /pedir permissão a cada ação/);
+      const m2 = await aplicarFerramenta(esc, "tela", { ligada: true, ia: "fakeclaude", semPerguntar: true });
+      assert.ok(m2.some((m) => m.includes("Fake Claude: ligado")), m2.join(" | "));
+      assert.equal(JSON.parse(readFileSync(path.join(home, ".gemini", "config", "mcp_config.json"), "utf8")).mcpServers.tela, undefined, "não vai pra outras IAs");
+      assert.equal(estadoFerr(esc).tela.semPerguntar, false, "semPerguntar ignorado");
+      assert.ok(!esc.sempreDe("fakeclaude").includes("mcp__tela"));
+      await aplicarFerramenta(esc, "tela", { ligada: false });
+    } finally {
+      Object.defineProperty(process, "platform", plat);
+    }
   }
 
   // 3. Plano de instalação não executa nada, só descreve

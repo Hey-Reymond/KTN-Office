@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
+<script>try { const t = localStorage.getItem("ktn-tema"); if (t === "claro" || t === "escuro") document.documentElement.dataset.tema = t; } catch {}</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KTN Office</title>
@@ -30,14 +31,22 @@
     --fonte-titulo: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
     --mono: "Cascadia Code", "Cascadia Mono", Consolas, ui-monospace, monospace;
   }
+  /* Tema: automático segue o Windows (claro/escuro do sistema); dá para fixar em Configurações → Aparência. */
   @media (prefers-color-scheme: light) {
-    :root {
+    :root:not([data-tema="escuro"]) {
       color-scheme: light;
       --fundo: #f6f7f9; --lateral: #eceef2; --superficie: #ffffff; --elevado: #ffffff;
       --linha: #e1e4ea; --linha-forte: #cfd4dd; --texto: #191c23; --suave: #5b6375; --fraco: #8a91a2;
       --acento: #4f5fd9; --acento-forte: #3a49c4;
       --claude: #b7791f; --antigravity: #17907c; --codex: #5562d6; --outra: #8a4fd6;
     }
+  }
+  :root[data-tema="claro"] {
+      color-scheme: light;
+      --fundo: #f6f7f9; --lateral: #eceef2; --superficie: #ffffff; --elevado: #ffffff;
+      --linha: #e1e4ea; --linha-forte: #cfd4dd; --texto: #191c23; --suave: #5b6375; --fraco: #8a91a2;
+      --acento: #4f5fd9; --acento-forte: #3a49c4;
+      --claude: #b7791f; --antigravity: #17907c; --codex: #5562d6; --outra: #8a4fd6;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -263,6 +272,9 @@
     .modelo { grid-template-columns: 22px 1fr; } .modelo .desc, .modelo .selo { grid-column: 2; }
   }
 [hidden] { display: none !important; }
+.escolhaTema { display: flex; gap: 10px; flex-wrap: wrap; }
+.escolhaTema label { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border: 1px solid var(--linha-forte); border-radius: 10px; cursor: pointer; background: var(--superficie); }
+.escolhaTema label:has(input:checked) { border-color: var(--acento); box-shadow: 0 0 0 1px var(--acento); }
 .compositor { position: relative; }
 .menuReceitas { position: absolute; bottom: calc(100% - 6px); left: 0; z-index: 20; width: min(420px, 100%); max-height: 360px; overflow: auto; padding: 6px; border: 1px solid var(--borda); border-radius: 12px; background: var(--fundo-2, var(--fundo)); box-shadow: 0 12px 32px rgba(0,0,0,.25); }
 .menuReceitas button { display: block; width: 100%; text-align: left; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: inherit; cursor: pointer; font: inherit; }
@@ -295,6 +307,7 @@
   <symbol id="i-clipe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21 11-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6L15 6.6"/></symbol>
   <symbol id="i-pasta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
   <symbol id="i-globo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.4 3.6 5.2 3.6 8.5s-1.1 6.1-3.6 8.5c-2.5-2.4-3.6-5.2-3.6-8.5s1.1-6.1 3.6-8.5z"/></symbol>
+  <symbol id="i-tema" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 0 0 17z" fill="currentColor"/></symbol>
   <symbol id="i-relogio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
   <symbol id="i-quadro" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/></symbol>
   <symbol id="i-bastidores" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v10H9l-5 4z"/><path d="M8 9h8M8 12h5"/></symbol>
@@ -388,6 +401,7 @@
       <button role="tab" data-painel="expediente" aria-selected="false"><svg><use href="#i-relogio"/></svg>Expediente</button>
       <button role="tab" data-painel="receitas" aria-selected="false"><svg><use href="#i-receita"/></svg>Receitas</button>
       <button role="tab" data-painel="quadro" aria-selected="false"><svg><use href="#i-quadro"/></svg>Quadro de tarefas</button>
+      <button role="tab" data-painel="aparencia" aria-selected="false"><svg><use href="#i-tema"/></svg>Aparência</button>
       <button role="tab" data-painel="bastidores" aria-selected="false"><svg><use href="#i-bastidores"/></svg>Bastidores</button>
     </nav>
     <div class="painel">
@@ -467,6 +481,15 @@
           <div class="campo"><label for="rcTexto">Pedido</label><textarea id="rcTexto" rows="6" placeholder="Revise «link do PR».&#10;&#10;Divisão sugerida:&#10;- uma IA…&#10;- outra…"></textarea></div>
           <button class="btn primario" type="submit">Salvar receita</button>
         </form>
+      </section>
+      <section data-conteudo="aparencia" hidden>
+        <h3>Aparência</h3>
+        <p class="sub">Automático segue o tema do Windows (Configurações do Windows → Personalização → Cores) e muda sozinho quando ele muda.</p>
+        <div class="escolhaTema" role="radiogroup" aria-label="Tema">
+          <label><input type="radio" name="tema" value="auto"> Automático (Windows)</label>
+          <label><input type="radio" name="tema" value="claro"> Claro</label>
+          <label><input type="radio" name="tema" value="escuro"> Escuro</label>
+        </div>
       </section>
       <section data-conteudo="bastidores" hidden>
         <h3>Bastidores</h3>
@@ -789,12 +812,24 @@ function renderConfig() {
   const NAV = { brave: "Brave", firefox: "Firefox", chrome: "Chrome", edge: "Edge" };
   $("#listaFerramentas").innerHTML = Object.entries(F.catalogo).map(([id, f]) => {
     const st = F.estado[id];
-    const opcoes = Object.keys(f.navegadores).map((n) => {
+    const opcoes = Object.keys(f.navegadores || {}).map((n) => {
       const proprio = f.preparar?.[n]; // navegador que a ferramenta baixa sozinha
       const ok = !!F.navegadores[n] || !!proprio || n === "chrome" || n === "edge";
       return `<option value="${n}" ${n === st.navegador ? "selected" : ""} ${ok ? "" : "disabled"}>${NAV[n] || n}${proprio ? " (versão de automação)" : F.navegadores[n] || ok ? "" : " (não instalado)"}</option>`;
     }).join("");
     const prep = f.preparar?.[st.navegador];
+    if (f.exclusiva) {
+      const funciona = !f.sistemas || f.sistemas.includes(F.sistema);
+      const ias = F.iasQuePedem || [];
+      return `<div class="membroCfg"><div class="cab"><span class="nome">${esc(f.nome)}</span><span class="selos"><span class="selo alerta">opcional</span></span>
+        <span class="direita"><label class="interruptor"><input type="checkbox" data-ferr-ligar="${esc(id)}" ${st.ligada ? "checked" : ""} ${funciona && ias.length ? "" : "disabled"}><span class="trilho"></span>${st.ligada ? "Ligada" : "Desligada"}</label></span></div>
+        <p style="color:var(--suave);font-size:13px;margin:8px 0 0">${esc(f.descricao)}</p>
+        ${!funciona ? `<p style="color:var(--alerta);font-size:12.5px;margin:8px 0 0">Só funciona no Windows.</p>` : !ias.length ? `<p style="color:var(--alerta);font-size:12.5px;margin:8px 0 0">Precisa do Claude Code instalado (é a IA que pede permissão a cada ação).</p>` : `
+        <div class="linhaPerm"><span>Quem usa</span><select data-ferr-ia="${esc(id)}">${ias.map((i) => `<option value="${esc(i)}" ${i === st.ia ? "selected" : ""}>${esc(nome(i))}</option>`).join("")}</select>
+          ${prep ? `<button class="btn pequeno" data-ferr-preparar="${esc(id)}" title="${esc(prep.descricao)}">Instalar o uv</button>` : ""}</div>
+        <p style="color:var(--fraco);font-size:12px;margin:8px 0 0">Cada clique ou digitação aparece num aviso para você permitir. Feche programas com dados sensíveis antes de ligar.</p>`}
+      </div>`;
+    }
     return `<div class="membroCfg"><div class="cab"><span class="nome">${esc(f.nome)}</span>
         <span class="direita"><label class="interruptor"><input type="checkbox" data-ferr-ligar="${esc(id)}" ${st.ligada ? "checked" : ""}><span class="trilho"></span>${st.ligada ? "Ligada" : "Desligada"}</label></span></div>
       <p style="color:var(--suave);font-size:13px;margin:8px 0 0">${esc(f.descricao)}</p>
@@ -948,6 +983,16 @@ $("#chats").addEventListener("click", async (ev) => {
 $("#chats").addEventListener("keydown", (ev) => { const item = ev.target.closest("[data-chat]"); if (item && ev.key === "Enter" && ev.target === item) abrirChat(Number(item.dataset.chat)); });
 $("#expediente").addEventListener("change", async (ev) => { await api("runner", { ligado: ev.target.checked }).catch((e) => avisar(e.message)); atualizar(); });
 
+// ---------- Tema ----------
+function aplicarTema(t) {
+  if (t === "claro" || t === "escuro") document.documentElement.dataset.tema = t; else delete document.documentElement.dataset.tema;
+  try { localStorage.setItem("ktn-tema", t); } catch {}
+  for (const r of document.querySelectorAll('input[name="tema"]')) r.checked = r.value === t;
+}
+let temaSalvo = "auto"; try { temaSalvo = localStorage.getItem("ktn-tema") || "auto"; } catch {}
+aplicarTema(temaSalvo);
+document.querySelector(".escolhaTema").addEventListener("change", (ev) => aplicarTema(ev.target.value));
+
 // ---------- Agenda ----------
 const NOMES_DIA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 $("#agDias").innerHTML = NOMES_DIA.map((d, i) => `<label class="selo chip"><input type="checkbox" value="${i}" ${i >= 1 && i <= 5 ? "checked" : ""}> ${d}</label>`).join("");
@@ -1077,7 +1122,15 @@ $("#equipe").addEventListener("click", async (ev) => {
 });
 $("#listaFerramentas").addEventListener("change", async (ev) => {
   const t = ev.target; let corpo = null;
-  if (t.dataset.ferrLigar) corpo = { id: t.dataset.ferrLigar, ligada: t.checked };
+  if (t.dataset.ferrLigar) {
+    const f = estado.ferramentas.catalogo[t.dataset.ferrLigar];
+    corpo = { id: t.dataset.ferrLigar, ligada: t.checked };
+    if (f.exclusiva && t.checked) {
+      if (!confirm(`Ligar "${f.nome}"? A IA escolhida vai poder ver sua tela e usar mouse e teclado, sempre pedindo sua permissão a cada ação.`)) { t.checked = false; return; }
+      corpo.ia = $(`[data-ferr-ia="${t.dataset.ferrLigar}"]`)?.value;
+    }
+  }
+  else if (t.dataset.ferrIa) corpo = { id: t.dataset.ferrIa, ia: t.value };
   else if (t.dataset.ferrNav) corpo = { id: t.dataset.ferrNav, navegador: t.value };
   else if (t.dataset.ferrLivre) corpo = { id: t.dataset.ferrLivre, semPerguntar: t.checked };
   if (!corpo) return;
@@ -1088,7 +1141,7 @@ $("#listaFerramentas").addEventListener("change", async (ev) => {
 $("#listaFerramentas").addEventListener("click", async (ev) => {
   const b = ev.target.closest("[data-ferr-preparar]"); if (!b) return;
   const id = b.dataset.ferrPreparar; const nav = estado.ferramentas.estado[id].navegador;
-  if (!confirm(`Baixar o ${nav} de automação agora? Pode levar alguns minutos.`)) return;
+  if (!confirm(nav === "uv" ? "Instalar o uv (de astral.sh) agora? Ele roda o Windows-MCP." : `Baixar o ${nav} de automação agora? Pode levar alguns minutos.`)) return;
   b.disabled = true; avisar("Preparando… pode levar alguns minutos.");
   try { const r = await api("ferramenta/preparar", { id, navegador: nav }); avisar(r.mensagem); } catch (e) { avisar(e.message); }
   b.disabled = false;

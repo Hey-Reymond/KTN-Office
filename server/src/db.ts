@@ -1,4 +1,5 @@
 import { situacaoCota } from "./cota.js";
+import { exigePerguntar } from "./ferramentas.js";
 import { proximaExecucao, validar, type Agendamento, type NovoAgendamento } from "./agenda.js";
 import Database from "better-sqlite3";
 import path from "node:path";
@@ -776,7 +777,9 @@ export class Escritorio {
     return this.lerConfig<Record<string, string[]>>("sempre", {})[agente] ?? [];
   }
 
-  definirSempre(agente: string, ferramentas: string[]) {
+  definirSempre(agente: string, ferramentasLista: string[]) {
+    // Ferramentas como o controle da tela nunca ficam liberadas de vez.
+    const ferramentas = ferramentasLista.filter((f) => !exigePerguntar(f));
     this.gravarConfig("sempre", { ...this.lerConfig<Record<string, string[]>>("sempre", {}), [agente]: [...new Set(ferramentas)] });
   }
 

@@ -8,6 +8,7 @@ import { catalogoComEstado, testarModelos, type ProgressoTeste } from "./equipe/
 import { carregarRegistro, definirModelo } from "./equipe/registro.js";
 import type { Runner } from "./runner.js";
 import { aplicarFerramenta, catalogoFerramentas, estadoFerramentas, navegadoresInstalados, prepararNavegador } from "./ferramentas.js";
+import { exigePerguntar } from "./ferramentas.js";
 import { aplicarNoProjeto, ehRepositorio, limparWorktrees } from "./git.js";
 import { pastaDoChat } from "./integracao.js";
 import { salvarAnexos, textoAnexos } from "./anexos.js";
@@ -81,6 +82,9 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
         catalogo: catalogoFerramentas(),
         estado: estadoFerramentas(escritorio),
         navegadores: navegadoresInstalados(),
+        sistema: process.platform,
+        // Para ferramentas exclusivas (controle da tela): IAs instaladas que pedem permissão a cada ação.
+        iasQuePedem: Object.entries(carregarRegistro()).filter(([, c]) => c.ativo !== false && c.conexaoOffice === "claude-mcp" && localizar(c)).map(([id]) => id),
       },
       permissoes: {
         pendentes: escritorio.pedidosPendentes(),
@@ -268,7 +272,12 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
   api.post(
     "/permissao/responder",
     protegido,
-    tentar((req) => escritorio.responderPermissao(Number(req.body?.id), !!req.body?.permitir, !!req.body?.sempre)),
+    tentar((req) => {
+      const pedido = escritorio.pedido(Number(req.body?.id));
+      // Controle da tela (e afins): "sempre permitir" vira "só desta vez".
+      const sempre = !!req.body?.sempre && !(pedido && exigePerguntar(pedido.ferramenta));
+      return escritorio.responderPermissao(Number(req.body?.id), !!req.body?.permitir, sempre);
+    }),
   );
   api.post(
     "/permissao/nivel",
@@ -289,8 +298,9 @@ export function montarApi(app: Express, escritorio: Escritorio, runner: Runner) 
     "/ferramenta",
     protegido,
     tentar(async (req) => {
-      const { id, ligada, navegador, semPerguntar } = req.body ?? {};
+      const { id, ligada, navegador, semPerguntar, ia } = req.body ?? {};
       const mudanca = {
+        ...(typeof ia === "string" ? { ia } : {}),
         ...(typeof ligada === "boolean" ? { ligada } : {}),
         ...(typeof navegador === "string" ? { navegador } : {}),
         ...(typeof semPerguntar === "boolean" ? { semPerguntar } : {}),
