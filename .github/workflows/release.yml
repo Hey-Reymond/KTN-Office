@@ -57,7 +57,8 @@ jobs:
           export ELECTRON_RUN_AS_NODE=1 KTN_PORT=7790 KTN_DADOS="$RUNNER_TEMP/dados" KTN_CLIS_CUSTOM="$RUNNER_TEMP/c.json"
           "$EXE" "$RES/app/server/dist/index.js" > servidor.log 2>&1 &
           for i in $(seq 1 30); do curl -fs http://127.0.0.1:7790/status > /dev/null && break; sleep 1; done
-          curl -fs http://127.0.0.1:7790/status && curl -fs http://127.0.0.1:7790/ | grep -q "KTN Office" && echo " ✔ servidor e interface OK" || { cat servidor.log; exit 1; }
+          curl -fs http://127.0.0.1:7790/status && curl -fs http://127.0.0.1:7790/ -o pagina.html && grep -q "KTN Office" pagina.html && echo " ✔ servidor e interface OK" || { cat servidor.log; exit 1; }
+          rm -f pagina.html servidor.log
           rm -rf squashfs-root
       - uses: actions/upload-artifact@v4
         with:

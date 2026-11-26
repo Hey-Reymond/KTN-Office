@@ -31,7 +31,10 @@
     "appId": "dev.ktn.office",
     "productName": "KTN Office",
     "asar": false,
-    "directories": { "output": "release", "buildResources": "build" },
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
     "files": [
       "main.js",
       "build/*.png",
@@ -39,13 +42,42 @@
       "node_modules/**/*"
     ],
     "extraResources": [
-      { "from": "../server/dist", "to": "app/server/dist" },
-      { "from": "../server/public", "to": "app/server/public" },
-      { "from": "../server/package.json", "to": "app/server/package.json" },
-      { "from": "../agents", "to": "app/agents", "filter": ["**/*", "!clis.custom.json"] }
+      {
+        "from": "../server/dist",
+        "to": "app/server/dist"
+      },
+      {
+        "from": "../server/public",
+        "to": "app/server/public"
+      },
+      {
+        "from": "../server/package.json",
+        "to": "app/server/package.json"
+      },
+      {
+        "from": "../agents",
+        "to": "app/agents",
+        "filter": [
+          "**/*",
+          "!clis.custom.json"
+        ]
+      }
     ],
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "build/icon.png"
     },
     "nsis": {
@@ -55,8 +87,24 @@
       "shortcutName": "KTN Office",
       "artifactName": "KTN-Office-Setup-${version}.${ext}"
     },
-    "portable": { "artifactName": "KTN-Office-Portatil-${version}.${ext}" },
-    "linux": { "target": ["AppImage"], "category": "Development", "icon": "build/icon.png" },
-    "mac": { "target": ["dmg"], "category": "public.app-category.developer-tools", "icon": "build/icon.png" }
+    "portable": {
+      "artifactName": "KTN-Office-Portatil-${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Development",
+      "icon": "build/icon.png",
+      "artifactName": "KTN-Office-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.png",
+      "artifactName": "KTN-Office-${version}.${ext}"
+    }
   }
 }
