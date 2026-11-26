@@ -59,8 +59,9 @@ export async function criarWorktree(pastaProjeto: string, projeto: number, agent
   mkdirSync(path.dirname(destino), { recursive: true });
   if (!existsSync(destino)) await gitOk(raiz, "worktree", "add", "-B", branch, destino, "HEAD");
   // Se a IA trabalhava numa subpasta do repositório, ela continua na mesma subpasta dentro da cópia.
-  const relativa = path.relative(raiz, pastaProjeto);
-  return { pasta: relativa ? path.join(destino, relativa) : destino, branch };
+  // Pergunta ao git (path.relative erra no Windows com nomes curtos tipo RUNNER~1 ou maiúsculas diferentes).
+  const relativa = (await gitOk(pastaProjeto, "rev-parse", "--show-prefix")).replace(/\/+$/, "");
+  return { pasta: relativa ? path.join(destino, ...relativa.split("/")) : destino, branch };
 }
 
 /** Salva o que a IA fez na cópia dela (o escritório faz o commit, a IA não precisa de permissão de git). */

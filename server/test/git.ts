@@ -98,6 +98,15 @@ try {
   esc.anexarAoResultado(t2.id, "\nRevisão de antigravity: APROVADO");
   assert.match(esc.tarefa(t2.id)!.resultado!, /APROVADO/);
 
+  // 2c. Chat apontando para uma subpasta do repositório: a cópia abre na mesma subpasta
+  const { criarWorktree } = await import("../src/git.js");
+  (await import("node:fs")).mkdirSync(path.join(repo, "app"), { recursive: true });
+  writeFileSync(path.join(repo, "app", "x.txt"), "x");
+  g("add", "-A"); g("commit", "-qm", "sub");
+  const wsub = await criarWorktree(path.join(repo, "app"), 99, "claude", 1);
+  assert.equal(path.basename(wsub.pasta), "app");
+  assert.equal(readFileSync(path.join(wsub.pasta, "x.txt"), "utf8"), "x");
+
   // 3. Aplicar recusa se o humano tem alterações não salvas
   writeFileSync(path.join(repo, "a.txt"), "mexi aqui\n");
   await assert.rejects(aplicarNoProjeto(repo, p2.id), /alterações não salvas/);
